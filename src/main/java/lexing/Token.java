@@ -148,6 +148,9 @@ public abstract class Token<T> {
     public static final class Divide extends Symbolic {
     }
 
+    public static final class Do extends Symbolic {
+    }
+
     public static final class Else extends Symbolic {
     }
 

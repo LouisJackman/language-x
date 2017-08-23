@@ -23,6 +23,7 @@ public final class Lexer implements Iterator<Token<?>> {
         mutableKeywords.put(Keyword.CLASS, new Token.Class());
         mutableKeywords.put(Keyword.CONTINUE, new Token.Continue());
         mutableKeywords.put(Keyword.DEFAULT, new Token.Default());
+        mutableKeywords.put(Keyword.DO, new Token.Do());
         mutableKeywords.put(Keyword.ELSE, new Token.Else());
         mutableKeywords.put(Keyword.EXTENDS, new Token.Extends());
         mutableKeywords.put(Keyword.FOR, new Token.For());

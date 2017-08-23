@@ -137,15 +137,17 @@ package counter {
 
     public Task create(int n = 0) {
         Task(() -> {
-            receive _ {
-                case Increment:
-                    Counter(n + 1)
-                case Reset:
-                    Counter(0)
-                case Get:
-                    sender.send(n)
-                timeout seconds(10):
-                    throw Exception("timed out!")
+            for {
+                receive _ {
+                    case Increment:
+                        Counter(n + 1)
+                    case Reset:
+                        Counter(0)
+                    case Get:
+                        sender.send(n)
+                    timeout seconds(10):
+                        throw Exception("timed out!")
+                }
             }
        })
     }
@@ -219,7 +221,7 @@ void demoIteration() {
 }
 
 Optional<int> demoContexts() {
-    for {
+    do {
         var a <- some(5)
         doSomething()
         var b <- empty()

@@ -18,6 +18,7 @@ public enum Keyword {
     CLASS("class"),
     CONTINUE("continue"),
     DEFAULT("default"),
+    DO("do"),
     ELSE("else"),
     EXTENDS("extends"),
     FOR("for"),

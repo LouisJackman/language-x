@@ -28,14 +28,16 @@ public class LexerTest extends TestCase {
     }
 
     public void testKeywords() {
-        Lexer lexer = createLexer("    class\t  \n  public    abc");
+        Lexer lexer = createLexer("    class\t  \n  public    abc do");
         Token<?> token1 = lexer.next();
         Token<?> token2 = lexer.next();
         Token<?> token3 = lexer.next();
+        Token<?> token4 = lexer.next();
         assertTrue(token1 instanceof lexing.Token.Class);
         assertTrue(token2 instanceof lexing.Token.Public);
         assertTrue(token3 instanceof lexing.Token.Identifier);
         assertEquals("abc", token3.getValue().get());
+        assertTrue(token4 instanceof lexing.Token.Do);
     }
 
     public void testNumbers() {
