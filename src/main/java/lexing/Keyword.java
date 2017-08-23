@@ -1,4 +1,4 @@
-package parsing;
+package lexing;
 
 import java.util.Map;
 import java.util.Optional;

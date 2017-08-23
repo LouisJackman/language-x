@@ -1,4 +1,4 @@
-package parsing;
+package lexing;
 
 import junit.framework.TestCase;
 

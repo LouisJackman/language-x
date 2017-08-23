@@ -1,6 +1,6 @@
-import parsing.Lexer;
-import parsing.SourceFileStream;
-import parsing.Token;
+import lexing.Lexer;
+import lexing.SourceFileStream;
+import lexing.Token;
 import util.UncheckedException;
 
 import java.io.IOException;

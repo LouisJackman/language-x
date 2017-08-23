@@ -1,4 +1,4 @@
-package parsing;
+package lexing;
 
 import java.math.BigDecimal;
 import java.util.*;

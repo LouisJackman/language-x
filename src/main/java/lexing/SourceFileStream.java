@@ -1,4 +1,4 @@
-package parsing;
+package lexing;
 
 import java.io.InputStream;
 import java.util.LinkedList;

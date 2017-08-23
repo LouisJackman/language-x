@@ -1,4 +1,4 @@
-package parsing;
+package lexing;
 
 /**
  * A position in a source file which is aware of newlines.

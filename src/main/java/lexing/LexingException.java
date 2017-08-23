@@ -1,4 +1,4 @@
-package parsing;
+package lexing;
 
 import static java.util.Objects.requireNonNull;
 

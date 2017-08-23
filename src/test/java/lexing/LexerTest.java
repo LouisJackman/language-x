@@ -1,4 +1,4 @@
-package parsing;
+package lexing;
 
 import junit.framework.TestCase;
 
@@ -22,7 +22,7 @@ public class LexerTest extends TestCase {
     public void testIdentifier() {
         Lexer lexer = createLexer("    \t  \n      abc");
         Token<?> token = lexer.next();
-        assertTrue(token instanceof parsing.Token.Identifier);
+        assertTrue(token instanceof lexing.Token.Identifier);
         Optional<?> value = token.getValue();
         assertEquals("abc", ((String) value.get()));
     }
@@ -32,9 +32,9 @@ public class LexerTest extends TestCase {
         Token<?> token1 = lexer.next();
         Token<?> token2 = lexer.next();
         Token<?> token3 = lexer.next();
-        assertTrue(token1 instanceof parsing.Token.Class);
-        assertTrue(token2 instanceof parsing.Token.Public);
-        assertTrue(token3 instanceof parsing.Token.Identifier);
+        assertTrue(token1 instanceof lexing.Token.Class);
+        assertTrue(token2 instanceof lexing.Token.Public);
+        assertTrue(token3 instanceof lexing.Token.Identifier);
         assertEquals("abc", token3.getValue().get());
     }
 
