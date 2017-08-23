@@ -93,7 +93,7 @@ public final class Lexer implements Iterator<Token<?>> {
                 result = Optional.of(lexBooleanOrKeywordOrIdentifier(c + lexRestOfWord()));
             } else if (c == '"') {
                 result = lexString();
-            } else if (c == '`') {
+            } else if (c == '$') {
                 result = lexInterpolatedString();
             } else if (c == '\'') {
                 result = lexChar();
@@ -156,19 +156,7 @@ public final class Lexer implements Iterator<Token<?>> {
         // Just lex the whole string for now; reenter the lexer from the parser when doing the interpolation.
 
         input.read();
-        return lexInterpolatedStringGen().map(Token.InterpolatedString::new);
-    }
-
-    private Optional<String> lexInterpolatedStringGen() {
-        return input.read().flatMap(c -> {
-            final Optional<String> result;
-            if (c == '`') {
-                result = Optional.of("");
-            } else {
-                result = lexInterpolatedStringGen().map(rest -> c + rest);
-            }
-            return result;
-        });
+        return lexString();
     }
 
     private Optional<Token<?>> lexChar() {

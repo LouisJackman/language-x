@@ -103,13 +103,13 @@ class Account implements ToString, Concatenate<Account> {
     }
 
     public String get name() {
-        `{firstName} {lastName}`
+        $"{firstName} {lastName}"
     }
 }
 
 extends class Account implements Concatenate<Account, Result = String> {
     public override String concatenate(Account a) {
-        `{firstName} {a.firstName}`
+        $"{firstName} {a.firstName}"
     }
 }
 
@@ -205,7 +205,7 @@ N double<N extends Add>(N n) N {
 
 void demoIteration() {
     List(1, 2, 3).forEach((n) -> {
-        println(`{n}`)
+        println($"{n}")
     })
 
     List(1, 2, 3).map(double)
@@ -217,7 +217,7 @@ void demoIteration() {
             continue(n - 1, n * result)
         }
     }
-    println(`factorial: {fact}`)
+    println($"factorial: {fact}")
 }
 
 Optional<int> demoContexts() {
@@ -242,7 +242,7 @@ void main() {
     times(2, () -> {
         receive n {
             case Int:
-                println(`{n}`)
+                println($"{n)")
         }
     })
 
@@ -252,7 +252,7 @@ void main() {
         println("Set!")
         5
     }
-    print(`{x}`)
+    print($"{x}")
 }
 ```
 

@@ -64,6 +64,9 @@ public class LexerTest extends TestCase {
 
     public void testInterpolatedStrings() {
         // TODO: test actual interpolation once the parser is complete.
+        Lexer lexer = createLexer("   $\"123\"   $\"abc\"");
+        assertEquals("123", lexer.next().getValue().get());
+        assertEquals("abc", lexer.next().getValue().get());
     }
 
     public void testOperators() {
