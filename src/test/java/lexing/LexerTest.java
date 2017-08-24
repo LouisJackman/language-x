@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
-public class LexerTest extends TestCase {
+public final class LexerTest extends TestCase {
 
     private static Lexer createLexer(String testInput) {
         byte[] bytes = testInput.getBytes(StandardCharsets.UTF_8);

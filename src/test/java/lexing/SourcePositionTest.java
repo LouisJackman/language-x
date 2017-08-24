@@ -2,7 +2,7 @@ package lexing;
 
 import junit.framework.TestCase;
 
-public class SourcePositionTest extends TestCase {
+public final class SourcePositionTest extends TestCase {
     public void testStart() {
         SourcePosition position = SourcePosition.start();
         assertEquals(0, position.getRow());

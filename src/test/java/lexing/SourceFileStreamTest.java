@@ -5,7 +5,7 @@ import junit.framework.TestCase;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 
-public class SourceFileStreamTest extends TestCase {
+public final class SourceFileStreamTest extends TestCase {
 
     public void test() {
         byte[] mockInput = "abcdefghi".getBytes(StandardCharsets.UTF_8);
