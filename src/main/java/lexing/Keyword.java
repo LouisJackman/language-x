@@ -31,7 +31,7 @@ public enum Keyword {
     OVERRIDE("override"),
     PACKAGE("package"),
     PUBLIC("public"),
-    RECEIVE("receive"),
+    SELECT("select"),
     SUPER("super"),
     SWITCH("switch"),
     THROW("throw"),

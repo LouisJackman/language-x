@@ -2,6 +2,7 @@ package util;
 
 import java.util.*;
 
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -33,7 +34,7 @@ public final class Collections {
         List<T> result = new ArrayList<>();
         result.addAll(requireNonNull(xs));
         result.addAll(requireNonNull(ys));
-        return java.util.Collections.unmodifiableList(result);
+        return unmodifiableList(result);
     }
 
     /**

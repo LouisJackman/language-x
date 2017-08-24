@@ -13,7 +13,7 @@ import static util.Exceptions.unchecked;
 /**
  * A stream of a file that supports arbitrary lookaheads and tracks the current position.
  */
-public class SourceFileStream {
+public final class SourceFileStream {
     private final InputStream input;
     private final List<Character> lookAhead = new LinkedList<>();
     private boolean empty = false;

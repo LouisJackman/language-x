@@ -235,7 +235,7 @@ public abstract class Token<T> {
     public static final class Public extends Symbolic {
     }
 
-    public static final class Receive extends Symbolic {
+    public static final class Select extends Symbolic {
     }
 
     public static final class ShiftLeft extends Symbolic {

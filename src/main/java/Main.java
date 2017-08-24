@@ -15,7 +15,7 @@ import static java.lang.System.out;
 /**
  * The main application.
  */
-class Main {
+final class Main {
 
     /**
      * Runs the language file passed in as the argument.

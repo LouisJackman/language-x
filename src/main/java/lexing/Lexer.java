@@ -36,7 +36,7 @@ public final class Lexer implements Iterator<Token<?>> {
         mutableKeywords.put(Keyword.OVERRIDE, new Token.OverrideToken());
         mutableKeywords.put(Keyword.PACKAGE, new Token.Package());
         mutableKeywords.put(Keyword.PUBLIC, new Token.Public());
-        mutableKeywords.put(Keyword.RECEIVE, new Token.Receive());
+        mutableKeywords.put(Keyword.SELECT, new Token.Select());
         mutableKeywords.put(Keyword.SUPER, new Token.Super());
         mutableKeywords.put(Keyword.SWITCH, new Token.Switch());
         mutableKeywords.put(Keyword.THROW, new Token.Throw());
