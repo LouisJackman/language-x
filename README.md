@@ -138,7 +138,7 @@ package counter {
     public Task create(int n = 0) {
         Task(() -> {
             for {
-                receive _ {
+                select _ {
                     case Increment:
                         Counter(n + 1)
                     case Reset:
@@ -240,7 +240,7 @@ void main() {
     c.send(counter.Get())
 
     times(2, () -> {
-        receive n {
+        select n {
             case Int:
                 println(`{n}`)
         }
@@ -320,9 +320,9 @@ Types:
   see what type-soundness issues they encounter. Perhaps implement a more
   restricted version of it.
 
-Matching in switch and receive:
+Matching in switch and select:
 * `switch` matches on value and supports multiple clauses with commas.
-* `receive` matches on type, and each branch handles the message variable as
+* `select` matches on type, and each branch handles the message variable as
   that type. This is like Erlang's `receive` and Go's type switch rolled
   into one. `timeout` clauses are available.
 
