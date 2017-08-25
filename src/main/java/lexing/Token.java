@@ -25,6 +25,9 @@ public abstract class Token<T> {
      * A token that just represents itself.
      */
     public abstract static class Symbolic extends Token<Void> {
+        public boolean equals(Object that) {
+            return that.getClass() == this.getClass();
+        }
     }
 
     /**
@@ -32,6 +35,21 @@ public abstract class Token<T> {
      */
     public abstract static class Valued<Value> extends Token<Value> {
         private final Value value;
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            Valued<?> valued = (Valued<?>) o;
+
+            return getValue().equals(valued.getValue());
+        }
+
+        @Override
+        public int hashCode() {
+            return getValue().hashCode();
+        }
 
         Valued(Value value) {
             this.value = requireNonNull(value);

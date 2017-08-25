@@ -13,7 +13,6 @@ import static java.util.Collections.unmodifiableMap;
  */
 public enum Keyword {
     ABSTRACT("abstract"),
-    ACTOR("actor"),
     CASE("case"),
     CLASS("class"),
     CONTINUE("continue"),
@@ -37,7 +36,7 @@ public enum Keyword {
     THROW("throw"),
     TIMEOUT("timeout"),
     UNDERSCORE("_"),
-    V("v"),
+    VERSION("v"),
     VAR("var");
 
     private static Map<String, Keyword> parseTable = unmodifiableMap(Stream

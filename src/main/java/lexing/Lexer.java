@@ -18,7 +18,6 @@ public final class Lexer implements Iterator<Token<?>> {
     static {
         Map<Keyword, Token.Symbolic> mutableKeywords = new HashMap<>();
         mutableKeywords.put(Keyword.ABSTRACT, new Token.Abstract());
-        mutableKeywords.put(Keyword.ACTOR, new Token.Abstract());
         mutableKeywords.put(Keyword.CASE, new Token.Case());
         mutableKeywords.put(Keyword.CLASS, new Token.Class());
         mutableKeywords.put(Keyword.CONTINUE, new Token.Continue());

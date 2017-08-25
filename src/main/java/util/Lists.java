@@ -1,13 +1,14 @@
 package util;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 
 import static java.util.Collections.unmodifiableList;
 import static java.util.Optional.empty;
 
-public class Lists {
+public final class Lists {
     private Lists() {
         throw new UtilityClassInstantiatedException();
     }
@@ -29,9 +30,8 @@ public class Lists {
     }
 
     public static <T> List<T> cons(T x, List<T> xs) {
-        List<T> ys = new ArrayList<>();
-        ys.add(x);
-        ys.addAll(xs);
+        List<T> ys = new LinkedList<>(xs);
+        ys.add(0, x);
         return unmodifiableList(ys);
     }
 }
