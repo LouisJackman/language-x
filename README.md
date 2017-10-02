@@ -1,6 +1,4 @@
-# language-x
-
-(A temporary placeholder name until I think of a better one.)
+# Sylan
 
 An experimental programming language project to investigate what a spiritual
 successor to Java and C# might look like.
@@ -20,37 +18,36 @@ of computing.
 
 Hardware is no longer speeding up exponentially year-on-year and is becoming
 increasingly parallel. Performance cannot be discarded out of hand like the rise
-of dynamic languages throughout the previous decade. Reference types,
-reflection, and dynamic typing are expensive, so they should be an opt-in rather
-than the default.
+of dynamic languages throughout the previous decade.
 
 Large semantic changes will likely be rejected by developers if not presented in
 a syntax similar to existing languages; like Java took C++'s syntax, the next
-language should take Java's. 
+language should take Java's.
+
+A gap exists between scripting languages and application languages; would enough
+type inference and support for features like top-level executable code and
+shebangs help bridge the gap?
 
 
 ## TODO
-  
-While experimenting with the language, it will piggyback off another by being
-translated into it from the parse tree. After that, we can use it to implement
-itself.
 
-* [X] Lex with Java.
-* [ ] Parse with Java.
-* [ ] Translate parse tree to Java to bootstrap the language.
-* [ ] Rewrite the lexer and parser in itself.
-* [ ] Wean translated code's dependency off the JVM by implementing
-      runtime features in the language itself.
-* [ ] Provide enough low-level features in language to allow translation to
-      native code without forcing the GC or lightweight tasks, so that they
-      can be implemented in the language itself.
-* [ ] Once translatable to native code, leverage native libraries like
-      libevent.
-      
+A VM will be needed for preemptive concurrency and light weight tasks; direct
+compilation to native code will not be possible for such a language, although
+JIT compilation is viable.
+
+* [X] Lex.
+* [ ] Parse.
+* [ ] Interpret without any checks.
+* [ ] Add checks such as types.
+* [ ] Add optimisations like persistent data structures.
+
 
 ## The Language Proposal so Far
 
 ```
+#!/usr/bin/env sylan
+
+// If no package is specified, "main" is assumed.
 package main
 
 // A single line comment.
@@ -84,11 +81,7 @@ class Account implements ToString, Concatenate<Account> {
     }
 
     public override String toString() {
-        "%s %s is %d years old".format(
-                firstName,
-                lastName,
-                ageInYears
-        )
+        `{firstName} {lastName} is {ageInYears} years old`
     }
 
     public override Account concatenate(Account a) {
@@ -138,7 +131,7 @@ package counter {
     public Task create(int n = 0) {
         Task(() -> {
             for {
-                select _ {
+                select {
                     case Increment:
                         Counter(n + 1)
                     case Reset:
@@ -229,31 +222,37 @@ Optional<int> demoContexts() {
     }
 }
 
-void main() {
-    var c = counter.create()
-    times(5, () -> {
-        c.send(counter.Increment())
-    })
+// Top-level code is allowed, but only in the main package. Outside of that all
+// code must be in methods.
 
-    c.send(counter.Get())
+var c = counter.create()
+times(5, () -> {
     c.send(counter.Increment())
-    c.send(counter.Get())
+})
 
-    times(2, () -> {
-        select n {
-            case Int:
-                println(`{n}`)
-        }
-    })
+c.send(counter.Get())
+c.send(counter.Increment())
+c.send(counter.Get())
 
-    var x = {
-        println("Getting 5...")
-        println("Setting it to x...")
-        println("Set!")
-        5
+times(2, () -> {
+    select {
+        case n as Int:
+            println(`{n}`)
     }
-    print(`{x}`)
+})
+
+print("""
+Multiline
+strings
+""")
+
+var x = {
+    println("Getting 5...")
+    println("Setting it to x...")
+    println("Set!")
+    5
 }
+print(`{x}`)
 ```
 
 
@@ -267,8 +266,8 @@ void main() {
 * Make compiler and other components easy to work with; make tool and IDE
   integration as easy as possible. Perhaps an FFI into the final parser and
   compiler and an initial Language Server Protocol implementation.
-* Easy distribution of applications; compile directly to native code, but use an
-  easier method for the initial bootstrapped version.
+* Python/Perl style distribution; expect an interpreter on the OS, but avoid
+  bureaucratic requirements to run small programs.
 * Use ubiquitous immutability to reduce unnecessary side-effects and coupling;
   invalid states should be unrepresentable.
 * Allow distributed programming with message-passing.
@@ -286,11 +285,8 @@ void main() {
 * Encourage compile-time metaprogramming over runtime annotation and reflection;
   design it to scale in the large without becoming cryptic.
 * Be mostly expression-based and improve conditional matching support.
-* Focus less on reference semantics and more on value semantics; combined with
-  proper type reification, data-heavy code should be more cache friendly and
-  accesses with fewer indirections.
-* Guarantee tail-call elimination and return-value optimisation.
-  
+* Guarantee tail-call elimination.
+
 
 ## Detailed Proposals
 
@@ -343,7 +339,7 @@ Language versioning:
 * If not present, assume to be the earliest stable release of the language.
 
 Compile-time metaprogramming:
-* No `constexpr`, templating, or `static if`. Should be the same language 
+* No `constexpr`, templating, or `static if`. Should be the same language
   as runtime.
 * Derive from Lisp and Jai but reduce footguns like automatic variable
   captures.
@@ -362,34 +358,15 @@ Runtime structure information:
 * Reduces magic, as compile-time metaprogramming cannot happen at random
   points during a running application unless `eval` exists.
 * Improves performance as metaprogramming is done at compile-time.
-* Reduces native binary size, since such information does not need to be
-  bundled.
 
-The compiler:
-* Write it in itself, so no runtime needed to run compiler or REPL.
-* Bootstrap the first version by translating to Java.
-* Slowly reimplement needed runtime features in the language itself; removing
-  ties from the JVM to allow translation to lower-level forms.
-* Use LLVM to compile to native code in the proper version.
-* The GC and runtime system will need to be disabled for the implementing the
-  runtime in itself. Access to native APIs like `malloc` and `free` will be
-  needed.
-* Consider the interplay between userland preemptive switching and native
-  compilation. If the VM must manage opcode execution counts, it might _need_
-  to be an interpreter. Could we add yield points into generated code? Go's
-  approach might be more pragmatic here, but its loss of in-function
-  preemption and goroutine stopping is an issue.
-  
 The VM:
-* Non-existent for the first bootstrapping version of the language. Just
-  borrow the JVM.
 * It will probably be heavily BEAM-inspired.
 * Must do tail call elimination.
 * No mutable data except the execution of tasks over time.
 * Lightweight processes. Immutability means changes can only be sent via
   messages.
-* Initial toy implementation to use JVM threads. Real implementation can
-  use userland scheduler with remote process support.
+* Initial toy implementation to use threads. Real implementation can use
+  userland scheduler with remote process support.
 * To handle remote processes, Tasks need node IDs.
 * ...and nodes need network addresses or localhost.
 * Per-task GC in theory; probably global GC in first implementation for
@@ -399,9 +376,9 @@ The VM:
   they might be unsuitable for many lightweight tasks collecting
   concurrently.
 * Persistent data structures.
-* Async IO; use a library like libevent. OK to block in the prototype, but
-  don't add any language features that break compatibility with async in
-  the proper version.
+* Async IO; use a library like Tokio. OK to block in the prototype, but don't
+  add any language features that break compatibility with async in the proper
+  version.
 
 The build system:
 * Go-style; just derive information from the source files rather than using
@@ -416,19 +393,15 @@ Interop:
 Standard lib:
 * Standard lib should be modular, like Java 9's JRE. Implementations can
   opt-in to each, similar to C11 features like VLAs.
-  
-To consider later on: 
+
+To consider later on:
 * Tuples.
 * Destructuring composite types.
 * Sequence destructuring.
 * Easier sum types; could be existing interface/class mechanism combined with
   `switch` enhancements.
 * Parameterisable packages, perhaps a less powerful version of ML functors.
-* Structs for stack-allocated value types.
-* Unsafe mode for writing its own runtime: native implementations, access to
-  C libraries like `malloc` and `free`, copying from structs to arbitrary
-  heap memory addresses.
 * Matrix operations to implement for user types, even if builtins do not use
   them. See Python 3 for a version of this.
-* Variadics solely to deal with function forwarding; or could this be done
-  differently?
+* Variadic parameters and type parameters solely to deal with function
+  forwarding; or could this be done differently?
