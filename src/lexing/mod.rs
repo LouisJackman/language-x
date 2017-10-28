@@ -12,7 +12,7 @@ use self::source::Source;
 #[derive(Debug)]
 pub struct LexedToken {
     pub position: usize,
-    pub trivia: String,
+    pub trivia: Option<String>,
     pub token: Token,
 }
 
@@ -46,7 +46,7 @@ impl Lexer {
         })
     }
 
-    fn lex_multi_line_comment(&mut self, buffer: &mut String) {
+    fn lex_multi_line_comment(&mut self, buffer: &mut String) -> Option<Error> {
         self.source.discard_many(2);
         let mut nesting_level: usize = 1;
         while 1 <= nesting_level {
@@ -73,36 +73,65 @@ impl Lexer {
                 None => break,
             }
         }
+        if 1 <= nesting_level {
+            Some(Error {
+                description: String::from("premature EOF in multiline comment"),
+                position: self.source.position,
+            })
+        } else {
+            None
+        }
     }
 
     fn lex_single_line_comment(&mut self, buffer: &mut String) {
         self.source.discard_many(2);
         loop {
-            match self.source.read() {
-                Some('\n') => break,
-                Some('\r') if self.source.nth_is(1, '\n') => break,
-                Some(c) => buffer.push(c),
-                None => break,
+            if let Some(c) = self.source.read() {
+                match c {
+                    '\n' => break,
+                    '\r' if self.source.nth_is(1, '\n') => break,
+                    _ => buffer.push(c),
+                }
+            } else {
+                break;
             }
         }
     }
 
-    fn lex_trivia(&mut self) -> String {
-        let mut trivia = String::new();
-        loop {
-            match self.source.peek() {
-                Some('/') if self.source.nth_is(1, '*') => self.lex_multi_line_comment(&mut trivia),
-                Some('/') if self.source.nth_is(1, '/') => {
-                    self.lex_single_line_comment(&mut trivia)
+    fn lex_trivia(&mut self) -> Result<Option<String>, Error> {
+        let is_empty = match self.source.peek() {
+            Some('/') if self.source.nth_is(1, '*') && !self.source.nth_is(2, '*') => false,
+            Some('/') if self.source.nth_is(1, '/') => false,
+            Some(c) if c.is_whitespace() => false,
+            _ => true,
+        };
+
+        if is_empty {
+            Ok(None)
+        } else {
+            let mut trivia = String::new();
+            loop {
+                match self.source.peek() {
+
+                    // SyDocs, starting with "/**", are not trivia but meaningful tokens that are
+                    // stored in the AST. They are skipped in this function.
+                    Some('/') if self.source.nth_is(1, '*') && !self.source.nth_is(2, '*') => {
+                        if let Some(err) = self.lex_multi_line_comment(&mut trivia) {
+                            break Err(err)
+                        }
+                    }
+
+                    Some('/') if self.source.nth_is(1, '/') => {
+                        self.lex_single_line_comment(&mut trivia)
+                    }
+                    Some(c) if c.is_whitespace() => {
+                        trivia.push(c);
+                        self.source.discard();
+                    }
+                    _ => break Ok(Some(trivia)),
                 }
-                Some(c) if c.is_whitespace() => {
-                    trivia.push(c);
-                    self.source.discard();
-                }
-                _ => break,
             }
         }
-        trivia
     }
 
     fn lex_version(&mut self) -> TokenResult {
@@ -185,6 +214,65 @@ impl Lexer {
                 result
             }
             None => self.fail("character ended prematurely"),
+        }
+    }
+
+    fn lex_shebang(&mut self) -> TokenResult {
+        self.source.discard();
+        if let Some('!') = self.source.read() {
+            let mut content = String::new();
+            loop {
+                match self.source.peek() {
+                    Some('\n') => {
+                        self.source.discard();
+                        break;
+                    }
+                    Some('\r') if self.source.nth_is(1, '\n') => {
+                        self.source.discard();
+                        self.source.discard();
+                        break;
+                    }
+                    Some(c) => {
+                        self.source.discard();
+                        content.push(c);
+                    }
+                    _ => break,
+                }
+            }
+            Ok(Token::Shebang(content))
+        } else {
+            self.fail("the shebang was malformed; a '!' should follow the '#'")
+        }
+    }
+
+    fn lex_sydoc(&mut self) -> TokenResult {
+        self.source.discard();
+        self.source.discard();
+        self.source.discard();
+        let mut content = String::new();
+        loop {
+            match self.source.peek() {
+                Some('*') if self.source.nth_is(1, '/') => {
+                    self.source.discard();
+                    self.source.discard();
+                    break Ok(Token::SyDoc(content))
+                }
+                Some('/') if self.source.nth_is(1, '*') => {
+                    content.push('/');
+                    content.push('*');
+                    if let Some(err) = self.lex_multi_line_comment(&mut content) {
+                        break Err(err)
+                    } else {
+                        content.push('*');
+                        content.push('/');
+                    }
+                }
+                Some(c) => {
+                    content.push(c);
+                    self.source.discard();
+                }
+                None => break self.fail("EOF occured before end of SyDoc")
+            }
         }
     }
 
@@ -340,11 +428,8 @@ impl Lexer {
         }
     }
 
-    pub fn lex(&mut self) -> Result<LexedToken, Error> {
-        let trivia = self.lex_trivia();
-        let position = self.source.position;
-
-        let token = match self.source.peek() {
+    fn lex_non_trivial(&mut self) -> TokenResult {
+        match self.source.peek() {
             None => Ok(Token::Eof),
             Some(c) => {
                 match c {
@@ -352,6 +437,10 @@ impl Lexer {
                     '"' => Ok(self.lex_string()),
                     '`' => Ok(self.lex_interpolated_string()),
                     '\'' => self.lex_char(),
+                    '#' if self.source.position == 0 => self.lex_shebang(),
+                    '/' if self.source.nth_is(1, '*') && self.source.nth_is(2, '*') => {
+                        self.lex_sydoc()
+                    }
                     _ => {
                         if c.is_alphabetic() || (c == '_') {
                             let mut rest = String::new();
@@ -368,15 +457,24 @@ impl Lexer {
                     }
                 }
             }
-        };
+        }
+    }
 
-        token.map(|t| {
-            LexedToken {
-                token: t,
-                position,
-                trivia,
+    pub fn lex(&mut self) -> Result<LexedToken, Error> {
+        match self.lex_trivia() {
+            Ok(trivia) => {
+                let position = self.source.position;
+                let token = self.lex_non_trivial();
+                token.map(|t| {
+                    LexedToken {
+                        token: t,
+                        position,
+                        trivia,
+                    }
+                })
             }
-        })
+            Err(err) => Err(err)
+        }
     }
 }
 
@@ -488,5 +586,29 @@ mod tests {
     fn test_version() {
         let mut lexer = test_lexer("v10.23");
         assert_next(&mut lexer, Token::Version(10.23));
+    }
+
+    #[test]
+    fn test_shebang() {
+        let mut lexer = test_lexer("#!/usr/bin/env sylan");
+        let shebang = Token::Shebang(String::from("/usr/bin/env sylan"));
+        assert_next(&mut lexer, shebang);
+
+        let mut lexer2 = test_lexer("#!/usr/bin sylan\r\ntrue false");
+        let shebang2 = Token::Shebang(String::from("/usr/bin sylan"));
+        assert_next(&mut lexer2, shebang2);
+        assert_next(&mut lexer2, Token::Boolean(true));
+
+        let mut lexer3 = test_lexer("#!/usr/local/bin/env sylan\n123 321");
+        let shebang3 = Token::Shebang(String::from("/usr/local/bin/env sylan"));
+        assert_next(&mut lexer3, shebang3);
+        assert_next(&mut lexer3, Token::Number(123.0));
+    }
+
+    #[test]
+    fn test_sydoc() {
+        let mut lexer = test_lexer("/* comment */ // \n /** A SyDoc /* comment. */ */");
+        let sydoc = Token::SyDoc(String::from(" A SyDoc /* comment. */ "));
+        assert_next(&mut lexer, sydoc);
     }
 }

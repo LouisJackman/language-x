@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct Source {
     content: Vec<char>,
     pub position: usize,
@@ -12,7 +13,7 @@ impl Source {
     }
 
     pub fn peek_many(&self, n: usize) -> Option<&[char]> {
-        if self.content.len() <= (self.position + n) {
+        if self.content.len() < (self.position + n) {
             None
         } else {
             let m = self.position + n;
@@ -21,7 +22,7 @@ impl Source {
     }
 
     pub fn read_many(&mut self, n: usize) -> Option<&[char]> {
-        if self.content.len() <= (self.position + n) {
+        if self.content.len() < (self.position + n) {
             None
         } else {
             let new_position = self.position + n;
@@ -40,7 +41,7 @@ impl Source {
     }
 
     pub fn peek_nth(&self, n: usize) -> Option<char> {
-        if self.content.len() <= (self.position + n + 1) {
+        if self.content.len() <= (self.position + n) {
             None
         } else {
             Some(self.content[self.position + n])
@@ -59,7 +60,7 @@ impl Source {
     }
 
     pub fn discard_many(&mut self, n: usize) -> bool {
-        if self.content.len() <= (self.position + n) {
+        if self.content.len() < (self.position + n) {
             false
         } else {
             self.position += n;

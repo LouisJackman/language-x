@@ -152,7 +152,7 @@ void allocationAndClosureDemo() {
     var account1 = Account(
             firstName = "Tom",
             lastName = "Smith",
-            ageInYears = 15
+            ageInYears = 15,
     )
 
     var firstName = "Tom"
@@ -160,14 +160,14 @@ void allocationAndClosureDemo() {
     var age = 25
     var account2 = Account(.firstName, .lastName, ageInYears = age)
 
-    var f = (a) -> {
+    var f = a -> {
         println(a.toString())
     }
 
     f(account1)
     f(account2(first_name = "Emma"))
 
-    var g = (a) -> {
+    var g = a -> {
         println("returning an account")
         a
     }
@@ -192,12 +192,12 @@ void demoNumericLiterals() {
     double m = 8f32
 }
 
-N double<N extends Add>(N n) N {
+N double<N>(N n) if N extends Add {
     n + n
 }
 
 void demoIteration() {
-    List(1, 2, 3).forEach((n) -> {
+    List(1, 2, 3).forEach(n -> {
         println(`{n}`)
     })
 
@@ -263,10 +263,10 @@ print(`{x}`)
   scale; powerful features should have very little action-at-a-distance.
 * Use null-free static types and increase type-system expressiveness over Java
   and C#.
-* Make compiler and other components easy to work with; make tool and IDE
+* Make interpreter and other components easy to work with; make tool and IDE
   integration as easy as possible. Perhaps an FFI into the final parser and
   compiler and an initial Language Server Protocol implementation.
-* Python/Perl style distribution; expect an interpreter on the OS, but avoid
+* Python/Perl style distribution; expect an interpreter on the OS and avoid
   bureaucratic requirements to run small programs.
 * Use ubiquitous immutability to reduce unnecessary side-effects and coupling;
   invalid states should be unrepresentable.
@@ -296,7 +296,7 @@ Accessibility levels:
 
 Types:
 * Built-ins and user-defined.
-* No difference from the user's perspective between them except for literal
+* No difference between them from the user's perspective except for literal
   support and built-ins being predefined by the compiler and runtime.
 * Final classes and trait-like interfaces. No concrete inheritance or
   abstract classes.
@@ -322,7 +322,7 @@ Matching in switch and select:
   that type. This is like Erlang's `receive` and Go's type switch rolled
   into one. `timeout` clauses are available.
 
-Invoking methods:
+Invocations:
 * Methods, classes, and objects can be invoked with `()`.
 * Invoking a defined method does as one would expect; invoking a class
   constructs an instance; invoking a object allows non-destructive updates.
