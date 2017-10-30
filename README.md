@@ -48,7 +48,7 @@ JIT compilation is viable.
 #!/usr/bin/env sylan
 
 // If no package is specified, "main" is assumed.
-package main
+public package main
 
 // A single line comment.
 
@@ -70,7 +70,7 @@ interface Concatenate<T, Result = Self> {
     public Result concatenate(T y)
 }
 
-class Account implements ToString, Concatenate<Account> {
+class Account implements ToString, Concatenate<Self> {
     public String firstName
     public String lastName
     public int ageInYears
@@ -100,7 +100,7 @@ class Account implements ToString, Concatenate<Account> {
     }
 }
 
-extends class Account implements Concatenate<Account, Result = String> {
+extends class Account implements Concatenate<Self, Result = String> {
     public override String concatenate(Account a) {
         `{firstName} {a.firstName}`
     }
@@ -146,7 +146,7 @@ package counter {
     }
 }
 
-void allocationAndClosureDemo() {
+void closureDemo() {
     var x = 5
 
     var account1 = Account(
@@ -165,7 +165,7 @@ void allocationAndClosureDemo() {
     }
 
     f(account1)
-    f(account2(first_name = "Emma"))
+    f(account2(firstName = "Emma"))
 
     var g = a -> {
         println("returning an account")
@@ -222,8 +222,8 @@ Optional<int> demoContexts() {
     }
 }
 
-// Top-level code is allowed, but only in the main package. Outside of that all
-// code must be in methods.
+// Top-level code is allowed, but only in the main package. Code in other packages must be in
+// functions or methods.
 
 var c = counter.create()
 times(5, () -> {
@@ -247,13 +247,14 @@ strings
 """)
 
 var x = {
-    println("Getting 5...")
-    println("Setting it to x...")
-    println("Set!")
+    println("Returning 5 to be bound as x...")
     5
 }
 print(`{x}`)
 ```
+
+See `src/parsing/ast_node_overview.lisp` for a visualisation of the abstract syntax tree generated
+by that code.
 
 
 ## Goals

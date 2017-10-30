@@ -1,4 +1,5 @@
 mod lexing;
+mod parsing;
 
 use std::env::{Args, args};
 use std::fs::File;
