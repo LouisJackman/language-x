@@ -9,6 +9,8 @@ use std::collections::HashMap;
 use self::tokens::Token;
 use self::source::Source;
 
+// TODO: implement multline strings.
+
 #[derive(Debug)]
 pub struct LexedToken {
     pub position: usize,

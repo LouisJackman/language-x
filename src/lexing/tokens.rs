@@ -55,6 +55,7 @@ pub enum Token {
     Or,
     Override,
     Package,
+    PatternBinder,
     Public,
     Select,
     ShiftLeft,
