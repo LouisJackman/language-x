@@ -5,7 +5,6 @@ use lexing::tokens::Token;
 pub fn new() -> HashMap<&'static str, Token> {
     let mut map = HashMap::new();
     map.extend(vec![
-        ("as", Token::PatternBinder),
         ("case", Token::Case),
         ("class", Token::Class),
         ("continue", Token::Continue),
@@ -29,7 +28,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("throw", Token::Throw),
         ("timeout", Token::Timeout),
         ("_", Token::Ignore),
-        ("var", Token::Var),
+        ("val", Token::Val),
     ]);
     map
 }

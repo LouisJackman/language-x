@@ -1,11 +1,12 @@
 mod lexing;
 mod parsing;
+mod peekable_buffer;
 
 use std::env::{Args, args};
 use std::fs::File;
 use std::io::Read;
 
-use lexing::{LexedToken, Lexer};
+use lexing::lexer::{LexedToken, Lexer};
 use lexing::source::Source;
 use lexing::tokens::Token;
 

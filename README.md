@@ -66,11 +66,11 @@ interface ToString {
     public String toString()
 }
 
-interface Concatenate<T, Result = Self> {
+interface Concatenate<T, Result = Concatenate> {
     public Result concatenate(T y)
 }
 
-class Account implements ToString, Concatenate<Self> {
+class Account: ToString, Concatenate<Account> {
     public String firstName
     public String lastName
     public int ageInYears
@@ -85,8 +85,8 @@ class Account implements ToString, Concatenate<Self> {
     }
 
     public override Account concatenate(Account a) {
-        var firstName = firstName.concat(a.firstName)
-        var lastName = lastName.concat(a.lastName)
+        val firstName = firstName.concat(a.firstName)
+        val lastName = lastName.concat(a.lastName)
 
         Account(
             .firstName,
@@ -100,9 +100,9 @@ class Account implements ToString, Concatenate<Self> {
     }
 }
 
-extends class Account implements Concatenate<Self, Result = String> {
-    public override String concatenate(Account a) {
-        `{firstName} {a.firstName}`
+extends class Account: Concatenate<Account, Result = String> {
+    public override String concatenate(This that) {
+        `{firstName} {that.firstName}`
     }
 }
 
@@ -124,55 +124,53 @@ int factorial(int n) {
 }
 
 package counter {
-    public class Increment { }
-    public class Reset { }
-    public class Get { }
+    public enum Message {
+        Increment,
+        Reset(int),
+        Get,
+    }
 
-    public Task create(int n = 0) {
-        Task(() -> {
-            for {
-                select {
-                    case Increment:
-                        Counter(n + 1)
-                    case Reset:
-                        Counter(0)
-                    case Get:
-                        sender.send(n)
-                    timeout seconds(10):
-                        throw Exception("timed out!")
-                }
-            }
-       })
+    public void start(Task sender, int n = 0) {
+        select Message {
+            case Increment:
+                start(sender, n + 1)
+            case Reset(n):
+                start(sender, n)
+            case Get:
+                sender.send(n)
+            timeout 10.seconds:
+                throw Exception("timed out!")
+        }
     }
 }
 
 void closureDemo() {
-    var x = 5
+    val x = 5
 
-    var account1 = Account(
-            firstName = "Tom",
-            lastName = "Smith",
-            ageInYears = 15,
+    val account1 = Account(
+        firstName = "Tom",
+        lastName = "Smith",
+        ageInYears = 15,
     )
 
-    var firstName = "Tom"
-    var lastName = "Smith"
-    var age = 25
-    var account2 = Account(.firstName, .lastName, ageInYears = age)
+    val firstName = "Tom"
+    val lastName = "Smith"
+    val age = 25
+    val account2 = Account(.firstName, .lastName, ageInYears = age)
 
-    var f = a -> {
+    val f = a -> {
         println(a.toString())
     }
 
     f(account1)
     f(account2(firstName = "Emma"))
 
-    var g = a -> {
+    val g = a -> {
         println("returning an account")
         a
     }
 
-    var z = g(account1)
+    val z = g(account1)
 }
 
 void demoNumericLiterals() {
@@ -192,8 +190,8 @@ void demoNumericLiterals() {
     double m = 8f32
 }
 
-N double<N>(N n) if N extends Add {
-    n + n
+String double<N>(N n) if N: Add & ToString {
+    (n + n).toString()
 }
 
 void demoIteration() {
@@ -201,9 +199,30 @@ void demoIteration() {
         println(`{n}`)
     })
 
-    List(1, 2, 3).map(double)
+    val highlight = s -> `>> {s} <<`
 
-    var fact = for n = 20, result = 0 {
+    1.to(5)
+        .map(double :: #toString :: highlight)
+        .forEach(println)
+
+    val quadruple = n -> n.double().double()
+
+    123456789
+        |> quadruple
+        |> #toString
+        |> highlight
+        |> println
+
+    val map = HashMap(
+        "abc": 123,
+        "def": 321,
+        "ghi": 987,
+    )
+    map.forEach(Entry(key, value) -> {
+        println(`{key}: {value}`)
+    })
+
+    val fact = for n = 20, result = 1 {
         if n <= 0 {
             result
         } else  {
@@ -215,9 +234,9 @@ void demoIteration() {
 
 Optional<int> demoContexts() {
     do {
-        var a <- some(5)
+        val a <- Some(5)
         doSomething()
-        var b <- empty()
+        val b <- Empty()
         willNotBeRun()
     }
 }
@@ -225,28 +244,31 @@ Optional<int> demoContexts() {
 // Top-level code is allowed, but only in the main package. Code in other packages must be in
 // functions or methods.
 
-var c = counter.create()
-times(5, () -> {
-    c.send(counter.Increment())
-})
+Optional<String> optionalString = Some("test string")
+if val Some(s) = optionalString {
+    println(s)
+}
 
-c.send(counter.Get())
-c.send(counter.Increment())
-c.send(counter.Get())
+val c = Task(-> counter.start(Task.self))
+5.times(-> c.send(counter.Message.Increment()))
 
-times(2, () -> {
-    select {
-        case n as Int:
-            println(`{n}`)
+c.send(counter.Message.Get())
+c.send(counter.Message.Increment())
+c.send(counter.Message.Get())
+
+// Should print 5 and then 6.
+2.times(->
+    select int n {
+        println(`{n}`)
     }
-})
+)
 
 print("""
 Multiline
 strings
 """)
 
-var x = {
+val x = {
     println("Returning 5 to be bound as x...")
     5
 }
@@ -285,7 +307,7 @@ by that code.
   opt-in for performance.
 * Encourage compile-time metaprogramming over runtime annotation and reflection;
   design it to scale in the large without becoming cryptic.
-* Be mostly expression-based and improve conditional matching support.
+* Be mostly expression-based and with decent pattern matching.
 * Guarantee tail-call elimination.
 
 
@@ -307,8 +329,9 @@ Types:
   initialisation syntax.
 * `void` is an actual type, like `()` in Haskell. Defining a method as
   returning `void` is a special-case that discards the result of final
-  non-void expression and returns the void value instead. This avoids
-  special-cases when composing functions in various ways.
+  non-void expression and returns the void value instead. Every function
+  returning a value, rather than having "procedures" without return values,
+  avoids special-cases when composing functions in various ways.
 * `super` is to either disambiguate which interface's method to delegate to,
   or to fallback to the auto-generated constructor in user-defined
   constructors. It does not deal with concrete class inheritance.
@@ -317,22 +340,63 @@ Types:
   see what type-soundness issues they encounter. Perhaps implement a more
   restricted version of it.
 
+Methods and functions:
+* Purposely different from one another; there isn't a UFC mechanism that
+  unifies them.
+* Both are fully higher-order. Methods carry around their instances with them.
+* Methods, when passed around as values, are just seen as functions that have
+  an instance bundled in their closure.
+* `#method` is a shorthand for `(o, ...args) -> o.method(...args)`, where the
+  type of `o` is inferred from the context.
+* As methods and functions are both higher-order, invoked the same way, and
+  have the same type when passed around, there is no real loss of
+  composibility from being different constructs. They can be composed
+  together easily:
+  `val printDouble = Number.double :: #toString :: println`.
+
+Pattern matching:
+* Literals are matched as is.
+* Composite types are matched as `Type(field1, field2 = match2, getterValue)`.
+* Public fields and getters can be used.
+* An identifier by itself is a shorthand for `identifier = identifier`.
+* There are no positional matches, only matches by specific names.
+* For types not overriding the built-in constructor, destructuring should be
+  symmetrical with constructing.
+* `...` can be used to omit the rest of the match.
+* `val` can be used to bind any pattern to an identifier, e.g.:
+  `case val account = Account(firstName, lastName = last, ...):`.
+* Prefixing an identifier with a dot matches its value rather than binding
+  against the identifier, e.g: `Account(firstName = .enteredFirstName, ...)`.
+
 Matching in switch and select:
-* `switch` matches on value and supports multiple clauses with commas.
-* `select` matches on type, and each branch handles the message variable as
-  that type. This is like Erlang's `receive` and Go's type switch rolled
-  into one. `timeout` clauses are available.
+* They both have cases which each match one or more patterns seperated by commas.
+* Both have `default` clauses as a fallback "match all" clause.
+* `switch` is exhaustive: a compiler error happens if not all cases are covered.
+* `select` is non-exhaustive, silently throwing away messages that don't match
+  either the type or the matching patterns.
+* `select` blocks the current task until someone sends the process a message of
+  the specified type with a match. `timeout` clauses are available.
 
 Invocations:
-* Methods, classes, and objects can be invoked with `()`.
-* Invoking a defined method does as one would expect; invoking a class
+* Methods, functions, classes, and objects can be invoked with `()`.
+* Invoking a method or a function does as one would expect; invoking a class
   constructs an instance; invoking a object allows non-destructive updates.
 * Arguments can have default values.
 * Any argument can be invoked as either positional or keyword; it's up to the
   caller.
+* Two special parameter types exist: variadic and variadic entry. The former
+  allows an variable amount of arguments, whereas the latter allows a variable
+  amount of `sylan.lang.Entry` arguments with syntactical sugar. The latter is
+  primarily for providing a good syntax for constructing map types that
+  user-defined types can use.
 * Prefixing an argument with a dot is a shortcut for assigning a keyword
   argument from a binding of the same name, e.g. `Account(.firstName)` is
   `Account(firstName = firstName)`.
+* Passing `_` for one or more arguments partially applies the invocation,
+  returning a new function with the non-underscore arguments evaluated and
+  partially applied to the result. This allows, for example,
+  partially-applying a non-destructive object update, partially applying a
+  function, or partially-applying the instantiation of a class.
 
 Language versioning:
 * Keyword `v` can start a file.
@@ -342,8 +406,8 @@ Language versioning:
 Compile-time metaprogramming:
 * No `constexpr`, templating, or `static if`. Should be the same language
   as runtime.
-* Derive from Lisp and Jai but reduce footguns like automatic variable
-  captures.
+* Derive from Lisp and Jai but reduce footguns like Common Lisp automatic
+  variable captures.
 * Do not copy D or C++.
 * Will eliminate the need for reflection.
 * What are the security implications of running arbitrary code from the
@@ -396,13 +460,10 @@ Standard lib:
   opt-in to each, similar to C11 features like VLAs.
 
 To consider later on:
-* Tuples.
-* Destructuring composite types.
-* Sequence destructuring.
-* Easier sum types; could be existing interface/class mechanism combined with
-  `switch` enhancements.
+* What happens if a task does multiple selections with different types? Do
+  messages of the wrong type get saved to be selected later on, or are
+  messages always thrown away if the current blocking select does not
+  support that type?
 * Parameterisable packages, perhaps a less powerful version of ML functors.
 * Matrix operations to implement for user types, even if builtins do not use
-  them. See Python 3 for a version of this.
-* Variadic parameters and type parameters solely to deal with function
-  forwarding; or could this be done differently?
+  them. See Python 3 for an implementation of this.
