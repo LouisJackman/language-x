@@ -6,7 +6,7 @@ use std::io;
 
 use lexing::lexer::Lexer;
 use lexing::tokens::Token;
-use parsing::nodes::Node;
+use parsing::nodes::{MainPackage, Node};
 
 const PARSER_THREAD_NAME: &str = "Sylan Parser";
 
@@ -17,6 +17,7 @@ pub struct Error {
 pub type ParseResult = Result<Node, Error>;
 
 pub struct Parser {
+    main_package: MainPackage,
     lexer: Lexer,
 }
 

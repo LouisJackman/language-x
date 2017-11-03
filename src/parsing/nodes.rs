@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet, LinkedList};
 // side-effects. Non-declaration statements don't exist but can be approximated by stacking
 // expressions one after the other and discarding their values.
 
-enum Item {
+pub enum Item {
     Package(Package),
     Class(Class),
     Interface(Interface),
@@ -16,7 +16,7 @@ enum Item {
     Version(f64),
 }
 
-enum Expression {
+pub enum Expression {
     Scope(Scope),
     Function(Function),
     Identifier(Identifier),
@@ -39,38 +39,38 @@ pub enum Node {
 // Packages only have declarative constructs, with the exception of the main package that can also
 // have executable code to simplify small scripts.
 
-struct Package {
+pub struct Package {
     accessibility: Accessibility,
     imports: Vec<Import>,
     declarations: Vec<Declaration>,
     name: String,
 }
 
-struct MainPackage {
+pub struct MainPackage {
     package: Package,
     code: Code,
 }
 
-struct Import {
+pub struct Import {
     lookup: PackageLookup,
 }
 
 // Declarations only have accessibility in packages and classes. In scopes, they are always public
 // in that scope.
 
-enum Accessibility {
+pub enum Accessibility {
     Public,
     Internal,
     Private,
 }
 
-enum DeclarationItem {
+pub enum DeclarationItem {
     Binding(Binding),
     Type(Type),
     Package(Package),
 }
 
-struct Declaration {
+pub struct Declaration {
     accessibility: Accessibility,
     item: DeclarationItem,
 }
@@ -79,46 +79,46 @@ struct Declaration {
 // traits than traditional protocol-like OO interfaces. Concrete classes can only implement
 // interfaces; only interfaces can extend other types, and those types can only be interfaces.
 
-struct Class {
+pub struct Class {
     implements: LinkedList<Interface>,
     methods: HashSet<ConcreteMethod>,
     getters: HashSet<Getter>,
     items: HashSet<Declaration>,
 }
 
-struct Interface {
+pub struct Interface {
     extends: LinkedList<Interface>,
     getters: HashSet<Getter>,
     methods: HashSet<Method>,
 }
 
-enum TypeItem {
+pub enum TypeItem {
     Class(Class),
     Interface(Interface),
 }
 
-struct TypeSpecification {
+pub struct TypeSpecification {
     name: Identifier,
     item: TypeItem,
 }
 
-struct NewType {
+pub struct NewType {
     type_parameters: Vec<TypeParameter>,
     specification: TypeSpecification,
 }
 
-struct TypeAssignment {
+pub struct TypeAssignment {
     name: Identifier,
     type_parameters: Vec<TypeParameter>,
     assignee: Type,
 }
 
-struct Type {
+pub struct Type {
     name: Identifier,
     arguments: Vec<Argument<Type>>,
 }
 
-enum TypeDeclaration {
+pub enum TypeDeclaration {
     New(NewType),
     Extension(TypeSpecification),
     Assignment(TypeAssignment),
@@ -129,23 +129,23 @@ enum TypeDeclaration {
 // like normal functions. Like Python and unlike JS, their reference to their type and instance
 // are bound to the method itself.
 
-struct ConcreteMethod {
+pub struct ConcreteMethod {
     method_type: Type,
     function: Function,
     overrides: bool,
 }
 
-struct AbstractMethod {
+pub struct AbstractMethod {
     method_type: Type,
     signature: FunctionSignature
 }
 
-enum MethodItem {
+pub enum MethodItem {
     Concrete(ConcreteMethod),
     Abstract(AbstractMethod),
 }
 
-struct Method {
+pub struct Method {
     name: Identifier,
     item: MethodItem,
 }
@@ -154,17 +154,17 @@ struct Method {
 // have a single type, similar to a field. They are invoked without the call syntax with
 // parentheses.
 
-struct ConcreteGetter {
+pub struct ConcreteGetter {
     body: Scope,
     overrides: bool,
 }
 
-enum GetterItem {
+pub enum GetterItem {
     Concrete(ConcreteGetter),
     Abstract,
 }
 
-struct Getter {
+pub struct Getter {
     getter_type: Type,
     name: Identifier,
     item: GetterItem,
@@ -174,12 +174,12 @@ struct Getter {
 // at compiletime whereas value parameters are for values at runtime, and only type parameters can
 // have optional upperbounds. They both have identifiers and optional default values.
 
-struct Parameter<T> {
+pub struct Parameter<T> {
     default_value: Option<T>,
     identifier: Identifier,
 }
 
-struct TypeParameter {
+pub struct TypeParameter {
     parameter: Parameter<Identifier>,
     upper_bound: Option<Type>,
 }
@@ -191,7 +191,7 @@ type ValueParameter = Parameter<Type>;
 // positional or keyword arguments; unlike other languages it is the choice of the caller rather
 // than the definer. If passed as a keyword argument, an identifier is carried with it in the parse
 // tree.
-struct Argument<T> {
+pub struct Argument<T> {
     value: T,
     identifier: Option<Identifier>,
 }
@@ -200,12 +200,12 @@ struct Argument<T> {
 // can be looked up to find bindings in outer closures, which is how lexical scoping is
 // implemented.
 
-enum Identifier {
+pub enum Identifier {
     Actual(String),
     Ignored,
 }
 
-struct Binding {
+pub struct Binding {
     bindingType: Type,
     name: Identifier,
     value: Expression,
@@ -222,7 +222,7 @@ type Code = Vec<Expression>;
 // All functions, methods, and getters have an attached scope. Scopes can also be standalone, in
 // which case they are immediately invoked and then destroyed afterwards. In this case they
 // function similarly to the immediately-invoked functions or do-blocks of other languages.
-struct Scope {
+pub struct Scope {
     imports: Vec<Import>,
     packages: HashSet<Package>,
     type_declarations: HashSet<TypeDeclaration>,
@@ -239,18 +239,18 @@ struct Scope {
 // attached to a binding in a scope. After being lexed from different tokens, they become
 // indistinguishable in the AST.
 
-struct FunctionSignature {
+pub struct FunctionSignature {
     type_parameters: Vec<TypeParameter>,
     value_parameters: Vec<ValueParameter>,
     return_type: Type,
 }
 
-struct Function {
+pub struct Function {
     signature: FunctionSignature,
     scope: Scope,
 }
 
-enum Literal {
+pub enum Literal {
     Boolean(bool),
     Char(char),
 
@@ -263,50 +263,44 @@ enum Literal {
 
 type PackageLookup = Vec<Identifier>;
 
-struct Switch {
+pub struct Switch {
     expression: Expression,
     cases: Vec<SwitchCase>,
     default: Scope,
 }
 
-struct Timeout {
+pub struct Timeout {
     nanoseconds: usize,
     body: Scope,
 }
 
-struct Select {
+pub struct Select {
     cases: Vec<SelectCase>,
     timeout: Timeout,
 }
 
-struct Call {
+pub struct Call {
     target: Expression,
     arguments: Vec<Argument<Expression>>
 }
 
-struct If {
+pub struct If {
     condition: Expression,
     then: Scope,
     else_clause: Option<Scope>,
 }
 
-struct SwitchCase {
+pub struct SwitchCase {
     matches: LinkedList<Expression>,
     body: Scope,
 }
 
-// TODO: this is not a real pattern; implement it properly.
-struct Pattern {
-    patternType: Type,
-    binding: Option<Identifier>,
-}
-
-struct SelectCase {
+pub struct SelectCase {
     matches: LinkedList<Pattern>,
     body: Scope,
 }
 
-struct ForClause {
+pub struct ForClause {
     identifier: Identifier,
     initialValue: Expression,
 }
@@ -314,8 +308,27 @@ struct ForClause {
 // Throwing an expression does not yield a value as it destroys its current process. However, it is
 // an expression and can therefore be used anywhere an expression can be used. It can throw any
 // expression that yields a type which implements the Exception interface.
-struct Throw(Expression);
+pub struct Throw(Expression);
 
-pub struct Parser {
-    top_level: Package,
+pub enum PatternField {
+    Identifier(Identifier),
+    BoundIdentifier(Identifier, Pattern),
+    IgnoreRest,
+}
+
+pub struct CompositePattern {
+    composite_type: Type,
+    components: Vec<PatternField>,
+}
+
+pub enum PatternItem {
+    Literal,
+    Identifier,
+    Expression(Expression),
+    Composite(CompositePattern),
+}
+
+pub struct Pattern {
+    item: PatternItem,
+    binding: Option<Identifier>,
 }
