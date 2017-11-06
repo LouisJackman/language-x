@@ -18,7 +18,6 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("implements", Token::Implements),
         ("import", Token::Import),
         ("interface", Token::Interface),
-        ("internal", Token::Internal),
         ("override", Token::Override),
         ("package", Token::Package),
         ("public", Token::Public),

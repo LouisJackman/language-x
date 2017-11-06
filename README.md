@@ -314,7 +314,7 @@ by that code.
 ## Detailed Proposals
 
 Accessibility levels:
-- Public, internal, and private; only public and internal have keywords.
+- Public and private; only public has a keyword.
 - Private level is default.
 
 Types:
