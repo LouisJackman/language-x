@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, LinkedList};
+use std::collections::{HashSet, LinkedList};
 
 // Sylan consists of items and expressions. Items are declarative, whereas expressions are executed
 // and yield values. Such values can be the void value, for expressions executed solely for
@@ -60,7 +60,6 @@ pub struct Import {
 
 pub enum Accessibility {
     Public,
-    Internal,
     Private,
 }
 
@@ -206,7 +205,7 @@ pub enum Identifier {
 }
 
 pub struct Binding {
-    bindingType: Type,
+    binding_type: Type,
     name: Identifier,
     value: Expression,
 }
@@ -302,7 +301,7 @@ pub struct SelectCase {
 
 pub struct ForClause {
     identifier: Identifier,
-    initialValue: Expression,
+    initial_value: Expression,
 }
 
 // Throwing an expression does not yield a value as it destroys its current process. However, it is
