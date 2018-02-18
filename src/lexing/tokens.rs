@@ -69,3 +69,9 @@ pub enum Token {
     Timeout,
     Var,
 }
+
+impl Default for Token {
+    fn default() -> Token {
+        Token::Eof
+    }
+}

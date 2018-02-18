@@ -22,6 +22,7 @@ pub struct Parser {
 }
 
 impl Parser {
+
     fn discard(&mut self, token: Token) {
 
     }

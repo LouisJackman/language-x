@@ -10,9 +10,11 @@ use lexing::source::Source;
 use peekable_buffer::PeekableBuffer;
 
 // TODO: implement multline strings.
+// TODO: lex shebang and version string before starting the main lexing loop.
 
 const LEXER_THREAD_NAME: &str = "Sylan Lexer";
 
+#[derive(Eq, PartialEq, Default)]
 pub struct LexedToken {
     pub position: usize,
     pub trivia: Option<String>,
@@ -36,15 +38,17 @@ pub struct Lexer {
     keywords: HashMap<&'static str, Token>,
 }
 
-impl Lexer {
-
-    pub fn from(source: Source) -> Self {
+impl From<Source> for Lexer {
+    fn from(source: Source) -> Self {
         Self {
             source,
             char_escapes: char_escapes::new(),
             keywords: keywords::new(),
         }
     }
+}
+
+impl Lexer {
 
     fn fail(&self, description: &str) -> TokenResult {
         Err(Error {
@@ -60,22 +64,20 @@ impl Lexer {
         while 1 <= nesting_level {
             match self.source.read() {
                 Some(&c) => {
-                    match c {
-                        '/' if self.source.nth_is(0, '*') => {
-                            buffer.push('/');
+                    if (c == '/') && self.source.nth_is(0, '*') {
+                        buffer.push('/');
+                        buffer.push('*');
+                        self.source.discard();
+                        nesting_level += 1;
+                    } else if (c == '*') && self.source.nth_is(0, '/') {
+                        if 1 < nesting_level {
                             buffer.push('*');
-                            self.source.discard();
-                            nesting_level += 1;
+                            buffer.push('/');
                         }
-                        '*' if self.source.nth_is(0, '/') => {
-                            if 1 < nesting_level {
-                                buffer.push('*');
-                                buffer.push('/');
-                            }
-                            self.source.discard();
-                            nesting_level -= 1;
-                        }
-                        _ => buffer.push(c),
+                        self.source.discard();
+                        nesting_level -= 1;
+                    } else {
+                        buffer.push(c);
                     }
                 }
                 None => break,
@@ -96,10 +98,10 @@ impl Lexer {
         self.source.discard_many(2);
         loop {
             if let Some(&c) = self.source.read() {
-                match c {
-                    '\n' => break,
-                    '\r' if self.source.nth_is(1, '\n') => break,
-                    _ => buffer.push(c),
+                if (c == '\n') || ((c == '\r') && self.source.nth_is(1, '\n')) {
+                    break;
+                } else {
+                    buffer.push(c);
                 }
             } else {
                 break;
@@ -108,11 +110,20 @@ impl Lexer {
     }
 
     fn lex_trivia(&mut self) -> Result<Option<String>, Error> {
-        let is_empty = match self.source.peek().map(|x| *x) {
-            Some('/') if self.source.nth_is(1, '*') && !self.source.nth_is(2, '*') => false,
-            Some('/') if self.source.nth_is(1, '/') => false,
-            Some(c) if c.is_whitespace() => false,
-            _ => true,
+        let is_empty = {
+            let c = self.source.peek().map(|x| *x);
+            if c == Some('/') {
+                if (self.source.nth_is(1, '*') && !self.source.nth_is(2, '*'))
+                        || self.source.nth_is(1, '/') {
+                    false
+                } else {
+                    true
+                }
+            } else if c.map(|x| x.is_whitespace()).is_some() {
+                false
+            } else {
+                true
+            }
         };
 
         if is_empty {
@@ -120,24 +131,27 @@ impl Lexer {
         } else {
             let mut trivia = String::new();
             loop {
-                match self.source.peek().map(|x| *x) {
+                let next_char = self.source.peek().map(|x| *x);
 
-                    // SyDocs, starting with "/**", are not trivia but meaningful tokens that are
-                    // stored in the AST. They are skipped in this function.
-                    Some('/') if self.source.nth_is(1, '*') && !self.source.nth_is(2, '*') => {
-                        if let Some(err) = self.lex_multi_line_comment(&mut trivia) {
-                            break Err(err)
-                        }
+                // SyDocs, starting with "/**", are not trivia but meaningful
+                // tokens that are stored in the AST. They are skipped in this
+                // function.
+                if (next_char == Some('/'))
+                        && self.source.nth_is(1, '*')
+                        && !self.source.nth_is(2, '*') {
+                    if let Some(err) = self
+                            .lex_multi_line_comment(&mut trivia) {
+                        break Err(err)
                     }
-
-                    Some('/') if self.source.nth_is(1, '/') => {
-                        self.lex_single_line_comment(&mut trivia)
-                    }
-                    Some(c) if c.is_whitespace() => {
-                        trivia.push(c);
-                        self.source.discard();
-                    }
-                    _ => break Ok(Some(trivia)),
+                } else if (next_char == Some('/'))
+                        && self.source.nth_is(1, '/') {
+                    self.lex_single_line_comment(&mut trivia)
+                } else if let Some((c, true)) = next_char
+                        .map(|x| (x, x.is_whitespace())) {
+                    trivia.push(c);
+                    self.source.discard();
+                } else {
+                    break Ok(Some(trivia));
                 }
             }
         }
@@ -162,7 +176,9 @@ impl Lexer {
     fn lex_rest_of_word(&mut self, buffer: &mut String) {
         loop {
             match self.source.peek() {
-                Some(&c) if c.is_alphabetic() || c.is_digit(10) || (c == '_') => {
+                Some(&c) if c.is_alphabetic()
+                        || c.is_digit(10)
+                        || (c == '_') => {
                     self.source.discard();
                     buffer.push(c);
                 }
@@ -233,21 +249,23 @@ impl Lexer {
         if let Some(&'!') = self.source.read() {
             let mut content = String::new();
             loop {
-                match self.source.peek().map(|x| *x) {
-                    Some('\n') => {
-                        self.source.discard();
-                        break;
+                let next_char = self.source.peek().map(|x| *x);
+                if (next_char == Some('\r')) && self.source.nth_is(1, '\n') {
+                    self.source.discard();
+                    self.source.discard();
+                    break;
+                } else {
+                    match next_char {
+                        Some('\n') => {
+                            self.source.discard();
+                            break;
+                        }
+                        Some(c) => {
+                            self.source.discard();
+                            content.push(c);
+                        }
+                        _ => break,
                     }
-                    Some('\r') if self.source.nth_is(1, '\n') => {
-                        self.source.discard();
-                        self.source.discard();
-                        break;
-                    }
-                    Some(c) => {
-                        self.source.discard();
-                        content.push(c);
-                    }
-                    _ => break,
                 }
             }
             Ok(Token::Shebang(content))
@@ -263,27 +281,25 @@ impl Lexer {
 
         let mut content = String::new();
         loop {
-            match self.source.peek().map(|x| *x) {
-                Some('*') if self.source.nth_is(1, '/') => {
-                    self.source.discard();
-                    self.source.discard();
-                    break Ok(Token::SyDoc(content))
-                }
-                Some('/') if self.source.nth_is(1, '*') => {
-                    content.push('/');
+            let next_char = self.source.peek().map(|x| *x);
+            if (Some('*') == next_char) && self.source.nth_is(1, '/') {
+                self.source.discard();
+                self.source.discard();
+                break Ok(Token::SyDoc(content))
+            } else if (Some('/') == next_char) && self.source.nth_is(1, '*') {
+                content.push('/');
+                content.push('*');
+                if let Some(err) = self.lex_multi_line_comment(&mut content) {
+                    break Err(err)
+                } else {
                     content.push('*');
-                    if let Some(err) = self.lex_multi_line_comment(&mut content) {
-                        break Err(err)
-                    } else {
-                        content.push('*');
-                        content.push('/');
-                    }
+                    content.push('/');
                 }
-                Some(c) => {
-                    content.push(c);
-                    self.source.discard();
-                }
-                None => break self.fail("EOF occured before end of SyDoc")
+            } else if let Some(c) = next_char {
+                content.push(c);
+                self.source.discard();
+            } else {
+                break self.fail("EOF occured before end of SyDoc");
             }
         }
     }
@@ -472,27 +488,38 @@ impl Lexer {
         match self.source.peek() {
             None => Ok(Token::Eof),
             Some(&c) => {
-                match c {
-                    'v' if self.source.match_nth(1, |c| c.is_digit(10)) => self.lex_version(),
-                    '"' => Ok(self.lex_string()),
-                    '`' => Ok(self.lex_interpolated_string()),
-                    '\'' => self.lex_char(),
-                    '#' if self.source.position == 0 => self.lex_shebang(),
-                    '/' if self.source.nth_is(1, '*') && self.source.nth_is(2, '*') => {
-                        self.lex_sydoc()
-                    }
-                    _ => {
-                        if c.is_alphabetic() || (c == '_') {
-                            let mut rest = String::new();
-                            self.lex_rest_of_word(&mut rest);
-                            Ok(self.lex_boolean_or_keyword_or_identifier(rest))
-                        } else if c.is_digit(10) ||
-                                   (self.source.match_nth(1, |c| c.is_digit(10)) &&
-                                        ((c == '+') || (c == '-')))
-                        {
-                            self.lex_number()
-                        } else {
-                            self.lex_operator()
+                if (c == 'v') && self.source.match_nth(1, |c| c.is_digit(10)) {
+                    self.lex_version()
+                } else if (c == '/')
+                        && self.source.nth_is(1, '*')
+                        && self.source.nth_is(2, '*') {
+                    self.lex_sydoc()
+                } else {
+                    match c {
+                        '"' => Ok(self.lex_string()),
+                        '`' => Ok(self.lex_interpolated_string()),
+                        '\'' => self.lex_char(),
+                        '#' if self.source.position == 0 => self.lex_shebang(),
+                        _ => {
+                            if c.is_alphabetic() || (c == '_') {
+                                let mut rest = String::new();
+                                self.lex_rest_of_word(&mut rest);
+                                Ok(self.lex_boolean_or_keyword_or_identifier(
+                                        rest
+                                ))
+                            } else if c.is_digit(10)
+                                    || (
+                                        self
+                                            .source
+                                            .match_nth(1, |c| c.is_digit(10))
+                                                &&
+                                                ((c == '+') || (c == '-'))
+                                    )
+                            {
+                                self.lex_number()
+                            } else {
+                                self.lex_operator()
+                            }
                         }
                     }
                 }
@@ -544,7 +571,8 @@ mod tests {
     use super::*;
 
     fn test_lexer(s: &str) -> Lexer {
-        Lexer::from(Source::from(s.chars().collect()))
+        let source_chars = s.chars().collect::<Vec<char>>();
+        Lexer::from(Source::from(source_chars))
     }
 
     fn assert_next(lexer: &mut Lexer, token: Token) {
@@ -580,7 +608,9 @@ mod tests {
 
     #[test]
     fn test_numbers() {
-        let mut lexer = test_lexer("    23  \t     \t\t\n   23   +32 0.32    \t123123123.32");
+        let mut lexer = test_lexer(
+                "    23  \t     \t\t\n   23   +32 0.32    \t123123123.32"
+        );
         assert_next(&mut lexer, Token::Number(23, 0));
         assert_next(&mut lexer, Token::Number(23, 0));
         assert_next(&mut lexer, Token::Number(32, 0));
@@ -672,7 +702,9 @@ mod tests {
 
     #[test]
     fn test_sydoc() {
-        let mut lexer = test_lexer("/* comment */ // \n /** A SyDoc /* comment. */ */");
+        let mut lexer = test_lexer(
+                "/* comment */ // \n /** A SyDoc /* comment. */ */"
+        );
         let sydoc = Token::SyDoc(String::from(" A SyDoc /* comment. */ "));
         assert_next(&mut lexer, sydoc);
     }
