@@ -27,7 +27,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("throw", Token::Throw),
         ("timeout", Token::Timeout),
         ("_", Token::Ignore),
-        ("val", Token::Val),
+        ("var", Token::Var),
     ]);
     map
 }

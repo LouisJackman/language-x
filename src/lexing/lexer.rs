@@ -37,6 +37,7 @@ pub struct Lexer {
 }
 
 impl Lexer {
+
     pub fn from(source: Source) -> Self {
         Self {
             source,
@@ -54,6 +55,7 @@ impl Lexer {
 
     fn lex_multi_line_comment(&mut self, buffer: &mut String) -> Option<Error> {
         self.source.discard_many(2);
+
         let mut nesting_level: usize = 1;
         while 1 <= nesting_level {
             match self.source.read() {
@@ -79,6 +81,7 @@ impl Lexer {
                 None => break,
             }
         }
+
         if 1 <= nesting_level {
             Some(Error {
                 description: String::from("premature EOF in multiline comment"),
@@ -201,6 +204,7 @@ impl Lexer {
 
     fn lex_char(&mut self) -> TokenResult {
         self.source.discard();
+
         match self.source.read() {
             Some(&c) => {
                 let result = if c == '\\' {
@@ -225,6 +229,7 @@ impl Lexer {
 
     fn lex_shebang(&mut self) -> TokenResult {
         self.source.discard();
+
         if let Some(&'!') = self.source.read() {
             let mut content = String::new();
             loop {
@@ -255,6 +260,7 @@ impl Lexer {
         self.source.discard();
         self.source.discard();
         self.source.discard();
+
         let mut content = String::new();
         loop {
             match self.source.peek().map(|x| *x) {
@@ -494,7 +500,7 @@ impl Lexer {
         }
     }
 
-    pub fn lex(&mut self) -> LexedTokenResult {
+    pub fn lex_next(&mut self) -> LexedTokenResult {
         match self.lex_trivia() {
             Ok(trivia) => {
                 let position = self.source.position;
@@ -511,15 +517,18 @@ impl Lexer {
         }
     }
 
-    pub fn lex_concurrently(mut self) -> io::Result<(Receiver<LexedToken>, JoinHandle<()>)> {
+    pub fn lex(mut self) -> io::Result<(Receiver<LexedToken>, JoinHandle<()>)> {
         let (tx, rx) = channel();
         let thread = thread::Builder::new().name(LEXER_THREAD_NAME.to_string());
         let handle = thread.spawn(move || {
             loop {
-                match self.lex() {
-                    Ok(LexedToken { token: Token::Eof, .. }) => break,
+                match self.lex_next() {
                     Ok(token) => {
+                        let is_eof = token.token == Token::Eof;
                         tx.send(token).unwrap();
+                        if is_eof {
+                            break
+                        }
                     }
                     Err(e) => panic!(e),
                 }
@@ -531,6 +540,7 @@ impl Lexer {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     fn test_lexer(s: &str) -> Lexer {
@@ -538,7 +548,7 @@ mod tests {
     }
 
     fn assert_next(lexer: &mut Lexer, token: Token) {
-        match lexer.lex() {
+        match lexer.lex_next() {
             Ok(LexedToken { token: ref t, .. }) => {
                 assert_eq!(*t, token);
             }
@@ -560,11 +570,11 @@ mod tests {
 
     #[test]
     fn test_keywords() {
-        let mut lexer = test_lexer("    class\t  \n  public    abc val do");
+        let mut lexer = test_lexer("    class\t  \n  public    abc var do");
         assert_next(&mut lexer, Token::Class);
         assert_next(&mut lexer, Token::Public);
         assert_next(&mut lexer, Token::Identifier(String::from("abc")));
-        assert_next(&mut lexer, Token::Val);
+        assert_next(&mut lexer, Token::Var);
         assert_next(&mut lexer, Token::Do);
     }
 

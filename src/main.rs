@@ -4,7 +4,7 @@ mod peekable_buffer;
 
 use std::env::{Args, args};
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read};
 
 use lexing::lexer::{LexedToken, Lexer};
 use lexing::source::Source;
@@ -24,18 +24,20 @@ fn load_source(args: Args) -> String {
     source
 }
 
-fn demo(lexer: &mut Lexer) {
+fn demo(lexer: Lexer) {
+    let (rx, join_handle) = lexer.lex().unwrap();
     loop {
-        match lexer.lex() {
+        match rx.recv() {
             Ok(LexedToken { token: Token::Eof, .. }) => break,
             Ok(LexedToken { token, .. }) => println!("{:?}", token),
             Err(e) => panic!(e),
         }
     }
+    join_handle.join().unwrap();
 }
 
 fn main() {
     let source = load_source(args());
-    let mut lexer = Lexer::from(Source::from(source.chars().collect()));
-    demo(&mut lexer)
+    let lexer = Lexer::from(Source::from(source.chars().collect()));
+    demo(lexer);
 }

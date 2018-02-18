@@ -85,8 +85,8 @@ class Account: ToString, Concatenate<Account> {
     }
 
     public override Account concatenate(Account a) {
-        val firstName = firstName.concat(a.firstName)
-        val lastName = lastName.concat(a.lastName)
+        var firstName = firstName.concat(a.firstName)
+        var lastName = lastName.concat(a.lastName)
 
         Account(
             .firstName,
@@ -145,32 +145,32 @@ package counter {
 }
 
 void closureDemo() {
-    val x = 5
+    var x = 5
 
-    val account1 = Account(
+    var account1 = Account(
         firstName = "Tom",
         lastName = "Smith",
         ageInYears = 15,
     )
 
-    val firstName = "Tom"
-    val lastName = "Smith"
-    val age = 25
-    val account2 = Account(.firstName, .lastName, ageInYears = age)
+    var firstName = "Tom"
+    var lastName = "Smith"
+    var age = 25
+    var account2 = Account(.firstName, .lastName, ageInYears = age)
 
-    val f = a -> {
+    var f = a -> {
         println(a.toString())
     }
 
     f(account1)
     f(account2(firstName = "Emma"))
 
-    val g = a -> {
+    var g = a -> {
         println("returning an account")
         a
     }
 
-    val z = g(account1)
+    var z = g(account1)
 }
 
 void demoNumericLiterals() {
@@ -199,13 +199,13 @@ void demoIteration() {
         println(`{n}`)
     })
 
-    val highlight = s -> `>> {s} <<`
+    var highlight = s -> `>> {s} <<`
 
     1.to(5)
         .map(double :: #toString :: highlight)
         .forEach(println)
 
-    val quadruple = n -> n.double().double()
+    var quadruple = n -> n.double().double()
 
     123456789
         |> quadruple
@@ -213,7 +213,7 @@ void demoIteration() {
         |> highlight
         |> println
 
-    val map = HashMap(
+    var map = HashMap(
         "abc": 123,
         "def": 321,
         "ghi": 987,
@@ -222,7 +222,7 @@ void demoIteration() {
         println(`{key}: {value}`)
     })
 
-    val fact = for n = 20, result = 1 {
+    var fact = for n = 20, result = 1 {
         if n <= 0 {
             result
         } else  {
@@ -234,9 +234,9 @@ void demoIteration() {
 
 Optional<int> demoContexts() {
     do {
-        val a <- Some(5)
+        var a <- Some(5)
         doSomething()
-        val b <- Empty()
+        var b <- Empty()
         willNotBeRun()
     }
 }
@@ -245,11 +245,11 @@ Optional<int> demoContexts() {
 // functions or methods.
 
 Optional<String> optionalString = Some("test string")
-if val Some(s) = optionalString {
+if var Some(s) = optionalString {
     println(s)
 }
 
-val c = Task(-> counter.start(Task.self))
+var c = Task(-> counter.start(Task.self))
 5.times(-> c.send(counter.Message.Increment()))
 
 c.send(counter.Message.Get())
@@ -268,7 +268,7 @@ Multiline
 strings
 """)
 
-val x = {
+var x = {
     println("Returning 5 to be bound as x...")
     5
 }
@@ -352,7 +352,7 @@ Methods and functions:
   have the same type when passed around, there is no real loss of
   composibility from being different constructs. They can be composed
   together easily:
-  `val printDouble = Number.double :: #toString :: println`.
+  `var printDouble = Number.double :: #toString :: println`.
 
 Pattern matching:
 * Literals are matched as is.
@@ -363,8 +363,8 @@ Pattern matching:
 * For types not overriding the built-in constructor, destructuring should be
   symmetrical with constructing.
 * `...` can be used to omit the rest of the match.
-* `val` can be used to bind any pattern to an identifier, e.g.:
-  `case val account = Account(firstName, lastName = last, ...):`.
+* `var` can be used to bind any pattern to an identifier, e.g.:
+  `case var account = Account(firstName, lastName = last, ...):`.
 * Prefixing an identifier with a dot matches its value rather than binding
   against the identifier, e.g: `Account(firstName = .enteredFirstName, ...)`.
 

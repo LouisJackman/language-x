@@ -42,7 +42,6 @@ pub enum Token {
     Implements,
     Import,
     Interface,
-    Internal,
     LambdaArrow,
     LessThan,
     LessThanOrEquals,
@@ -68,5 +67,5 @@ pub enum Token {
     Switch,
     Throw,
     Timeout,
-    Val,
+    Var,
 }
