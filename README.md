@@ -3,7 +3,6 @@
 An experimental programming language project to investigate what a spiritual
 successor to Java and C# might look like.
 
-
 ## Overview
 
 Java and C# helped to move C++ application programmers away from direct memory
@@ -28,7 +27,6 @@ A gap exists between scripting languages and application languages; would enough
 type inference and support for features like top-level executable code and
 shebangs help bridge the gap?
 
-
 ## TODO
 
 A VM will be needed for preemptive concurrency and light weight tasks; direct
@@ -41,10 +39,9 @@ JIT compilation is viable.
 * [ ] Add checks such as types.
 * [ ] Add optimisations like persistent data structures.
 
-
 ## The Language Proposal so Far
 
-```
+```sylan
 #!/usr/bin/env sylan
 
 // If no package is specified, "main" is assumed.
@@ -218,7 +215,7 @@ void demoIteration() {
         "def": 321,
         "ghi": 987,
     )
-    map.forEach(Entry(key, value) -> {
+    map.forEach((key, value) -> {
         println(`{key}: {value}`)
     })
 
@@ -278,7 +275,6 @@ print(`{x}`)
 See `src/parsing/ast_node_overview.lisp` for a visualisation of the abstract syntax tree generated
 by that code.
 
-
 ## Goals
 
 * Look as syntactically similar to Java and C# as possible.
@@ -310,14 +306,15 @@ by that code.
 * Be mostly expression-based and with decent pattern matching.
 * Guarantee tail-call elimination.
 
-
 ## Detailed Proposals
 
 Accessibility levels:
-- Public and private; only public has a keyword.
-- Private level is default.
+
+* Public and private; only public has a keyword.
+* Private level is default.
 
 Types:
+
 * Built-ins and user-defined.
 * No difference between them from the user's perspective except for literal
   support and built-ins being predefined by the compiler and runtime.
@@ -341,6 +338,7 @@ Types:
   restricted version of it.
 
 Methods and functions:
+
 * Purposely different from one another; there isn't a UFC mechanism that
   unifies them.
 * Both are fully higher-order. Methods carry around their instances with them.
@@ -355,6 +353,7 @@ Methods and functions:
   `var printDouble = Number.double :: #toString :: println`.
 
 Pattern matching:
+
 * Literals are matched as is.
 * Composite types are matched as `Type(field1, field2 = match2, getterValue)`.
 * Public fields and getters can be used.
@@ -369,6 +368,7 @@ Pattern matching:
   against the identifier, e.g: `Account(firstName = .enteredFirstName, ...)`.
 
 Matching in switch and select:
+
 * They both have cases which each match one or more patterns seperated by commas.
 * Both have `default` clauses as a fallback "match all" clause.
 * `switch` is exhaustive: a compiler error happens if not all cases are covered.
@@ -378,9 +378,10 @@ Matching in switch and select:
   the specified type with a match. `timeout` clauses are available.
 
 Invocations:
+
 * Methods, functions, classes, and objects can be invoked with `()`.
 * Invoking a method or a function does as one would expect; invoking a class
-  constructs an instance; invoking a object allows non-destructive updates.
+  constructs an instance; invoking an object allows non-destructive updates.
 * Arguments can have default values.
 * Any argument can be invoked as either positional or keyword; it's up to the
   caller.
@@ -399,11 +400,13 @@ Invocations:
   function, or partially-applying the instantiation of a class.
 
 Language versioning:
+
 * Keyword `v` can start a file.
 * Has a version after it, e.g. `v1.0`
 * If not present, assume to be the earliest stable release of the language.
 
 Compile-time metaprogramming:
+
 * No `constexpr`, templating, or `static if`. Should be the same language
   as runtime.
 * Derive from Lisp and Jai but reduce footguns like Common Lisp automatic
@@ -417,6 +420,7 @@ Compile-time metaprogramming:
   Scheme.
 
 Runtime structure information:
+
 * No reflection.
 * No runtime annotations.
 * Use compile-time programming instead.
@@ -425,6 +429,7 @@ Runtime structure information:
 * Improves performance as metaprogramming is done at compile-time.
 
 The VM:
+
 * It will probably be heavily BEAM-inspired.
 * Must do tail call elimination.
 * No mutable data except the execution of tasks over time.
@@ -446,20 +451,24 @@ The VM:
   version.
 
 The build system:
+
 * Go-style; just derive information from the source files rather than using
   separate configurations.
 * If we must have config files, consider TOML.
 
 Interop:
+
 * Lightweight tasks will be awkward with POSIX/WinNT threads for native
   interop; see Erlang and Go's issues here. Not sure of a better alternative
   if we're using userland stacks and scheduling.
 
 Standard lib:
+
 * Standard lib should be modular, like Java 9's JRE. Implementations can
   opt-in to each, similar to C11 features like VLAs.
 
 To consider later on:
+
 * What happens if a task does multiple selections with different types? Do
   messages of the wrong type get saved to be selected later on, or are
   messages always thrown away if the current blocking select does not

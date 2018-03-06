@@ -171,7 +171,7 @@ void demoIteration() {
         "def": 321,
         "ghi": 987,
     )
-    map.forEach(Entry(key, value) -> {
+    map.forEach((key, value) -> {
         println(`{key}: {value}`)
     })
 
