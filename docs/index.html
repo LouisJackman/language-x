@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8">
+  <title>Sylan</title>
+  <meta
+      name="description"
+      content="An experimental programming language project to investigate what a spiritual successor to Java and C# might look like."
+  >
+  <meta name="author" content="Louis Jackman">
+  <meta name="keywords" content="sylan,programming language,plt">
+  <style>
+
+body {
+    line-height: 25px;
+    margin: 0 auto;
+    max-width: 70ex;
+}
+
+pre {
+    overflow: auto;
+    border: 1px solid black;
+    padding: 10px;
+}
+
+  </style>
+</head>
+<body>
+<header>
+<h1>Sylan</h1>
+  <a href="https://github.com/LouisJackman/sylan">
+    <img
+      style="position: absolute; top: 0; right: 0; border: 0;"
+      src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png"
+      alt="Fork me on GitHub"
+    >
+  </a>
+  <nav>
+    <ul>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#todo">TODO</a></li>
+      <li><a href="#language-proposal">The Language Proposal so Far</a></li>
+      <li><a href="#goals">Goals</a></li>
+      <li><a href="#detailed-proposals">Detailed Proposals</a></li>
+    </ul>
+  </nav>
+</header>
+<main>
+
+<h2 id="overview">Overview</h2>
+
+<p>
+Sylan is an experimental programming language project to investigate what a
+spiritual successor to Java and C# might look like.
+</p>
+
+<p>
+Java and C# helped to move C++ application programmers away from direct memory
+management onto managed abstract machines with concurrency, networking,
+serialisation, and portability built-in.
+</p>
+
+<p>
+What will be the next language and runtime after Java and .NET? Better
+distributed and concurrent programming support would be a good starting point.
+No nulls, ubiquitous immutability, no concrete inheritance, supervisor trees in
+the standard library, and transparent asynchronous IO would acknowledge this era
+of computing.
+</p>
+
+<p>
+Hardware is no longer speeding up exponentially year-on-year and is becoming
+increasingly parallel. Performance cannot be discarded out of hand like the rise
+of dynamic languages throughout the previous decade.
+</p>
+
+<p>
+Large semantic changes will likely be rejected by developers if not presented in
+a syntax similar to existing languages; like Java took C++'s syntax, the next
+language should take Java's.
+</p>
+
+<p>
+A gap exists between scripting languages and application languages; would enough
+type inference and support for features like top-level executable code and
+shebangs help bridge the gap?
+</p>
+
+<h2 id="todo">TODO</h2>
+
+<p>
+A VM will be needed for preemptive concurrency and light weight tasks; direct
+compilation to native code will not be possible for such a language, although
+JIT compilation is viable.
+</p>
+
+<ul>
+  <li>Lex.</li>
+  <li>Parse.</li>
+  <li>Interpret without any checks.</li>
+  <li>Add checks such as types.</li>
+  <li>Add optimisations like persistent data structures.</li>
+</ul>
+
+<h2 id="language-proposal">The Language Proposal so Far</h2>
+
+<pre>
+#!/usr/bin/env sylan
+
+// If no package is specified, "main" is assumed.
+public package main
+
+// A single line comment.
+
+/*
+  A multiline comment.
+
+  /*
+    A nested multiline comment.
+  */
+*/
+
+import io.{println, print}
+
+interface ToString {
+    public String toString()
+}
+
+interface Concatenate&lt;T, Result = Concatenate> {
+    public Result concatenate(T y)
+}
+
+class Account: ToString, Concatenate&lt;Account> {
+    public String firstName
+    public String lastName
+    public int ageInYears
+
+    public Account(String firstName, String lastName) {
+        println("instantiating an Account...")
+        super(.firstName, .lastName, ageInYears = 35)
+    }
+
+    public override String toString() {
+        `{firstName} {lastName} is {ageInYears} years old`
+    }
+
+    public override Account concatenate(Account a) {
+        var firstName = firstName.concat(a.firstName)
+        var lastName = lastName.concat(a.lastName)
+
+        Account(
+            .firstName,
+            .lastName,
+            ageInYears = ageInYears + a.ageInYears,
+        )
+    }
+
+    public String get name() {
+        `{firstName} {lastName}`
+    }
+}
+
+extends class Account: Concatenate&lt;Account, Result = String> {
+    public override String concatenate(This that) {
+        `{firstName} {that.firstName}`
+    }
+}
+
+class Person = Account
+interface Showable = ToString
+
+int maxBound = 5
+
+int factorial(int n) {
+    switch n {
+        case 0, 1:
+            1
+        default:
+            if n &lt; 0 {
+                throw Exception("n cannot be less than 0")
+            }
+            factorial(n * (n - 1))
+    }
+}
+
+package counter {
+    public enum Message {
+        Increment,
+        Reset(int),
+        Get,
+    }
+
+    public void start(Task sender, int n = 0) {
+        select Message {
+            case Increment:
+                start(sender, n + 1)
+            case Reset(n):
+                start(sender, n)
+            case Get:
+                sender.send(n)
+            timeout 10.seconds:
+                throw Exception("timed out!")
+        }
+    }
+}
+
+void closureDemo() {
+    var x = 5
+
+    var account1 = Account(
+        firstName = "Tom",
+        lastName = "Smith",
+        ageInYears = 15,
+    )
+
+    var firstName = "Tom"
+    var lastName = "Smith"
+    var age = 25
+    var account2 = Account(.firstName, .lastName, ageInYears = age)
+
+    var f = a -> {
+        println(a.toString())
+    }
+
+    f(account1)
+    f(account2(firstName = "Emma"))
+
+    var g = a -> {
+        println("returning an account")
+        a
+    }
+
+    var z = g(account1)
+}
+
+void demoNumericLiterals() {
+    int a = 5
+    uint b = 5
+    decimal c = 10.0
+
+    byte d = 5u8
+    uint16 e = 11u16
+    uint32 f = 12u32
+    uint64 g = 13u64
+    int8 h = 15s8
+    short i = 13s16
+    int32 j = 7s32
+    long k = 7s64
+    float l = 12f16
+    double m = 8f32
+}
+
+String double&lt;N>(N n) if N: Add &amp; ToString {
+    (n + n).toString()
+}
+
+void demoIteration() {
+    List(1, 2, 3).forEach(n -> {
+        println(`{n}`)
+    })
+
+    var highlight = s -> `>> {s} &lt;&lt;`
+
+    1.to(5)
+        .map(double :: #toString :: highlight)
+        .forEach(println)
+
+    var quadruple = n -> n.double().double()
+
+    123456789
+        |> quadruple
+        |> #toString
+        |> highlight
+        |> println
+
+    var map = HashMap(
+        "abc": 123,
+        "def": 321,
+        "ghi": 987,
+    )
+    map.forEach((key, value) -> {
+        println(`{key}: {value}`)
+    })
+
+    var fact = for n = 20, result = 1 {
+        if n &lt;= 0 {
+            result
+        } else  {
+            continue(n - 1, n * result)
+        }
+    }
+    println(`factorial: {fact}`)
+}
+
+Optional&lt;int> demoContexts() {
+    do {
+        var a &lt;- Some(5)
+        doSomething()
+        var b &lt;- Empty()
+        willNotBeRun()
+    }
+}
+
+// Top-level code is allowed, but only in the main package. Code in other
+// packages must be in functions or methods.
+
+Optional&lt;String> optionalString = Some("test string")
+if var Some(s) = optionalString {
+    println(s)
+}
+
+var c = Task(-> counter.start(Task.self))
+5.times(-> c.send(counter.Message.Increment()))
+
+c.send(counter.Message.Get())
+c.send(counter.Message.Increment())
+c.send(counter.Message.Get())
+
+// Should print 5 and then 6.
+2.times(->
+    select int n {
+        println(`{n}`)
+    }
+)
+
+print("""
+Multiline
+strings
+""")
+
+var x = {
+    println("Returning 5 to be bound as x...")
+    5
+}
+print(`{x}`)
+</pre>
+
+<h2 id="goals">Goals</h2>
+
+<ul>
+  <li>Look as syntactically similar to Java and C# as possible.</li>
+  <li>
+    Support mixed-ability teams by not adding footguns or abstractions that do
+    not scale; powerful features should have very little action-at-a-distance.
+  </li>
+  <li>
+    Use null-free static types and increase type-system expressiveness over Java
+    and C#.
+  </li>
+  <li>
+    Make interpreter and other components easy to work with; make tool and IDE
+    integration as easy as possible. Perhaps an FFI into the final parser and
+    compiler and an initial Language Server Protocol implementation.
+  </li>
+  <li>
+    Python/Perl style distribution; expect an interpreter on the OS and avoid
+    bureaucratic requirements to run small programs.
+  </li>
+  <li>
+    Use ubiquitous immutability to reduce unnecessary side-effects and coupling;
+    invalid states should be unrepresentable.
+  </li>
+  <li>Allow distributed programming with message-passing.</li>
+  <li>Transparently handle asynchronous IO.</li>
+  <li>
+    Make tasks cheap, preemptive, and killable; tasks should be a useful
+    abstraction, not like threads which are a low-level OS-provided feature with
+    endless edge cases.
+  </li>
+  <li>
+    Remove or fix error-prone features from Java and C#, like
+    assignments-as-expressions, pre and post decrement and increment, nulls,
+    concrete inheritance, pervasive mutability, type erasure, statics,
+    primitives and autoboxing, default memory sharing across tasks, and in-task
+    catchable exceptions.
+  </li>
+  <li>
+    Non-overflowable arithmetic should be default; machine-width arithmetic as
+    an opt-in for performance.
+  </li>
+  <li>
+    Encourage compile-time metaprogramming over runtime annotation and
+    reflection; design it to scale in the large without becoming cryptic.
+  </li>
+  <li>Be mostly expression-based and with decent pattern matching.</li>
+  <li>Guarantee tail-call elimination.
+</ul>
+
+<h2 id="detailed-proposals">Detailed Proposals</h2>
+
+<h3>Accessibility levels</h3>
+<ul>
+  <li>Public and private; only public has a keyword.</li>
+  <li>Private level is default.</li>
+</ul>
+
+<h3>Types</h3>
+
+<ul>
+  <li>Built-ins and user-defined.</li>
+  <li>
+    No difference between them from the user's perspective except for literal
+    support and built-ins being predefined by the compiler and runtime.
+  </li>
+  <li>
+    Final classes and trait-like interfaces. No concrete inheritance or
+    abstract classes.
+  </li>
+  <li>
+    Constructors are special; this is done to allow function-style
+    instantiations while avoiding things like statics, needing to detach
+    constructors from class definitions, or having a more complicated
+    initialisation syntax.
+  </li>
+  <li>
+    <code>void</code> is an actual type, like </code>()</code> in Haskell.
+    Defining a method as returning <code>void</code> is a special-case that
+    discards the result of final non-void expression and returns the void value
+    instead. Every function returning a value, rather than having "procedures"
+    without return values, avoids special-cases when composing functions in
+    various ways.
+  </li>
+  <li>
+    <code>super</code> is to either disambiguate which interface's method to
+    delegate to, or to fallback to the auto-generated constructor in
+    user-defined constructors. It does not deal with concrete class inheritance.
+  </li>
+  <li>Generics like C#, as in no type erasure.</li>
+  <li>
+    Support higher-kinded types, but keep an eye on projects like Dotty to see
+    what type-soundness issues they encounter. Perhaps implement a more
+    restricted version of it.
+  </li>
+</ul>
+
+<h3>Methods and functions</h3>
+
+<ul>
+  <li>
+    Purposely different from one another; there isn't a UFC mechanism that
+    unifies them.
+  </li>
+  <li>
+    Both are fully higher-order. Methods carry around their instances with them.
+  </li>
+  <li>
+    Methods, when passed around as values, are just seen as functions that have
+    an instance bundled in their closure.
+  </li>
+  <li>
+    <code>#method</code> is a shorthand for <code>(o, ...args) ->
+    o.method(...args)</code>, where the type of <code>o</code> is inferred from
+    the context.
+  </li>
+  <li>
+    As methods and functions are both higher-order, invoked the same way, and
+    have the same type when passed around, there is no real loss of
+    composibility from being different constructs. They can be composed together
+    easily: <code>var printDouble = Number.double :: #toString ::
+    println</code>.
+  </li>
+</ul>
+
+<h3>Pattern matching</h3>
+
+<ul>
+  <li>Literals are matched as is.</li>
+  <li>
+    Composite types are matched as <code>Type(field1, field2 = match2,
+    getterValue)</code>.
+  </li>
+  <li>Public fields and getters can be used.</li>
+  <li>
+    An identifier by itself is a shorthand for <code>identifier =
+    identifier</code>.
+  </li>
+  <li>There are no positional matches, only matches by specific names.</li>
+  <li>
+    For types not overriding the built-in constructor, destructuring should be
+    symmetrical with constructing.
+  </li>
+  <li><code>...</code> can be used to omit the rest of the match.</li>
+  <li>
+    <code>var</code> can be used to bind any pattern to an identifier, e.g.:
+    <code>case var account = Account(firstName, lastName = last, ...):</code>.
+  </li>
+  <li>
+    Prefixing an identifier with a dot matches its value rather than binding
+    against the identifier, e.g: <code>Account(firstName = .enteredFirstName,
+    ...)</code>.
+  </li>
+</ul>
+
+<h3>Matching in switch and select</h3>
+
+<ul>
+  <li>
+    They both have cases which each match one or more patterns seperated by
+    commas.
+  </li>
+  <li>
+    Both have <code>default</code> clauses as a fallback "match all" clause.
+  </li>
+  <li>
+    <code>switch</code> is exhaustive: a compiler error happens if not all cases
+    are covered.
+  </li>
+  <li>
+    <code>select</code> is non-exhaustive, silently throwing away messages that
+    don't match either the type or the matching patterns.
+  </li>
+  <li>
+    <code>select</code> blocks the current task until someone sends the process
+    a message of the specified type with a match. <code>timeout</code> clauses
+    are available.
+  </li>
+</ul>
+
+<h3>Invocations</h3>
+
+<ul>
+  <li>
+    Methods, functions, classes, and objects can be invoked with
+    <code>()</code>.
+  </li>
+  <li>
+    Invoking a method or a function does as one would expect; invoking a class
+    constructs an instance; invoking an object allows non-destructive
+    updates.
+  </li>
+  <li>Arguments can have default values.</li>
+  <li>
+    Any argument can be invoked as either positional or keyword; it's up to the
+    caller.
+  </li>
+  <li>
+    Two special parameter types exist: variadic and variadic entry. The former
+    allows an variable amount of arguments, whereas the latter allows a variable
+    amount of <code>sylan.lang.Entry</code> arguments with syntactical sugar.
+    The latter is primarily for providing a good syntax for constructing map
+    types that user-defined types can use.
+  </li>
+  <li>
+    Prefixing an argument with a dot is a shortcut for assigning a keyword
+    argument from a binding of the same name, e.g.
+    <code>Account(.firstName)</code> is <code>Account(firstName =
+    firstName)</code>.
+  </li>
+  <li>
+    Passing <code>_</code> for one or more arguments partially applies the
+    invocation, returning a new function with the non-underscore arguments
+    evaluated and partially applied to the result. This allows, for example,
+    partially-applying a non-destructive object update, partially applying a
+    function, or partially-applying the instantiation of a class.
+  </li>
+</ul>
+
+<h3>Language versioning</h3>
+
+<ul>
+  <li>Keyword <code>v</code> can start a file.</li>
+  <li>Has a version after it, e.g. <code>v1.0</code></li>
+  <li>
+    If not present, assume to be the earliest stable release of the language.
+  </li>
+</ul>
+
+<h3>Compile-time metaprogramming</h3>
+
+<ul>
+  <li>
+    No <code>constexpr</code>, templating, or <code>static if</code>. Should be
+    the same language as runtime.
+  </li>
+  <li>
+    Derive from Lisp and Jai but reduce footguns like Common Lisp automatic
+    variable captures.
+  </li>
+  <li>Do not copy D or C++.</li>
+  <li>Will eliminate the need for reflection.</li>
+  <li>
+    What are the security implications of running arbitrary code from the
+    compiler?
+  </li>
+  <li>
+    CL's <code>defmacro</code> is too low-level; a Java-like annotation syntax
+    could be used for a more controlled subset, perhaps hygienic macro system a
+    la Scheme.
+  </li>
+</ul>
+
+<h3>Runtime structure information</h3>
+
+<ul>
+  <li>No reflection.</li>
+  <li>No runtime annotations.</li>
+  <li>Use compile-time programming instead.</li>
+  <li>
+    Reduces magic, as compile-time metaprogramming cannot happen at random
+    points during a running application unless <code>eval</code> exists.
+  </li>
+  <li>Improves performance as metaprogramming is done at compile-time.</li>
+</ul>
+
+<h3>The VM</h3>
+
+<ul>
+  <li>It will probably be heavily BEAM-inspired.</li>
+  <li>Must do tail call elimination.</li>
+  <li>No mutable data except the execution of tasks over time.</li>
+  <li>
+    Lightweight processes. Immutability means changes can only be sent via
+    messages.
+  </li>
+  <li>
+    Initial toy implementation to use threads. Real implementation can use
+    userland scheduler with remote process support.
+  </li>
+  <li>To handle remote processes, Tasks need node IDs.</li>
+  <li>...and nodes need network addresses or localhost.</li>
+  <li>
+    Per-task GC in theory; probably global GC in first implementation for
+    simplicity. (Perhaps that's OK if only a single task's world gets stopped
+    at any time.)
+  </li>
+  <li>
+    Look at leveraging existing GCs via native interop, like Boehm-GC. However,
+    they might be unsuitable for many lightweight tasks collecting
+    concurrently.
+  </li>
+  <li>Persistent data structures.</li>
+  <li>
+    Async IO; use a library like Tokio. OK to block in the prototype, but don't
+    add any language features that break compatibility with async in the proper
+    version.
+  </li>
+</ul>
+
+<h3>The build system</h3>
+
+<ul>
+  <li>
+    Go-style; just derive information from the source files rather than using
+    separate configurations.
+  </li>
+  <li>If we must have config files, consider TOML.
+</ul>
+
+<h3>Interop</h3>
+
+<ul>
+  <li>
+    Lightweight tasks will be awkward with POSIX/WinNT threads for native
+    interop; see Erlang and Go's issues here. Not sure of a better alternative
+    if we're using userland stacks and scheduling.
+  </li>
+</ul>
+
+<h3>Standard lib</h3>
+
+<ul>
+  <li>
+    Standard lib should be modular, like Java 9's JRE. Implementations can
+    opt-in to each, similar to C11 features like VLAs.
+  </li>
+</ul>
+
+<h3>To consider later on</h3>
+
+<ul>
+  <li>
+    What happens if a task does multiple selections with different types? Do
+    messages of the wrong type get saved to be selected later on, or are messages
+    always thrown away if the current blocking select does not support that type?
+  </li>
+  <li>
+    Parameterisable packages, perhaps a less powerful version of ML functors.
+  </li>
+  <li>
+    Matrix operations to implement for user types, even if builtins do not use
+    them. See Python 3 for an implementation of this.
+  </li>
+</ul>
+
+</main>
+</body>
