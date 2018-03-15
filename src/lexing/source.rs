@@ -1,3 +1,5 @@
+use std::ops::Index;
+
 use peekable_buffer::PeekableBuffer;
 
 pub struct Source {
@@ -14,8 +16,19 @@ impl From<Vec<char>> for Source {
     }
 }
 
-impl PeekableBuffer<char> for Source {
+#[derive(Debug, Eq, PartialEq)]
+pub struct CharReadMany<'a>(&'a [char]);
 
+impl<'a> Index<usize> for CharReadMany<'a> {
+    type Output = char;
+
+    fn index(&self, index: usize) -> &char {
+        let &CharReadMany(slice) = self;
+        &slice[index]
+    }
+}
+
+impl<'a> PeekableBuffer<'a, char, CharReadMany<'a>> for Source {
     fn peek_many(&mut self, n: usize) -> Option<&[char]> {
         if self.content.len() < (self.position + n) {
             None
@@ -25,14 +38,14 @@ impl PeekableBuffer<char> for Source {
         }
     }
 
-    fn read_many(&mut self, n: usize) -> Option<&[char]> {
+    fn read_many(&'a mut self, n: usize) -> Option<CharReadMany<'a>> {
         if self.content.len() < (self.position + n) {
             None
         } else {
             let new_position = self.position + n;
             let result = &self.content[self.position..new_position];
             self.position = new_position;
-            Some(result)
+            Some(CharReadMany(result))
         }
     }
 
@@ -61,9 +74,12 @@ fn test() {
     let mut source = Source::from(source_chars);
 
     assert_eq!(['t', 'h', 'i', 's', ' '], source.peek_many(5).unwrap());
-    assert_eq!(['t', 'h', 'i', 's', ' '], source.read_many(5).unwrap());
+    assert_eq!(
+        CharReadMany(&['t', 'h', 'i', 's', ' ']),
+        source.read_many(5).unwrap()
+    );
     assert_eq!(&'s', source.peek_nth(1).unwrap());
-    assert_eq!(&'i', source.read().unwrap());
+    assert_eq!('i', source.read().unwrap());
     assert_eq!(&'s', source.peek().unwrap());
     assert!(source.peek_many(999).is_none());
     source.discard_many("s a tes".len());

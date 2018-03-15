@@ -121,11 +121,14 @@ public package main
 
 import io.{println, print}
 
+/**
+ * A SyDoc comment that allows document generation from comments.
+ */
 interface ToString {
     public String toString()
 }
 
-interface Concatenate&lt;T, Result = Concatenate> {
+interface Concatenate&lt;T, Result = T> {
     public Result concatenate(T y)
 }
 
@@ -188,6 +191,8 @@ package counter {
         Reset(int),
         Get,
     }
+
+    import Message.*
 
     public void start(Task sender, int n = 0) {
         select Message {
@@ -261,7 +266,7 @@ void demoIteration() {
     var highlight = s -> `>> {s} &lt;&lt;`
 
     1.to(5)
-        .map(double :: #toString :: highlight)
+        .map(double :: sylan.util.parse :: #toString :: highlight)
         .forEach(println)
 
     var quadruple = n -> n.double().double()
@@ -308,7 +313,7 @@ if var Some(s) = optionalString {
     println(s)
 }
 
-var c = Task(-> counter.start(Task.self))
+var c = Task(-> counter.start(currentTask))
 5.times(-> c.send(counter.Message.Increment()))
 
 c.send(counter.Message.Get())
@@ -455,8 +460,7 @@ print(`{x}`)
     As methods and functions are both higher-order, invoked the same way, and
     have the same type when passed around, there is no real loss of
     composibility from being different constructs. They can be composed together
-    easily: <code>var printDouble = Number.double :: #toString ::
-    println</code>.
+    easily: <code>var printDouble = #double :: #toString :: println</code>.
   </li>
 </ul>
 

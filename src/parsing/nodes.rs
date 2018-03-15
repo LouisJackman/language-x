@@ -136,7 +136,7 @@ pub struct ConcreteMethod {
 
 pub struct AbstractMethod {
     method_type: Type,
-    signature: FunctionSignature
+    signature: FunctionSignature,
 }
 
 pub enum MethodItem {
@@ -280,7 +280,7 @@ pub struct Select {
 
 pub struct Call {
     target: Expression,
-    arguments: Vec<Argument<Expression>>
+    arguments: Vec<Argument<Expression>>,
 }
 
 pub struct If {

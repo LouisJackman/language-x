@@ -2,9 +2,9 @@ mod lexing;
 mod parsing;
 mod peekable_buffer;
 
-use std::env::{Args, args};
+use std::env::{args, Args};
 use std::fs::File;
-use std::io::{Read};
+use std::io::Read;
 
 use lexing::lexer::{LexedToken, Lexer};
 use lexing::source::Source;
@@ -18,14 +18,11 @@ fn load_source(args: Args) -> String {
 
     let source_path = &args_vector[1];
 
-    let mut file = File
-        ::open(source_path)
-        .expect("could not open specified source file");
+    let mut file = File::open(source_path).expect("could not open specified source file");
 
     let mut source = String::new();
-    file.read_to_string(&mut source).expect(
-        "failed to read source file contents",
-    );
+    file.read_to_string(&mut source)
+        .expect("failed to read source file contents");
     source
 }
 
@@ -33,7 +30,9 @@ fn demo(lexer: Lexer) {
     let (rx, join_handle) = lexer.lex().unwrap();
     loop {
         match rx.recv() {
-            Ok(LexedToken { token: Token::Eof, .. }) => break,
+            Ok(LexedToken {
+                token: Token::Eof, ..
+            }) => break,
             Ok(LexedToken { token, .. }) => println!("{:?}", token),
             Err(e) => panic!(e),
         }

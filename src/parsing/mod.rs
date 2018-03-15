@@ -1,6 +1,5 @@
 mod nodes;
 
-use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::{self, JoinHandle};
 use std::io;
 
@@ -22,9 +21,8 @@ pub struct Parser {
 }
 
 impl Parser {
-
     fn discard(&mut self, token: Token) {
-
+        unimplemented!()
     }
 
     fn parse(&mut self) -> ParseResult {
