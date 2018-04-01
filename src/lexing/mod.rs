@@ -37,7 +37,7 @@ impl Tokens {
     }
 }
 
-struct LexedTokenReadMany(Vec<LexedToken>);
+pub struct LexedTokenReadMany(Vec<LexedToken>);
 
 impl Index<usize> for LexedTokenReadMany {
     type Output = LexedToken;

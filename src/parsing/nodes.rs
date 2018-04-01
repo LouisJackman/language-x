@@ -13,14 +13,14 @@ pub enum Item {
     Binding(Binding),
     Shebang(String),
     SyDoc(String),
-    Version(f64),
+    Version(u64, u64),
 }
 
 pub enum Expression {
     Scope(Scope),
     Function(Function),
     Identifier(Identifier),
-    Literal,
+    Literal(Literal),
     Operator(Identifier, Box<Expression>, Box<Expression>),
     Switch(Box<Switch>),
     Select(Select),
@@ -125,8 +125,8 @@ pub enum TypeDeclaration {
 
 // Methods and functions are different constructs; only methods can be overridden, be abstract, and
 // must be tied to a type. Otherwise they are higher-order constructs that can be passed around
-// like normal functions. Like Python and unlike JS, their reference to their type and instance
-// are bound to the method itself.
+// like normal functions. Like Python and unlike JS, their reference to their type and instance are
+// bound to the method itself.
 
 pub struct ConcreteMethod {
     method_type: Type,
@@ -256,7 +256,7 @@ pub enum Literal {
     // Reentering the lexer is needed for interpolations in interpolated strings.
     InterpolatedString(String),
 
-    Number(f64),
+    Number(i64, u64),
     String(String),
 }
 
