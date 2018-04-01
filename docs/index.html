@@ -192,15 +192,13 @@ package counter {
         Get,
     }
 
-    import Message.*
-
     public void start(Task sender, int n = 0) {
         select Message {
-            case Increment:
+            case .Increment:
                 start(sender, n + 1)
-            case Reset(n):
+            case .Reset(n):
                 start(sender, n)
-            case Get:
+            case .Get:
                 sender.send(n)
             timeout 10.seconds:
                 throw Exception("timed out!")
