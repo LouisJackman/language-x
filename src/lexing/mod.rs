@@ -16,12 +16,12 @@ const MAX_TOKEN_LOOKAHEAD: usize = 5;
 pub struct Tokens {
     lookahead: [LexedToken; MAX_TOKEN_LOOKAHEAD],
     lookahead_len: usize,
-    task: LexerTask,
+    lexer_task: LexerTask,
 }
 
 impl Tokens {
     pub fn from(lexer: Lexer) -> io::Result<Self> {
-        lexer.lex().map(|task| {
+        lexer.lex().map(|lexer_task| {
             Self {
                 lookahead: [
                     Default::default(),
@@ -31,9 +31,13 @@ impl Tokens {
                     Default::default(),
                 ],
                 lookahead_len: 0,
-                task,
+                lexer_task,
             }
         })
+    }
+
+    pub fn stop(self) {
+        self.lexer_task.stop()
     }
 }
 
@@ -50,7 +54,7 @@ impl Index<usize> for LexedTokenReadMany {
 
 impl<'a> PeekableBuffer<'a, LexedToken, LexedTokenReadMany> for Tokens {
     fn peek_many(&mut self, n: usize) -> Option<&[LexedToken]> {
-        let tokens = &self.task.tokens;
+        let tokens = &self.lexer_task.tokens;
 
         // Expand and the lookahead if it's not big enough.
         let pending_peeks = n - self.lookahead_len;
@@ -109,7 +113,7 @@ impl<'a> PeekableBuffer<'a, LexedToken, LexedTokenReadMany> for Tokens {
             if non_lookahead_to_consume == 0 {
                 break true;
             }
-            match self.task.tokens.recv() {
+            match self.lexer_task.tokens.recv() {
                 Ok(token) => read_tokens.push(token),
                 Err(_) => break false,
             }
@@ -146,7 +150,7 @@ impl<'a> PeekableBuffer<'a, LexedToken, LexedTokenReadMany> for Tokens {
             if non_lookahead_to_discard <= 0 {
                 break true;
             }
-            match self.task.tokens.recv() {
+            match self.lexer_task.tokens.recv() {
                 Ok(_) => { },
                 Err(_) => break false,
             }
@@ -179,7 +183,7 @@ mod tests {
         let source = Source::from(chars);
         let mut tokens = Tokens::from(Lexer::from(source)).unwrap();
         let result = f(&mut tokens);
-        tokens.task.stop();
+        tokens.lexer_task.stop();
         result
     }
 

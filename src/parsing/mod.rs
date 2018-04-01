@@ -8,8 +8,6 @@ use parsing::nodes::Node;
 use parsing::nodes::Expression::{Identifier, Literal};
 use parsing::nodes::Node::{Expression, Item};
 
-const PARSER_THREAD_NAME: &str = "Sylan Parser";
-
 pub struct ParserError {
     message: String,
     node: Node,
@@ -27,12 +25,12 @@ pub struct Parser {
 }
 
 impl Parser {
-    fn from(tokens: Tokens) -> Self {
+    pub fn from(tokens: Tokens) -> Self {
         Self { tokens }
     }
 
-    fn parse_next(&mut self) -> ParseResult {
-        match self.tokens.peek() {
+    pub fn parse(mut self) -> ParseResult {
+        let result = match self.tokens.peek() {
             Some(lexed) => {
                 let node: Result<Node, Error> = match lexed.token.clone() {
                     Token::Boolean(b) => {
@@ -136,6 +134,8 @@ impl Parser {
                 node.map(Some)
             }
             None => Ok(None),
-        }
+        };
+        self.tokens.stop();
+        result
     }
 }

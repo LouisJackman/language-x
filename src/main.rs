@@ -6,9 +6,10 @@ use std::env::{args, Args};
 use std::fs::File;
 use std::io::Read;
 
-use lexing::lexer::{LexedToken, Lexer};
+use lexing::Tokens;
+use lexing::lexer::Lexer;
 use lexing::source::Source;
-use lexing::tokens::Token;
+use parsing::Parser;
 
 fn load_source(args: Args) -> String {
     let args_vector: Vec<String> = args.collect();
@@ -28,23 +29,18 @@ fn load_source(args: Args) -> String {
     source
 }
 
-fn demo(lexer: Lexer) {
-    let lexer_task = lexer.lex().unwrap();
-    loop {
-        match lexer_task.tokens.recv() {
-            Ok(LexedToken {
-                token: Token::Eof, ..
-            }) => break,
-            Ok(LexedToken { token, .. }) => println!("{:?}", token),
-            Err(e) => panic!(e),
-        }
+fn demo(parser: Parser) {
+    match parser.parse() {
+        Ok(_) => println!("successfully parsed"),
+        Err(e) => panic!(e),
     }
-    lexer_task.stop();
 }
 
 fn main() {
     let source_string = load_source(args());
     let source = Source::from(source_string.chars().collect::<Vec<char>>());
     let lexer = Lexer::from(source);
-    demo(lexer);
+    let tokens = Tokens::from(lexer).unwrap();
+    let parser = Parser::from(tokens);
+    demo(parser);
 }
