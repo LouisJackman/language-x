@@ -102,6 +102,10 @@ package counter {
     }
 }
 
+void twice<N>(N n, N f(N)) if N: Number {
+    f(n) + f(n)
+}
+
 void closureDemo() {
     var x = 5
 
@@ -129,6 +133,9 @@ void closureDemo() {
     }
 
     var z = g(account1)
+
+    var n = twice(3, x -> x * 2)
+    println(`n == {n}`)
 }
 
 void demoNumericLiterals() {
