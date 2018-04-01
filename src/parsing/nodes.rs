@@ -21,12 +21,13 @@ pub enum Expression {
     Function(Function),
     Identifier(Identifier),
     Literal(Literal),
-    Operator(Identifier, Box<Expression>, Box<Expression>),
+    Operator(Operator, Box<Expression>, Box<Expression>),
     Switch(Box<Switch>),
     Select(Select),
     DoContext(Box<Expression>, Scope),
     If(Box<If>),
     For(Vec<ForClause>, Scope),
+    Continue(Vec<Argument<Expression>>),
     Call(Box<Call>),
     PackageLookup(PackageLookup),
 }
@@ -261,6 +262,48 @@ pub enum Literal {
 }
 
 type PackageLookup = Vec<Identifier>;
+
+// Sylan allows overridding existing operators but not defining new ones,
+// otherwise an operator would be an `Identifier` instead of in an enum.
+//
+// `=` for assignment is not an operator in Sylan but is instead a required
+// token while parsing a `Binding` node.
+pub enum Operator {
+    Unary(UnaryOperator),
+    Binary(BinaryOperator),
+}
+
+pub enum UnaryOperator {
+    BitwiseNot,
+    BitwiseXor,
+    MethodHandle,
+    Negate,
+    Not,
+    Positive,
+}
+
+pub enum BinaryOperator {
+    Add,
+    And,
+    BitwiseAnd,
+    BitwiseOr,
+    Compose,
+    Divide,
+    Dot,
+    Equals,
+    GreaterThan,
+    GreaterThanOrEquals,
+    LessThan,
+    LessThenOrEquals,
+    Modulo,
+    Multiply,
+    NotEquals,
+    Or,
+    Pipe,
+    ShiftLeft,
+    ShiftRight,
+    Subtract,
+}
 
 pub struct Switch {
     expression: Expression,
