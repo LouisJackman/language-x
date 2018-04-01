@@ -7,11 +7,18 @@ where
 {
     fn peek_many(&mut self, n: usize) -> Option<&[T]>;
     fn read_many(&'a mut self, n: usize) -> Option<ReadMany>;
-    fn peek_nth(&mut self, n: usize) -> Option<&T>;
     fn discard_many(&mut self, n: usize) -> bool;
 
     fn peek(&mut self) -> Option<&T> {
-        self.peek_many(1).map(|s| &s[0])
+        self
+            .peek_many(1)
+            .and_then(|s| s.first())
+    }
+
+    fn peek_nth(&mut self, n: usize) -> Option<&T> {
+        self
+            .peek_many(n)
+            .and_then(|tokens| tokens.last())
     }
 
     fn read(&'a mut self) -> Option<T> {

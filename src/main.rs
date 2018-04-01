@@ -18,7 +18,9 @@ fn load_source(args: Args) -> String {
 
     let source_path = &args_vector[1];
 
-    let mut file = File::open(source_path).expect("could not open specified source file");
+    let mut file = File
+        ::open(source_path)
+        .expect("could not open specified source file");
 
     let mut source = String::new();
     file.read_to_string(&mut source)
@@ -27,9 +29,9 @@ fn load_source(args: Args) -> String {
 }
 
 fn demo(lexer: Lexer) {
-    let (rx, join_handle) = lexer.lex().unwrap();
+    let lexer_task = lexer.lex().unwrap();
     loop {
-        match rx.recv() {
+        match lexer_task.tokens.recv() {
             Ok(LexedToken {
                 token: Token::Eof, ..
             }) => break,
@@ -37,7 +39,7 @@ fn demo(lexer: Lexer) {
             Err(e) => panic!(e),
         }
     }
-    join_handle.join().unwrap();
+    lexer_task.stop();
 }
 
 fn main() {
