@@ -1,8 +1,8 @@
 use std::collections::{HashSet, LinkedList};
 use std::sync::Arc;
 
-// Sylan consists of items and expressions. Items are declarative, whereas expressions are executed
-// and yield values. Such values can be the void value, for expressions executed solely for
+// Sylan consists of items and expressions. Items are declarative whereas expressions are executed
+// and yield values. Such values can be the void value for expressions executed solely for
 // side-effects. Non-declaration statements don't exist but can be approximated by stacking
 // expressions one after the other and discarding their values.
 
@@ -12,9 +12,7 @@ pub enum Item {
     Interface(Interface),
     Method(Method),
     Binding(Binding),
-    Shebang(Arc<String>),
     SyDoc(Arc<String>),
-    Version(u64, u64),
 }
 
 pub enum Expression {
@@ -35,6 +33,7 @@ pub enum Expression {
 }
 
 pub enum Node {
+    File(File),
     Item(Item),
     Expression(Expression),
 }
@@ -52,6 +51,17 @@ pub struct Package {
 pub struct MainPackage {
     package: Package,
     code: Code,
+}
+
+pub enum FilePackage {
+    EntryPoint(MainPackage),
+    Imported(Package),
+}
+
+pub struct File {
+    shebang: Option<Arc<String>>,
+    version: Option<(u64, u64)>,
+    package: FilePackage,
 }
 
 pub struct Import {
