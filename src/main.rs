@@ -1,6 +1,7 @@
 mod lexing;
 mod parsing;
 mod peekable_buffer;
+mod version;
 
 use std::env::{args, Args};
 use std::fs::File;
@@ -12,7 +13,7 @@ use lexing::source::Source;
 use parsing::Parser;
 
 fn load_source(args: Args) -> String {
-    let args_vector: Vec<String> = args.collect();
+    let args_vector = args.collect::<Vec<String>>();
     if args_vector.len() <= 1 {
         panic!("source path arg missing");
     }

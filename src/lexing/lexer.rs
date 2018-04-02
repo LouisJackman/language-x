@@ -9,6 +9,7 @@ use lexing::keywords;
 use lexing::tokens::Token;
 use lexing::source::Source;
 use peekable_buffer::PeekableBuffer;
+use version::Version;
 
 // TODO: implement multline strings.
 // TODO: lex shebang and version string before starting the main lexing loop.
@@ -40,7 +41,7 @@ pub struct LexerTask {
 }
 
 impl LexerTask {
-    pub fn stop(self) {
+    pub fn join(self) {
         self.token_transmitter.send(Default::default()).unwrap();
         self.lexer_handle.join().unwrap();
     }
@@ -177,7 +178,12 @@ impl Lexer {
         self.source.discard();
 
         self.lex_absolute_number()
-            .map(|(real, fractional)| Token::Version(real as u64, fractional))
+            .map(|(real, fractional)| Token::Version(Version {
+                major: real as u64,
+                minor: fractional,
+                patch: 0,
+                security: 0,
+            }))
             .map(Ok)
             .unwrap_or(self.fail("invalid version number"))
     }
@@ -706,7 +712,12 @@ mod tests {
     #[test]
     fn version() {
         let mut lexer = test_lexer("v10.23");
-        assert_next(&mut lexer, Token::Version(10, 23));
+        assert_next(&mut lexer, Token::Version(Version {
+            major: 10,
+            minor: 23,
+            patch: 0,
+            security: 0,
+        }));
     }
 
     #[test]

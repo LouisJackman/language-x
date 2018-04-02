@@ -1,5 +1,6 @@
 use std::collections::{HashSet, LinkedList};
 use std::sync::Arc;
+use version::Version;
 
 // Sylan consists of items and expressions. Items are declarative whereas expressions are executed
 // and yield values. Such values can be the void value for expressions executed solely for
@@ -60,7 +61,7 @@ pub enum FilePackage {
 
 pub struct File {
     shebang: Option<Arc<String>>,
-    version: Option<(u64, u64)>,
+    version: Option<Version>,
     package: FilePackage,
 }
 
