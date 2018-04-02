@@ -1,13 +1,15 @@
+use std::sync::Arc;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
     Boolean(bool),
     Char(char),
-    Identifier(String),
-    InterpolatedString(String),
+    Identifier(Arc<String>),
+    InterpolatedString(Arc<String>),
     Number(i64, u64),
-    Shebang(String),
-    String(String),
-    SyDoc(String),
+    Shebang(Arc<String>),
+    String(Arc<String>),
+    SyDoc(Arc<String>),
     Version(u64, u64),
     Add,
     And,

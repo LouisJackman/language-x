@@ -1,4 +1,5 @@
 use std::collections::{HashSet, LinkedList};
+use std::sync::Arc;
 
 // Sylan consists of items and expressions. Items are declarative, whereas expressions are executed
 // and yield values. Such values can be the void value, for expressions executed solely for
@@ -11,8 +12,8 @@ pub enum Item {
     Interface(Interface),
     Method(Method),
     Binding(Binding),
-    Shebang(String),
-    SyDoc(String),
+    Shebang(Arc<String>),
+    SyDoc(Arc<String>),
     Version(u64, u64),
 }
 
@@ -21,7 +22,8 @@ pub enum Expression {
     Function(Function),
     Identifier(Identifier),
     Literal(Literal),
-    Operator(Operator, Box<Expression>, Box<Expression>),
+    UnaryOperator(UnaryOperator, Box<Expression>),
+    BinaryOperator(BinaryOperator, Box<Expression>, Box<Expression>),
     Switch(Box<Switch>),
     Select(Select),
     DoContext(Box<Expression>, Scope),
@@ -44,7 +46,7 @@ pub struct Package {
     accessibility: Accessibility,
     imports: Vec<Import>,
     declarations: Vec<Declaration>,
-    name: String,
+    name: Arc<String>,
 }
 
 pub struct MainPackage {
@@ -201,7 +203,7 @@ pub struct Argument<T> {
 // implemented.
 
 pub enum Identifier {
-    Actual(String),
+    Actual(Arc<String>),
     Ignored,
 }
 
@@ -255,10 +257,10 @@ pub enum Literal {
     Char(char),
 
     // Reentering the lexer is needed for interpolations in interpolated strings.
-    InterpolatedString(String),
+    InterpolatedString(Arc<String>),
 
     Number(i64, u64),
-    String(String),
+    String(Arc<String>),
 }
 
 type PackageLookup = Vec<Identifier>;
@@ -268,10 +270,6 @@ type PackageLookup = Vec<Identifier>;
 //
 // `=` for assignment is not an operator in Sylan but is instead a required
 // token while parsing a `Binding` node.
-pub enum Operator {
-    Unary(UnaryOperator),
-    Binary(BinaryOperator),
-}
 
 pub enum UnaryOperator {
     BitwiseNot,

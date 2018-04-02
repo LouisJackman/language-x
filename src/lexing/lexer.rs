@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::io;
+use std::sync::Arc;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread::{self, JoinHandle};
 
@@ -214,7 +215,7 @@ impl Lexer {
                 None => break,
             }
         }
-        Token::String(string)
+        Token::String(Arc::new(string))
     }
 
     fn lex_interpolated_string(&mut self) -> Token {
@@ -231,7 +232,7 @@ impl Lexer {
                 None => break,
             }
         }
-        Token::InterpolatedString(string)
+        Token::InterpolatedString(Arc::new(string))
     }
 
     fn lex_char(&mut self) -> TokenResult {
@@ -284,7 +285,7 @@ impl Lexer {
                     }
                 }
             }
-            Ok(Token::Shebang(content))
+            Ok(Token::Shebang(Arc::new(content)))
         } else {
             self.fail("the shebang was malformed; a '!' should follow the '#'")
         }
@@ -301,7 +302,7 @@ impl Lexer {
             if (Some('*') == next_char) && self.source.nth_is(1, '/') {
                 self.source.discard();
                 self.source.discard();
-                break Ok(Token::SyDoc(content));
+                break Ok(Token::SyDoc(Arc::new(content)));
             } else if (Some('/') == next_char) && self.source.nth_is(1, '*') {
                 content.push('/');
                 content.push('*');
@@ -326,7 +327,7 @@ impl Lexer {
             "false" => Token::Boolean(false),
             _ => match self.keywords.get(&word[..]) {
                 Some(token) => token.clone(),
-                None => Token::Identifier(word),
+                None => Token::Identifier(Arc::new(word)),
             },
         }
     }
@@ -608,7 +609,9 @@ mod tests {
     #[test]
     fn identifier() {
         let mut lexer = test_lexer("    \t  \n      abc");
-        assert_next(&mut lexer, Token::Identifier(String::from("abc")));
+        assert_next(&mut lexer, Token::Identifier(Arc::new(String::from(
+            "abc"
+        ))));
     }
 
     #[test]
@@ -616,7 +619,9 @@ mod tests {
         let mut lexer = test_lexer("    class\t  \n  public    abc var do");
         assert_next(&mut lexer, Token::Class);
         assert_next(&mut lexer, Token::Public);
-        assert_next(&mut lexer, Token::Identifier(String::from("abc")));
+        assert_next(&mut lexer, Token::Identifier(Arc::new(String::from(
+            "abc"
+        ))));
         assert_next(&mut lexer, Token::Var);
         assert_next(&mut lexer, Token::Do);
     }
@@ -644,8 +649,10 @@ mod tests {
     #[test]
     fn strings() {
         let mut lexer = test_lexer("  \"abcdef\"   \t \n\n\n\"'123'\"");
-        assert_next(&mut lexer, Token::String(String::from("abcdef")));
-        assert_next(&mut lexer, Token::String(String::from("'123'")));
+        assert_next(&mut lexer, Token::String(Arc::new(String::from(
+            "abcdef"
+        ))));
+        assert_next(&mut lexer, Token::String(Arc::new(String::from("'123'"))));
     }
 
     #[test]
@@ -653,8 +660,12 @@ mod tests {
         // TODO: test actual interpolation once the parser is complete.
 
         let mut lexer = test_lexer("   `123`   `abc`");
-        assert_next(&mut lexer, Token::InterpolatedString(String::from("123")));
-        assert_next(&mut lexer, Token::InterpolatedString(String::from("abc")));
+        assert_next(&mut lexer, Token::InterpolatedString(Arc::new(String::from(
+            "123"
+        ))));
+        assert_next(&mut lexer, Token::InterpolatedString(Arc::new(String::from(
+            "abc"
+        ))));
     }
 
     #[test]
@@ -701,16 +712,20 @@ mod tests {
     #[test]
     fn shebang() {
         let mut lexer = test_lexer("#!/usr/bin/env sylan");
-        let shebang = Token::Shebang(String::from("/usr/bin/env sylan"));
+        let shebang = Token::Shebang(Arc::new(String::from(
+            "/usr/bin/env sylan"
+        )));
         assert_next(&mut lexer, shebang);
 
         let mut lexer2 = test_lexer("#!/usr/bin sylan\r\ntrue false");
-        let shebang2 = Token::Shebang(String::from("/usr/bin sylan"));
+        let shebang2 = Token::Shebang(Arc::new(String::from("/usr/bin sylan")));
         assert_next(&mut lexer2, shebang2);
         assert_next(&mut lexer2, Token::Boolean(true));
 
         let mut lexer3 = test_lexer("#!/usr/local/bin/env sylan\n123 321");
-        let shebang3 = Token::Shebang(String::from("/usr/local/bin/env sylan"));
+        let shebang3 = Token::Shebang(Arc::new(String::from(
+            "/usr/local/bin/env sylan"
+        )));
         assert_next(&mut lexer3, shebang3);
         assert_next(&mut lexer3, Token::Number(123, 0));
     }
@@ -720,7 +735,9 @@ mod tests {
         let mut lexer = test_lexer(
             "/* comment */ // \n /** A SyDoc /* comment. */ */"
         );
-        let sydoc = Token::SyDoc(String::from(" A SyDoc /* comment. */ "));
+        let sydoc = Token::SyDoc(Arc::new(String::from(
+            " A SyDoc /* comment. */ "
+        )));
         assert_next(&mut lexer, sydoc);
     }
 }
