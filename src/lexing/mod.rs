@@ -1,14 +1,14 @@
-mod keywords;
 mod char_escapes;
+mod keywords;
 
+pub mod lexer;
 pub mod source;
 pub mod tokens;
-pub mod lexer;
 
 use std::io;
 use std::ops::Index;
 
-use lexing::lexer::{LexerTask, LexedToken, Lexer};
+use lexing::lexer::{LexedToken, Lexer, LexerTask, LexerTaskError};
 use peekable_buffer::PeekableBuffer;
 
 const MAX_TOKEN_LOOKAHEAD: usize = 5;
@@ -21,23 +21,21 @@ pub struct Tokens {
 
 impl Tokens {
     pub fn from(lexer: Lexer) -> io::Result<Self> {
-        lexer.lex().map(|lexer_task| {
-            Self {
-                lookahead: [
-                    Default::default(),
-                    Default::default(),
-                    Default::default(),
-                    Default::default(),
-                    Default::default(),
-                ],
-                lookahead_len: 0,
-                lexer_task,
-            }
+        lexer.lex().map(|lexer_task| Self {
+            lookahead: [
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+            ],
+            lookahead_len: 0,
+            lexer_task,
         })
     }
 
-    pub fn stop(self) {
-        self.lexer_task.stop()
+    pub fn join_lexer_thread(self) -> Result<(), LexerTaskError> {
+        self.lexer_task.join()
     }
 }
 
@@ -47,7 +45,7 @@ impl Index<usize> for LexedTokenReadMany {
     type Output = LexedToken;
 
     fn index(&self, index: usize) -> &LexedToken {
-        let &LexedTokenReadMany(ref slice) = self;
+        let LexedTokenReadMany(slice) = self;
         &slice[index]
     }
 }
@@ -73,10 +71,8 @@ impl<'a> PeekableBuffer<'a, LexedToken, LexedTokenReadMany> for Tokens {
         self.lookahead_len += pending_peeks;
 
         if ok {
-
             // The lookahead now covers the range requested, so slice it.
             Some(&self.lookahead[..(self.lookahead_len)])
-
         } else {
             None
         }
@@ -88,14 +84,9 @@ impl<'a> PeekableBuffer<'a, LexedToken, LexedTokenReadMany> for Tokens {
 
         // First consume the lookahead.
         let mut read_tokens = (0..lookahead_to_consume)
-            .zip(
-                lookahead_to_consume..(
-                    lookahead_to_consume + self.lookahead_len
-                )
-            )
+            .zip(lookahead_to_consume..(lookahead_to_consume + self.lookahead_len))
             .enumerate()
             .map(|(i, (destination, source))| {
-
                 // TODO: work out how to do a `swap_remove` on a slice to avoid
                 // a heap allocation and copying the already allocated string in
                 // the lexed token.
@@ -129,20 +120,12 @@ impl<'a> PeekableBuffer<'a, LexedToken, LexedTokenReadMany> for Tokens {
 
     fn discard_many(&mut self, n: usize) -> bool {
         let lookahead_to_discard = self.lookahead_len.min(n);
-        let mut non_lookahead_to_discard = -(
-            (self.lookahead_len as isize) - (n as isize)
-        );
+        let mut non_lookahead_to_discard = -((self.lookahead_len as isize) - (n as isize));
 
         // First discard the lookahead.
         (0..lookahead_to_discard)
-            .zip(
-                lookahead_to_discard..(
-                    lookahead_to_discard + self.lookahead_len
-                )
-            )
-            .for_each(|(destination, source)|
-                self.lookahead.swap(destination, source)
-            );
+            .zip(lookahead_to_discard..(lookahead_to_discard + self.lookahead_len))
+            .for_each(|(destination, source)| self.lookahead.swap(destination, source));
         self.lookahead_len -= lookahead_to_discard;
 
         // Now the lookahead is consumed, discard from the token channel.
@@ -151,7 +134,7 @@ impl<'a> PeekableBuffer<'a, LexedToken, LexedTokenReadMany> for Tokens {
                 break true;
             }
             match self.lexer_task.tokens.recv() {
-                Ok(_) => { },
+                Ok(_) => {}
                 Err(_) => break false,
             }
             non_lookahead_to_discard -= 1;
@@ -161,10 +144,11 @@ impl<'a> PeekableBuffer<'a, LexedToken, LexedTokenReadMany> for Tokens {
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::Debug;
-    use super::*;
     use super::source::Source;
     use super::tokens::Token;
+    use super::*;
+    use std::fmt::Debug;
+    use std::sync::Arc;
 
     const TEST_SOURCE: &str = r#"
 
@@ -174,49 +158,46 @@ mod tests {
 
     "#;
 
-    fn test<A, F>(f: F) -> A
+    fn test<A>(f: impl Fn(&mut Tokens) -> A) -> A
     where
         A: Eq + Debug,
-        F: Fn(&mut Tokens) -> A
     {
         let chars = TEST_SOURCE.chars().collect::<Vec<char>>();
         let source = Source::from(chars);
         let mut tokens = Tokens::from(Lexer::from(source)).unwrap();
         let result = f(&mut tokens);
-        tokens.lexer_task.stop();
+        tokens.lexer_task.join().unwrap();
         result
     }
 
-    fn assert_next<F, A>(f: F, x: A)
+    fn assert_next<A>(f: impl Fn(&mut Tokens) -> A, x: A)
     where
         A: Eq + Debug,
-        F: Fn(&mut Tokens) -> A
     {
-        test(|tokens|
-            assert_eq!(f(tokens), x)
-        )
+        test(|tokens| assert_eq!(f(tokens), x))
     }
 
     #[test]
     fn peek() {
         assert_next(
             |tokens| tokens.peek().unwrap().token.clone(),
-            Token::Identifier(String::from("List"))
+            Token::Identifier(Arc::new(String::from("List"))),
         )
     }
 
     #[test]
     fn peek_many() {
         assert_next(
-            |tokens|
+            |tokens| {
                 tokens
                     .peek_many(4)
                     .unwrap()
                     .iter()
                     .map(|x| x.token.clone())
-                    .collect::<Vec<Token>>(),
+                    .collect::<Vec<Token>>()
+            },
             vec![
-                Token::Identifier(String::from("List")),
+                Token::Identifier(Arc::new(String::from("List"))),
                 Token::OpenParentheses,
                 Token::Number(1, 0),
                 Token::SubItemSeparator,
@@ -231,7 +212,7 @@ mod tests {
                 tokens.discard_many(5);
                 tokens.peek_nth(5).unwrap().token.clone()
             },
-            Token::Identifier(String::from("forEach")),
+            Token::Identifier(Arc::new(String::from("forEach"))),
         )
     }
 
@@ -254,14 +235,13 @@ mod tests {
             |tokens| {
                 tokens.discard_many(8);
                 let LexedTokenReadMany(read) = tokens.read_many(3).unwrap();
-                read
-                    .iter()
+                read.iter()
                     .map(|lexed| lexed.token.clone())
                     .collect::<Vec<Token>>()
             },
             vec![
                 Token::Dot,
-                Token::Identifier(String::from("forEach")),
+                Token::Identifier(Arc::new(String::from("forEach"))),
                 Token::OpenParentheses,
             ],
         )
@@ -294,22 +274,19 @@ mod tests {
 
     #[test]
     fn match_nth() {
-        test(|tokens|
-            assert!(tokens.match_nth(
-                3,
-                |lexed| lexed.token == Token::Number(1, 0),
-            ))
-        )
+        test(|tokens| assert!(tokens.match_nth(3, |lexed| lexed.token == Token::Number(1, 0),)))
     }
 
     #[test]
     fn trivia() {
-        let trivia_to_match = String::from(r#"
+        let trivia_to_match = String::from(
+            r#"
 
-        "#);
+        "#,
+        );
         assert_next(
             |tokens| tokens.peek().unwrap().clone().trivia.unwrap(),
-            trivia_to_match
+            trivia_to_match,
         );
     }
 }

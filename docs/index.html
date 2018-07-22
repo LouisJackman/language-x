@@ -16,10 +16,35 @@ body {
     max-width: 70ex;
 }
 
+h1 {
+    text-align: center;
+}
+
 pre {
     overflow: auto;
     border: 1px solid black;
     padding: 10px;
+}
+
+nav {
+    text-align: center;
+}
+
+nav ul {
+    padding-left: 0;
+}
+
+nav li {
+    display: inline;
+}
+
+nav li:not(:last-child) {
+    margin-right: 15px;
+}
+
+li.done::after {
+    content: " [DONE]";
+    color: green;
 }
 
   </style>
@@ -34,36 +59,35 @@ pre {
       alt="Fork me on GitHub"
     >
   </a>
+  <p>
+    Sylan is an experimental programming language project to investigate what a
+    spiritual successor to Java and C# might look like.
+  </p>
   <nav>
     <ul>
-      <li><a href="#overview">Overview</a></li>
+      <li><a href="#synopsis">Synopsis</a></li>
+      <li><a href="#example">Example</a></li>
       <li><a href="#todo">TODO</a></li>
-      <li><a href="#language-proposal">The Language Proposal so Far</a></li>
       <li><a href="#goals">Goals</a></li>
-      <li><a href="#detailed-proposals">Detailed Proposals</a></li>
+      <li><a href="#details">Details</a></li>
     </ul>
   </nav>
 </header>
 <main>
 
-<h2 id="overview">Overview</h2>
+<h2 id="synopsis">Synopsis</h2>
 
 <p>
-Sylan is an experimental programming language project to investigate what a
-spiritual successor to Java and C# might look like.
-</p>
-
-<p>
-Java and C# helped to move C++ application programmers away from direct memory
+Java and C# moved C++ application programmers away from direct memory
 management onto managed abstract machines with concurrency, networking,
 serialisation, and portability built-in.
 </p>
 
 <p>
-What will be the next language and runtime after Java and .NET? Better
-distributed and concurrent programming support would be a good starting point.
-No nulls, ubiquitous immutability, no concrete inheritance, supervisor trees in
-the standard library, and transparent asynchronous IO would acknowledge this era
+What about the next language and runtime after Java and .NET? Better distributed
+and concurrent programming support would be a good starting point. Null-free
+types, ubiquitous immutability, a lack of concrete inheritance, built-in
+supervisor trees, and transparently asynchronous IO would acknowledge this era
 of computing.
 </p>
 
@@ -85,23 +109,13 @@ type inference and support for features like top-level executable code and
 shebangs help bridge the gap?
 </p>
 
-<h2 id="todo">TODO</h2>
-
 <p>
-A VM will be needed for preemptive concurrency and light weight tasks; direct
-compilation to native code will not be possible for such a language, although
-JIT compilation is viable.
+A runtime will be needed for preemptive concurrency and light weight tasks.
+Go shows that compromises regarding the tasks' preemptiveness must be made in
+the case of native compilation.
 </p>
 
-<ul>
-  <li>Lex.</li>
-  <li>Parse.</li>
-  <li>Interpret without any checks.</li>
-  <li>Add checks such as types.</li>
-  <li>Add optimisations like persistent data structures.</li>
-</ul>
-
-<h2 id="language-proposal">The Language Proposal so Far</h2>
+<h2 id="example">Example</h2>
 
 <pre>
 #!/usr/bin/env sylan
@@ -109,23 +123,96 @@ JIT compilation is viable.
 // If no package is specified, "main" is assumed.
 public package main
 
-// A single line comment.
-
-/*
-  A multiline comment.
-
-  /*
-    A nested multiline comment.
-  */
-*/
-
 import io.{println, print}
 
-/**
- * A SyDoc comment that allows document generation from comments.
- */
-interface ToString {
-    public String toString()
+void demoIteration() {
+    List(1, 2, 3).forEach(n -> {
+        println(`{n}`)
+    })
+
+    var highlight = s -> `>> {s} &lt;&lt;`
+
+    1.to(5)
+        .map(double # ::toString # highlight)
+        .forEach(println)
+
+    var quadruple = n -> n.double().double()
+
+    123456789
+        |> quadruple
+        |> ::toString
+        |> highlight
+        |> println
+
+    var map = HashMap(
+        "abc": 123,
+        "def": 321,
+        "ghi": 987,
+    )
+    map.forEach((key, value) -> {
+        println(`{key}: {value}`)
+    })
+
+    var fact = for var n = 20, var result = 1 {
+        if n &lt;= 0 {
+            result
+        } else  {
+            continue(n - 1, n * result)
+        }
+    }
+    println(`factorial: {fact}`)
+}
+
+int factorial(int n) {
+    switch n {
+        case 0, 1:
+            1
+        default:
+            if n &lt; 0 {
+                throw Exception("n cannot be less than 0")
+            }
+            factorial(n * (n - 1))
+    }
+}
+
+void twice&lt;N>(N n, N f(N)) if N: Number {
+    f(n) + f(n)
+}
+
+String double&lt;N>(N n) if N: Add & ToString {
+    (n + n).toString()
+}
+
+Optional&lt;int> demoContexts() {
+    do {
+        var a &lt;- Some(5)
+        doSomething()
+        var b &lt;- Empty()
+        willNotBeRun()
+    }
+}
+
+package counter {
+
+    public enum Message {
+        Increment,
+        Reset(int),
+        Get,
+    }
+
+    public void start(Task sender, int n = 0) {
+        select Message {
+            case .Increment:
+                start(sender, n + 1)
+            case .Reset(n):
+                start(sender, n)
+            case .Get:
+                sender.send(n)
+                start(sender, n)
+            timeout 10.seconds:
+                throw Exception("timed out!")
+        }
+    }
 }
 
 interface Concatenate&lt;T, Result = T> {
@@ -163,6 +250,7 @@ class Account: ToString, Concatenate&lt;Account> {
 }
 
 extends class Account: Concatenate&lt;Account, Result = String> {
+
     public override String concatenate(This that) {
         `{firstName} {that.firstName}`
     }
@@ -172,43 +260,6 @@ class Person = Account
 interface Showable = ToString
 
 int maxBound = 5
-
-int factorial(int n) {
-    switch n {
-        case 0, 1:
-            1
-        default:
-            if n &lt; 0 {
-                throw Exception("n cannot be less than 0")
-            }
-            factorial(n * (n - 1))
-    }
-}
-
-package counter {
-    public enum Message {
-        Increment,
-        Reset(int),
-        Get,
-    }
-
-    public void start(Task sender, int n = 0) {
-        select Message {
-            case .Increment:
-                start(sender, n + 1)
-            case .Reset(n):
-                start(sender, n)
-            case .Get:
-                sender.send(n)
-            timeout 10.seconds:
-                throw Exception("timed out!")
-        }
-    }
-}
-
-void twice&lt;N>(N n, N f(N)) if N: Number {
-    f(n) + f(n)
-}
 
 void closureDemo() {
     var x = 5
@@ -259,59 +310,8 @@ void demoNumericLiterals() {
     double m = 8f32
 }
 
-String double&lt;N>(N n) if N: Add &amp; ToString {
-    (n + n).toString()
-}
-
-void demoIteration() {
-    List(1, 2, 3).forEach(n -> {
-        println(`{n}`)
-    })
-
-    var highlight = s -> `>> {s} &lt;&lt;`
-
-    1.to(5)
-        .map(double :: sylan.util.parse :: #toString :: highlight)
-        .forEach(println)
-
-    var quadruple = n -> n.double().double()
-
-    123456789
-        |> quadruple
-        |> #toString
-        |> highlight
-        |> println
-
-    var map = HashMap(
-        "abc": 123,
-        "def": 321,
-        "ghi": 987,
-    )
-    map.forEach((key, value) -> {
-        println(`{key}: {value}`)
-    })
-
-    var fact = for n = 20, result = 1 {
-        if n &lt;= 0 {
-            result
-        } else  {
-            continue(n - 1, n * result)
-        }
-    }
-    println(`factorial: {fact}`)
-}
-
-Optional&lt;int> demoContexts() {
-    do {
-        var a &lt;- Some(5)
-        doSomething()
-        var b &lt;- Empty()
-        willNotBeRun()
-    }
-}
-
-// Top-level code is allowed, but only in the main package. Code in other
-// packages must be in functions or methods.
+// Top-level code is allowed, but only in the main package. Code in other packages must be in
+// functions or methods.
 
 Optional&lt;String> optionalString = Some("test string")
 if var Some(s) = optionalString {
@@ -342,7 +342,25 @@ var x = {
     5
 }
 print(`{x}`)
+
+/*
+  A multiline comment.
+
+  /*
+    A nested multiline comment.
+  */
+*/
 </pre>
+
+<h2 id="todo">TODO</h2>
+
+<ul>
+  <li class="done">Lex.</li>
+  <li>Parse.</li>
+  <li>Interpret without any checks.</li>
+  <li>Add checks such as types.</li>
+  <li>Add optimisations like persistent data structures.</li>
+</ul>
 
 <h2 id="goals">Goals</h2>
 
@@ -395,9 +413,9 @@ print(`{x}`)
   <li>Guarantee tail-call elimination.
 </ul>
 
-<h2 id="detailed-proposals">Detailed Proposals</h2>
+<h2 id="details">Details</h2>
 
-<h3>Accessibility levels</h3>
+<h3>Accessibility Levels</h3>
 <ul>
   <li>Public and private; only public has a keyword.</li>
   <li>Private level is default.</li>
@@ -442,7 +460,7 @@ print(`{x}`)
   </li>
 </ul>
 
-<h3>Methods and functions</h3>
+<h3>Methods and Functions</h3>
 
 <ul>
   <li>
@@ -457,7 +475,7 @@ print(`{x}`)
     an instance bundled in their closure.
   </li>
   <li>
-    <code>#method</code> is a shorthand for <code>(o, ...args) ->
+    <code>::method</code> is a shorthand for <code>(o, ...args) ->
     o.method(...args)</code>, where the type of <code>o</code> is inferred from
     the context.
   </li>
@@ -465,11 +483,11 @@ print(`{x}`)
     As methods and functions are both higher-order, invoked the same way, and
     have the same type when passed around, there is no real loss of
     composibility from being different constructs. They can be composed together
-    easily: <code>var printDouble = #double :: #toString :: println</code>.
+    easily: <code>var printDouble = ::double # ::toString # println</code>.
   </li>
 </ul>
 
-<h3>Pattern matching</h3>
+<h3>Pattern Matching</h3>
 
 <ul>
   <li>Literals are matched as is.</li>
@@ -499,7 +517,7 @@ print(`{x}`)
   </li>
 </ul>
 
-<h3>Matching in switch and select</h3>
+<h3>Matching in Switch and Select</h3>
 
 <ul>
   <li>
@@ -563,7 +581,7 @@ print(`{x}`)
   </li>
 </ul>
 
-<h3>Language versioning</h3>
+<h3>Language Versioning</h3>
 
 <ul>
   <li>Keyword <code>v</code> can start a file.</li>
@@ -573,7 +591,7 @@ print(`{x}`)
   </li>
 </ul>
 
-<h3>Compile-time metaprogramming</h3>
+<h3>Compile-time Metaprogramming</h3>
 
 <ul>
   <li>
@@ -597,7 +615,7 @@ print(`{x}`)
   </li>
 </ul>
 
-<h3>Runtime structure information</h3>
+<h3>Runtime Structure Information</h3>
 
 <ul>
   <li>No reflection.</li>
@@ -610,7 +628,7 @@ print(`{x}`)
   <li>Improves performance as metaprogramming is done at compile-time.</li>
 </ul>
 
-<h3>The VM</h3>
+<h3>The Runtime</h3>
 
 <ul>
   <li>It will probably be heavily BEAM-inspired.</li>
@@ -644,7 +662,7 @@ print(`{x}`)
   </li>
 </ul>
 
-<h3>The build system</h3>
+<h3>The Build System</h3>
 
 <ul>
   <li>
@@ -654,7 +672,7 @@ print(`{x}`)
   <li>If we must have config files, consider TOML.
 </ul>
 
-<h3>Interop</h3>
+<h3>Interoperability</h3>
 
 <ul>
   <li>
@@ -664,7 +682,7 @@ print(`{x}`)
   </li>
 </ul>
 
-<h3>Standard lib</h3>
+<h3>Standard Library</h3>
 
 <ul>
   <li>
@@ -673,7 +691,7 @@ print(`{x}`)
   </li>
 </ul>
 
-<h3>To consider later on</h3>
+<h3>To Consider</h3>
 
 <ul>
   <li>

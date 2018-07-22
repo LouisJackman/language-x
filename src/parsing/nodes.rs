@@ -1,4 +1,5 @@
 use std::collections::{HashSet, LinkedList};
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use version::Version;
 
@@ -6,6 +7,12 @@ use version::Version;
 // and yield values. Such values can be the void value for expressions executed solely for
 // side-effects. Non-declaration statements don't exist but can be approximated by stacking
 // expressions one after the other and discarding their values.
+
+pub struct File {
+    pub shebang: Option<Arc<String>>,
+    pub version: Option<Version>,
+    pub package: FilePackage,
+}
 
 pub enum Item {
     Package(Package),
@@ -16,21 +23,24 @@ pub enum Item {
     SyDoc(Arc<String>),
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub enum Expression {
+    ContextualScope(ContextualScope),
     Scope(Scope),
     Function(Function),
     Identifier(Identifier),
     Literal(Literal),
     UnaryOperator(UnaryOperator, Box<Expression>),
     BinaryOperator(BinaryOperator, Box<Expression>, Box<Expression>),
-    Switch(Box<Switch>),
+    Switch(Switch),
     Select(Select),
     DoContext(Box<Expression>, Scope),
-    If(Box<If>),
-    For(Vec<ForClause>, Scope),
+    If(If),
+    For(Vec<Binding>, Scope),
     Continue(Vec<Argument<Expression>>),
-    Call(Box<Call>),
+    Call(Call),
     PackageLookup(PackageLookup),
+    Throw(Throw),
 }
 
 pub enum Node {
@@ -42,16 +52,17 @@ pub enum Node {
 // Packages only have declarative constructs, with the exception of the main package that can also
 // have executable code to simplify small scripts.
 
+#[derive(Clone)]
 pub struct Package {
-    accessibility: Accessibility,
-    imports: Vec<Import>,
-    declarations: Vec<Declaration>,
-    name: Arc<String>,
+    pub accessibility: Accessibility,
+    pub imports: Vec<Import>,
+    pub declarations: Vec<Declaration>,
+    pub name: Arc<String>,
 }
 
 pub struct MainPackage {
-    package: Package,
-    code: Code,
+    pub package: Package,
+    pub code: Code,
 }
 
 pub enum FilePackage {
@@ -59,33 +70,31 @@ pub enum FilePackage {
     Imported(Package),
 }
 
-pub struct File {
-    shebang: Option<Arc<String>>,
-    version: Option<Version>,
-    package: FilePackage,
-}
-
+#[derive(Clone)]
 pub struct Import {
-    lookup: PackageLookup,
+    pub lookup: PackageLookup,
 }
 
 // Declarations only have accessibility in packages and classes. In scopes, they are always public
 // in that scope.
 
+#[derive(Clone)]
 pub enum Accessibility {
     Public,
     Private,
 }
 
+#[derive(Clone)]
 pub enum DeclarationItem {
     Binding(Binding),
     Type(Type),
     Package(Package),
 }
 
+#[derive(Clone)]
 pub struct Declaration {
-    accessibility: Accessibility,
-    item: DeclarationItem,
+    pub accessibility: Accessibility,
+    pub item: DeclarationItem,
 }
 
 // There are concrete classes and interfaces, the latter being more similar to typeclasses and
@@ -93,16 +102,16 @@ pub struct Declaration {
 // interfaces; only interfaces can extend other types, and those types can only be interfaces.
 
 pub struct Class {
-    implements: LinkedList<Interface>,
-    methods: HashSet<ConcreteMethod>,
-    getters: HashSet<Getter>,
-    items: HashSet<Declaration>,
+    pub implements: LinkedList<Interface>,
+    pub methods: HashSet<ConcreteMethod>,
+    pub getters: HashSet<Getter>,
+    pub items: HashSet<Declaration>,
 }
 
 pub struct Interface {
-    extends: LinkedList<Interface>,
-    getters: HashSet<Getter>,
-    methods: HashSet<Method>,
+    pub extends: LinkedList<Interface>,
+    pub getters: HashSet<Getter>,
+    pub methods: HashSet<Method>,
 }
 
 pub enum TypeItem {
@@ -111,24 +120,25 @@ pub enum TypeItem {
 }
 
 pub struct TypeSpecification {
-    name: Identifier,
-    item: TypeItem,
+    pub name: Identifier,
+    pub item: TypeItem,
 }
 
 pub struct NewType {
-    type_parameters: Vec<TypeParameter>,
-    specification: TypeSpecification,
+    pub type_parameters: Vec<TypeParameter>,
+    pub specification: TypeSpecification,
 }
 
 pub struct TypeAssignment {
-    name: Identifier,
-    type_parameters: Vec<TypeParameter>,
-    assignee: Type,
+    pub name: Identifier,
+    pub type_parameters: Vec<TypeParameter>,
+    pub assignee: Type,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct Type {
-    name: Identifier,
-    arguments: Vec<Argument<Type>>,
+    pub name: Identifier,
+    pub arguments: Vec<Argument<Type>>,
 }
 
 pub enum TypeDeclaration {
@@ -143,14 +153,14 @@ pub enum TypeDeclaration {
 // bound to the method itself.
 
 pub struct ConcreteMethod {
-    method_type: Type,
-    function: Function,
-    overrides: bool,
+    pub method_type: Type,
+    pub function: Function,
+    pub overrides: bool,
 }
 
 pub struct AbstractMethod {
-    method_type: Type,
-    signature: FunctionSignature,
+    pub method_type: Type,
+    pub signature: FunctionSignature,
 }
 
 pub enum MethodItem {
@@ -159,8 +169,8 @@ pub enum MethodItem {
 }
 
 pub struct Method {
-    name: Identifier,
-    item: MethodItem,
+    pub name: Identifier,
+    pub item: MethodItem,
 }
 
 // Getters are basically just methods without the ability to specify type or value parameters. They
@@ -168,8 +178,8 @@ pub struct Method {
 // parentheses.
 
 pub struct ConcreteGetter {
-    body: Scope,
-    overrides: bool,
+    pub body: Scope,
+    pub overrides: bool,
 }
 
 pub enum GetterItem {
@@ -178,23 +188,25 @@ pub enum GetterItem {
 }
 
 pub struct Getter {
-    getter_type: Type,
-    name: Identifier,
-    item: GetterItem,
+    pub getter_type: Type,
+    pub name: Identifier,
+    pub item: GetterItem,
 }
 
 // Type and value parameters are the same except for two differences: type parameters are for types
 // at compiletime whereas value parameters are for values at runtime, and only type parameters can
 // have optional upperbounds. They both have identifiers and optional default values.
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct Parameter<T> {
-    default_value: Option<T>,
-    identifier: Identifier,
+    pub default_value: Option<T>,
+    pub identifier: Identifier,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct TypeParameter {
-    parameter: Parameter<Identifier>,
-    upper_bound: Option<Type>,
+    pub parameter: Parameter<Identifier>,
+    pub upper_bound: Option<Type>,
 }
 
 type ValueParameter = Parameter<Type>;
@@ -204,45 +216,94 @@ type ValueParameter = Parameter<Type>;
 // positional or keyword arguments; unlike other languages it is the choice of the caller rather
 // than the definer. If passed as a keyword argument, an identifier is carried with it in the parse
 // tree.
+#[derive(Clone, Eq, PartialEq)]
 pub struct Argument<T> {
-    value: T,
-    identifier: Option<Identifier>,
+    pub value: T,
+    pub identifier: Option<Identifier>,
 }
 
 // Sylan's "symbol tables" are just a collection of bindings in the current scope. Parent scopes
 // can be looked up to find bindings in outer closures, which is how lexical scoping is
 // implemented.
 
+#[derive(Clone, Eq, Hash, PartialEq)]
 pub enum Identifier {
     Actual(Arc<String>),
     Ignored,
 }
 
+// Bindings are for execution-time values. Statically deducable values go via package and type
+// definitions instead. (Note that "execution-time" can mean both "runtime" and "running within a
+// compile-time macro.)
+
+#[derive(Clone, Eq, PartialEq)]
 pub struct Binding {
-    binding_type: Type,
-    name: Identifier,
-    value: Expression,
+    pub name: Identifier,
+    pub value: Expression,
 }
 
-// Executable code is completely seperated from declarations. Declarations in a scope are expected
-// to be fully resolved before executing its "code", which is just a sequence of expressions.
-type Code = Vec<Expression>;
+impl Hash for Binding {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state)
+    }
+}
+
+#[derive(Clone, Eq, PartialEq)]
+pub struct ContextualBinding {
+    pub name: Identifier,
+    pub value: Expression,
+}
+
+impl Hash for ContextualBinding {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state)
+    }
+}
+
+// Expressions are seperate from bindings.
+type Expressions = Vec<Expression>;
+
+// Declarations within a code block are expected to be fully resolved before executing its
+// expressions. This is to allow techniques like mutual recursion and self-referencial methods
+// without forward declarations.
+//
+// Note that the declarations aren't accessible until their declarations have been executed, but
+// don't cause compilation problems if accessed within a delayed computation within the same scope.
+//
+// In other words, these declarations are block scoped with a temporal dead zone rather than using
+// scope hoisting.
+
+#[derive(Clone, Eq, PartialEq)]
+pub struct Code {
+    pub bindings: HashSet<Binding>,
+    pub expressions: Expressions,
+}
+
+#[derive(Clone, Eq, PartialEq)]
+pub struct ContextualCode {
+    pub bindings: HashSet<Binding>,
+    pub contextual_bindings: HashSet<ContextualBinding>,
+    pub expressions: Expressions,
+}
 
 // Scopes, unlike non-main packages, can contain executable code. Unlike all packages, they can be
-// within do contexts. Like packages, they can contain imports, new packages, and new classes. This
-// allows new types and packages to be defined in functions or block scopes.
+// within do contexts and refer to parent scopes. They can declare variables with bindings but
+// cannot declare new types or subpackages like packages can.
 //
 // All functions, methods, and getters have an attached scope. Scopes can also be standalone, in
 // which case they are immediately invoked and then destroyed afterwards. In this case they
 // function similarly to the immediately-invoked functions or do-blocks of other languages.
+
+#[derive(Clone, Eq, PartialEq)]
 pub struct Scope {
-    imports: Vec<Import>,
-    packages: HashSet<Package>,
-    type_declarations: HashSet<TypeDeclaration>,
-    bindings: HashSet<Binding>,
-    code: Code,
-    parent: Option<Box<Scope>>,
-    in_context: bool,
+    pub code: Code,
+    pub parent: Option<Box<Scope>>,
+}
+
+#[derive(Clone, Eq, PartialEq)]
+pub struct ContextualScope {
+    pub code: ContextualCode,
+    pub parent: Option<Box<Scope>>,
 }
 
 // Like methods, functions have a scope and type and value parameters. Unlike methods, they do not
@@ -252,17 +313,20 @@ pub struct Scope {
 // attached to a binding in a scope. After being lexed from different tokens, they become
 // indistinguishable in the AST.
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct FunctionSignature {
-    type_parameters: Vec<TypeParameter>,
-    value_parameters: Vec<ValueParameter>,
-    return_type: Type,
+    pub type_parameters: Vec<TypeParameter>,
+    pub value_parameters: Vec<ValueParameter>,
+    pub return_type: Type,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct Function {
-    signature: FunctionSignature,
-    scope: Scope,
+    pub signature: FunctionSignature,
+    pub scope: Scope,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub enum Literal {
     Boolean(bool),
     Char(char),
@@ -274,14 +338,15 @@ pub enum Literal {
     String(Arc<String>),
 }
 
-type PackageLookup = Vec<Identifier>;
+pub type PackageLookup = Vec<Identifier>;
 
 // Sylan allows overridding existing operators but not defining new ones,
 // otherwise an operator would be an `Identifier` instead of in an enum.
 //
-// `=` for assignment is not an operator in Sylan but is instead a required
+// `=` for assignment is not an AST node in Sylan but is instead a required
 // token while parsing a `Binding` node.
 
+#[derive(Clone, Eq, PartialEq)]
 pub enum UnaryOperator {
     BitwiseNot,
     BitwiseXor,
@@ -291,6 +356,7 @@ pub enum UnaryOperator {
     Positive,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub enum BinaryOperator {
     Add,
     And,
@@ -314,64 +380,70 @@ pub enum BinaryOperator {
     Subtract,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct Switch {
-    expression: Expression,
-    cases: Vec<SwitchCase>,
-    default: Scope,
+    pub expression: Box<Expression>,
+    pub cases: Vec<SwitchCase>,
+    pub default: Scope,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct Timeout {
-    nanoseconds: usize,
-    body: Scope,
+    pub nanoseconds: usize,
+    pub body: Scope,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct Select {
-    cases: Vec<SelectCase>,
-    timeout: Timeout,
+    pub cases: Vec<SelectCase>,
+    pub timeout: Timeout,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct Call {
-    target: Expression,
-    arguments: Vec<Argument<Expression>>,
+    pub target: Box<Expression>,
+    pub arguments: Vec<Argument<Expression>>,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct If {
-    condition: Expression,
-    then: Scope,
-    else_clause: Option<Scope>,
+    pub condition: Box<Expression>,
+    pub then: Scope,
+    pub else_clause: Option<Scope>,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct SwitchCase {
-    matches: LinkedList<Expression>,
-    body: Scope,
+    pub matches: LinkedList<Expression>,
+    pub body: Scope,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct SelectCase {
-    matches: LinkedList<Pattern>,
-    body: Scope,
-}
-
-pub struct ForClause {
-    identifier: Identifier,
-    initial_value: Expression,
+    pub matches: LinkedList<Pattern>,
+    pub body: Scope,
 }
 
 // Throwing an expression does not yield a value as it destroys its current process. However, it is
 // an expression and can therefore be used anywhere an expression can be used. It can throw any
 // expression that yields a type which implements the Exception interface.
-pub struct Throw(Expression);
+#[derive(Clone, Eq, PartialEq)]
+pub struct Throw(pub Box<Expression>);
 
+#[derive(Clone, Eq, PartialEq)]
 pub enum PatternField {
     Identifier(Identifier),
     BoundIdentifier(Identifier, Pattern),
     IgnoreRest,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct CompositePattern {
-    composite_type: Type,
-    components: Vec<PatternField>,
+    pub composite_type: Type,
+    pub components: Vec<PatternField>,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub enum PatternItem {
     Literal,
     Identifier,
@@ -379,7 +451,8 @@ pub enum PatternItem {
     Composite(CompositePattern),
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct Pattern {
-    item: PatternItem,
-    binding: Option<Identifier>,
+    pub item: PatternItem,
+    pub binding: Option<Identifier>,
 }

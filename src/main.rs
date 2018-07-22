@@ -7,9 +7,9 @@ use std::env::{args, Args};
 use std::fs::File;
 use std::io::Read;
 
-use lexing::Tokens;
 use lexing::lexer::Lexer;
 use lexing::source::Source;
+use lexing::Tokens;
 use parsing::Parser;
 
 fn load_source(args: Args) -> String {
@@ -20,9 +20,7 @@ fn load_source(args: Args) -> String {
 
     let source_path = &args_vector[1];
 
-    let mut file = File
-        ::open(source_path)
-        .expect("could not open specified source file");
+    let mut file = File::open(source_path).expect("could not open specified source file");
 
     let mut source = String::new();
     file.read_to_string(&mut source)

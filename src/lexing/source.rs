@@ -23,7 +23,7 @@ impl<'a> Index<usize> for CharReadMany<'a> {
     type Output = char;
 
     fn index(&self, index: usize) -> &char {
-        let &CharReadMany(slice) = self;
+        let CharReadMany(slice) = self;
         &slice[index]
     }
 }

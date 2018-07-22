@@ -3,23 +3,96 @@
 // If no package is specified, "main" is assumed.
 public package main
 
-// A single line comment.
-
-/*
-  A multiline comment.
-
-  /*
-    A nested multiline comment.
-  */
-*/
-
 import io.{println, print}
 
-/**
- * A SyDoc comment that allows document generation from comments.
- */
-interface ToString {
-    public String toString()
+void demoIteration() {
+    List(1, 2, 3).forEach(n -> {
+        println(`{n}`)
+    })
+
+    var highlight = s -> `>> {s} <<`
+
+    1.to(5)
+        .map(double # ::toString # highlight)
+        .forEach(println)
+
+    var quadruple = n -> n.double().double()
+
+    123456789
+        |> quadruple
+        |> ::toString
+        |> highlight
+        |> println
+
+    var map = HashMap(
+        "abc": 123,
+        "def": 321,
+        "ghi": 987,
+    )
+    map.forEach((key, value) -> {
+        println(`{key}: {value}`)
+    })
+
+    var fact = for var n = 20, var result = 1 {
+        if n <= 0 {
+            result
+        } else  {
+            continue(n - 1, n * result)
+        }
+    }
+    println(`factorial: {fact}`)
+}
+
+int factorial(int n) {
+    switch n {
+        case 0, 1:
+            1
+        default:
+            if n < 0 {
+                throw Exception("n cannot be less than 0")
+            }
+            factorial(n * (n - 1))
+    }
+}
+
+void twice<N>(N n, N f(N)) if N: Number {
+    f(n) + f(n)
+}
+
+String double<N>(N n) if N: Add & ToString {
+    (n + n).toString()
+}
+
+Optional<int> demoContexts() {
+    do {
+        var a <- Some(5)
+        doSomething()
+        var b <- Empty()
+        willNotBeRun()
+    }
+}
+
+package counter {
+
+    public enum Message {
+        Increment,
+        Reset(int),
+        Get,
+    }
+
+    public void start(Task sender, int n = 0) {
+        select Message {
+            case .Increment:
+                start(sender, n + 1)
+            case .Reset(n):
+                start(sender, n)
+            case .Get:
+                sender.send(n)
+                start(sender, n)
+            timeout 10.seconds:
+                throw Exception("timed out!")
+        }
+    }
 }
 
 interface Concatenate<T, Result = T> {
@@ -57,6 +130,7 @@ class Account: ToString, Concatenate<Account> {
 }
 
 extends class Account: Concatenate<Account, Result = String> {
+
     public override String concatenate(This that) {
         `{firstName} {that.firstName}`
     }
@@ -66,43 +140,6 @@ class Person = Account
 interface Showable = ToString
 
 int maxBound = 5
-
-int factorial(int n) {
-    switch n {
-        case 0, 1:
-            1
-        default:
-            if n < 0 {
-                throw Exception("n cannot be less than 0")
-            }
-            factorial(n * (n - 1))
-    }
-}
-
-package counter {
-    public enum Message {
-        Increment,
-        Reset(int),
-        Get,
-    }
-
-    public void start(Task sender, int n = 0) {
-        select Message {
-            case .Increment:
-                start(sender, n + 1)
-            case .Reset(n):
-                start(sender, n)
-            case .Get:
-                sender.send(n)
-            timeout 10.seconds:
-                throw Exception("timed out!")
-        }
-    }
-}
-
-void twice<N>(N n, N f(N)) if N: Number {
-    f(n) + f(n)
-}
 
 void closureDemo() {
     var x = 5
@@ -153,57 +190,6 @@ void demoNumericLiterals() {
     double m = 8f32
 }
 
-String double<N>(N n) if N: Add & ToString {
-    (n + n).toString()
-}
-
-void demoIteration() {
-    List(1, 2, 3).forEach(n -> {
-        println(`{n}`)
-    })
-
-    var highlight = s -> `>> {s} <<`
-
-    1.to(5)
-        .map(double :: sylan.util.parse :: #toString :: highlight)
-        .forEach(println)
-
-    var quadruple = n -> n.double().double()
-
-    123456789
-        |> quadruple
-        |> #toString
-        |> highlight
-        |> println
-
-    var map = HashMap(
-        "abc": 123,
-        "def": 321,
-        "ghi": 987,
-    )
-    map.forEach((key, value) -> {
-        println(`{key}: {value}`)
-    })
-
-    var fact = for n = 20, result = 1 {
-        if n <= 0 {
-            result
-        } else  {
-            continue(n - 1, n * result)
-        }
-    }
-    println(`factorial: {fact}`)
-}
-
-Optional<int> demoContexts() {
-    do {
-        var a <- Some(5)
-        doSomething()
-        var b <- Empty()
-        willNotBeRun()
-    }
-}
-
 // Top-level code is allowed, but only in the main package. Code in other packages must be in
 // functions or methods.
 
@@ -237,3 +223,10 @@ var x = {
 }
 print(`{x}`)
 
+/*
+  A multiline comment.
+
+  /*
+    A nested multiline comment.
+  */
+*/

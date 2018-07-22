@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use version::Version;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
@@ -10,7 +11,7 @@ pub enum Token {
     Shebang(Arc<String>),
     String(Arc<String>),
     SyDoc(Arc<String>),
-    Version(u64, u64),
+    Version(Version),
     Add,
     And,
     Assign,
@@ -62,7 +63,11 @@ pub enum Token {
     Public,
     Select,
     ShiftLeft,
-    ShiftRight,
+
+    // Could be either a right-shift operator or two closing type parameter
+    // brackets. Disamgiguate in the parser.
+    DoubleRightAngleBracket,
+
     SubItemSeparator,
     Subtract,
     Super,
