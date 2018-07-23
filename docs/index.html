@@ -416,8 +416,11 @@ the case of native compilation.
 
 <h3>Accessibility Levels</h3>
 <ul>
-  <li>Public and private; only public has a keyword.</li>
-  <li>Private level is default.</li>
+  <li>Public and private.</li>
+  <li>
+    Private level is denoted by prefixing a package, class, interface, package
+    var, method, or function with an underscore.
+  </li>
 </ul>
 
 <h3>Types</h3>
@@ -668,7 +671,7 @@ the case of native compilation.
     Go-style; just derive information from the source files rather than using
     separate configurations.
   </li>
-  <li>If we must have config files, consider TOML.
+  <li>If we must have config files, consider JSON5.
 </ul>
 
 <h3>Interoperability</h3>
