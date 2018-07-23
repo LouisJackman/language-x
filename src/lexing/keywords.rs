@@ -5,12 +5,12 @@ use lexing::tokens::Token;
 pub fn new() -> HashMap<&'static str, Token> {
     let mut map = HashMap::new();
     map.extend(vec![
-        ("case", Token::Case),
         ("class", Token::Class),
         ("continue", Token::Continue),
         ("default", Token::Default),
         ("do", Token::Do),
         ("else", Token::Else),
+        ("embeds", Token::Embeds),
         ("extends", Token::Extends),
         ("for", Token::For),
         ("get", Token::Get),
