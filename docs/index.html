@@ -55,7 +55,7 @@ li.done::after {
   <a href="https://github.com/LouisJackman/sylan">
     <img
       style="position: absolute; top: 0; right: 0; border: 0;"
-      src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png"
+      src="forkme_right_darkblue_121621.png"
       alt="Fork me on GitHub"
     >
   </a>
@@ -65,8 +65,8 @@ li.done::after {
   </p>
   <nav>
     <ul>
-      <li><a href="#synopsis">Synopsis</a></li>
       <li><a href="#example">Example</a></li>
+      <li><a href="#synopsis">Synopsis</a></li>
       <li><a href="#todo">TODO</a></li>
       <li><a href="#goals">Goals</a></li>
       <li><a href="#details">Details</a></li>
@@ -74,46 +74,6 @@ li.done::after {
   </nav>
 </header>
 <main>
-
-<h2 id="synopsis">Synopsis</h2>
-
-<p>
-Java and C# moved C++ application programmers away from direct memory
-management onto managed abstract machines with concurrency, networking,
-serialisation, and portability built-in.
-</p>
-
-<p>
-What about the next language and runtime after Java and .NET? Better distributed
-and concurrent programming support would be a good starting point. Null-free
-types, ubiquitous immutability, a lack of concrete inheritance, built-in
-supervisor trees, and transparently asynchronous IO would acknowledge this era
-of computing.
-</p>
-
-<p>
-Hardware is no longer speeding up exponentially year-on-year and is becoming
-increasingly parallel. Performance cannot be discarded out of hand like the rise
-of dynamic languages throughout the previous decade.
-</p>
-
-<p>
-Large semantic changes will likely be rejected by developers if not presented in
-a syntax similar to existing languages; like Java took C++'s syntax, the next
-language should take Java's.
-</p>
-
-<p>
-A gap exists between scripting languages and application languages; would enough
-type inference and support for features like top-level executable code and
-shebangs help bridge the gap?
-</p>
-
-<p>
-A runtime will be needed for preemptive concurrency and light weight tasks.
-Go shows that compromises regarding the tasks' preemptiveness must be made in
-the case of native compilation.
-</p>
 
 <h2 id="example">Example</h2>
 
@@ -350,6 +310,46 @@ print(`{x}`)
   */
 */
 </pre>
+
+<h2 id="synopsis">Synopsis</h2>
+
+<p>
+Java and C# moved C++ application programmers away from direct memory
+management onto managed abstract machines with concurrency, networking,
+serialisation, and portability built-in.
+</p>
+
+<p>
+What about the next language and runtime after Java and .NET? Better distributed
+and concurrent programming support would be a good starting point. Null-free
+types, ubiquitous immutability, a lack of concrete inheritance, built-in
+supervisor trees, and transparently asynchronous IO would acknowledge this era
+of computing.
+</p>
+
+<p>
+Hardware is no longer speeding up exponentially year-on-year and is becoming
+increasingly parallel. Performance cannot be discarded out of hand like the rise
+of dynamic languages throughout the previous decade.
+</p>
+
+<p>
+Large semantic changes will likely be rejected by developers if not presented in
+a syntax similar to existing languages; like Java took C++'s syntax, the next
+language should take Java's.
+</p>
+
+<p>
+A gap exists between scripting languages and application languages; would enough
+type inference and support for features like top-level executable code and
+shebangs help bridge the gap?
+</p>
+
+<p>
+A runtime will be needed for preemptive concurrency and light weight tasks.
+Go shows that compromises regarding the tasks' preemptiveness must be made in
+the case of native compilation.
+</p>
 
 <h2 id="todo">TODO</h2>
 
