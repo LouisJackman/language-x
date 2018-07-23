@@ -20,7 +20,6 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("interface", Token::Interface),
         ("override", Token::Override),
         ("package", Token::Package),
-        ("public", Token::Public),
         ("select", Token::Select),
         ("super", Token::Super),
         ("switch", Token::Switch),

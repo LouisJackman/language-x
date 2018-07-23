@@ -60,7 +60,6 @@ pub enum Token {
     Override,
     Package,
     Pipe,
-    Public,
     Select,
     ShiftLeft,
 

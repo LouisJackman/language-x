@@ -1,11 +1,16 @@
 #!/usr/bin/env sylan
 
 // If no package is specified, "main" is assumed.
-public package main
+package main
 
-import io.{println, print}
+import sylan.io.{println, print}
+import sylan.datetime.ZonedDateTime
 
-void demoIteration() {
+// Package items like functions and classes are private to the package if
+// prefixed with an underscore.
+//
+// This also works with fields in classes and methods in classes and interfaces.
+void _demoIteration() {
     List(1, 2, 3).forEach(n ->
         println(`{n}`)
     )
@@ -69,13 +74,13 @@ Optional<int> demoContexts() ->
 
 package counter {
 
-    public enum Message {
+    enum Message {
         Increment,
         Reset(int),
         Get,
     }
 
-    public void start(Task sender, int n = 0) ->
+    void start(Task sender, int n = 0) ->
         select Message {
             .Increment ->
                 start(sender, n + 1)
@@ -91,23 +96,25 @@ package counter {
 }
 
 interface Concatenate<T, Result = T> {
-    public Result concatenate(T y)
+    Result concatenate(T y)
 }
 
 class Account: ToString, Concatenate<Account> {
-    public String firstName
-    public String lastName
-    public int ageInYears
+    String firstName
+    String lastName
+    int ageInYears
 
-    public Account(String firstName, String lastName) {
+    ZonedDateTime _expiry = ZonedDateTime.now() + 1.year
+
+    Account(String firstName, String lastName) {
         println("instantiating an Account...")
         super(.firstName, .lastName, ageInYears = 35)
     }
 
-    public override String toString() ->
+    override String toString() ->
         `{firstName} {lastName} is {ageInYears} years old`
 
-    public override Account concatenate(Account a) {
+    override Account concatenate(Account a) {
         var firstName = firstName.concat(a.firstName)
         var lastName = lastName.concat(a.lastName)
 
@@ -118,13 +125,16 @@ class Account: ToString, Concatenate<Account> {
         )
     }
 
-    public String get name() ->
+    String get name ->
         `{firstName} {lastName}`
+
+    boolean get locked ->
+        expiry < ZonedDateTime.now()
 }
 
 extends class Account: Concatenate<Account, Result = String> {
 
-    public override String concatenate(This that) ->
+    override String concatenate(This that) ->
         `{firstName} {that.firstName}`
 }
 
