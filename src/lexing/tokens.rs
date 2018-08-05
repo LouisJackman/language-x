@@ -1,16 +1,16 @@
-use std::sync::Arc;
+use multiphase::{Identifier, InterpolatedString, Shebang, SyDoc, SylanString};
 use version::Version;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
     Boolean(bool),
     Char(char),
-    Identifier(Arc<String>),
-    InterpolatedString(Arc<String>),
+    Identifier(Identifier),
+    InterpolatedString(InterpolatedString),
     Number(i64, u64),
-    Shebang(Arc<String>),
-    String(Arc<String>),
-    SyDoc(Arc<String>),
+    Shebang(Shebang),
+    String(SylanString),
+    SyDoc(SyDoc),
     Version(Version),
     Add,
     And,
@@ -35,6 +35,7 @@ pub enum Token {
     Eof,
     Equals,
     Embeds,
+    Extend,
     Extends,
     For,
     Get,
@@ -60,6 +61,7 @@ pub enum Token {
     Override,
     Package,
     Pipe,
+    Pure,
     Select,
     ShiftLeft,
 
@@ -73,7 +75,9 @@ pub enum Token {
     Switch,
     Throw,
     Timeout,
+    Total,
     Var,
+    Where,
 }
 
 impl Default for Token {

@@ -3,12 +3,12 @@ mod nodes;
 use lexing::lexer::{self, LexedToken};
 use lexing::tokens::Token;
 use lexing::Tokens;
-use parsing::nodes::Expression::{Identifier, Literal, UnaryOperator};
-use parsing::nodes::Node;
-use parsing::nodes::Node::{Expression, Item};
+use multiphase::{self, Identifier};
+use parsing::nodes::Accessibility;
+use parsing::nodes::Expression::{Literal, UnaryOperator};
 use parsing::nodes::{
-    Accessibility, Binding, Code, ContextualBinding, ContextualCode, Declaration, DeclarationItem,
-    FilePackage, If, Import, MainPackage, Package, Throw, TypeDeclaration,
+    Binding, Code, ContextualBinding, ContextualCode, DeclarationItem, FilePackage, If, Import,
+    MainPackage, Package, Throw, TypeDeclaration,
 };
 use peekable_buffer::PeekableBuffer;
 use std::collections::HashSet;
@@ -35,6 +35,20 @@ pub enum Error {
 }
 
 type Result<T> = result::Result<T, Error>;
+
+fn is_ignored_binding(identifier: Identifier) -> bool {
+    let Identifier(string) = identifier;
+    (*string) == "_"
+}
+
+fn get_item_accessibility(identifier: Identifier) -> Accessibility {
+    let Identifier(string) = identifier;
+    if string.starts_with('_') {
+        Accessibility::Private
+    } else {
+        Accessibility::Public
+    }
+}
 
 pub struct Parser {
     tokens: Tokens,
@@ -202,6 +216,10 @@ impl Parser {
         })
     }
 
+    fn parse_pattern(&mut self) -> Result<nodes::Pattern> {
+        unimplemented!()
+    }
+
     fn parse_import(&mut self) -> Result<nodes::Import> {
         self.tokens.discard();
         let lookup = self.parse_package_lookup()?;
@@ -225,38 +243,28 @@ impl Parser {
     }
 
     fn parse_package_definition(&mut self) -> Result<nodes::Package> {
-        let accessibility = if self.next_is(Token::Public) {
-            self.tokens.discard();
-            Accessibility::Public
-        } else {
-            Accessibility::Private
-        };
-
         self.expect_and_discard(Token::Package)?;
 
-        if let nodes::Identifier::Actual(name) = self.parse_identifier()? {
-            self.expect_and_discard(Token::OpenBrace)?;
-            let (imports, declarations) = self.parse_inside_package()?;
-            self.expect_and_discard(Token::CloseBrace)?;
+        let name = self.parse_identifier()?;
+        self.expect_and_discard(Token::OpenBrace)?;
+        let (imports, declarations) = self.parse_inside_package()?;
+        self.expect_and_discard(Token::CloseBrace)?;
 
-            Ok(nodes::Package {
-                accessibility,
-                name,
-                imports,
-                declarations,
-            })
-        } else {
-            self.fail("the ignored identifier, _, cannot be used as a package name")
-        }
+        Ok(nodes::Package {
+            accessibility: get_item_accessibility(name),
+            name,
+            imports,
+            declarations,
+        })
     }
 
     fn parse_binding(&mut self) -> Result<nodes::Binding> {
         self.tokens.discard();
-        let name = self.parse_identifier()?;
+        let pattern = self.parse_pattern()?;
         self.expect_and_discard(Token::Assign)?;
         let value = self.parse_expression()?;
 
-        Ok(Binding { name, value })
+        Ok(Binding { pattern, value })
     }
 
     fn parse_contextual_binding(&mut self) -> Result<nodes::ContextualBinding> {
@@ -268,10 +276,10 @@ impl Parser {
         Ok(ContextualBinding { name, value })
     }
 
-    fn parse_identifier(&mut self) -> Result<nodes::Identifier> {
+    fn parse_identifier(&mut self) -> Result<Identifier> {
         if let Some(lexed) = self.tokens.read() {
             if let Token::Identifier(identifier) = lexed.token {
-                Ok(nodes::Identifier::Actual(identifier))
+                Ok(identifier)
             } else {
                 self.fail("identifier expected")
             }
@@ -292,9 +300,7 @@ impl Parser {
         self.tokens.discard();
         self.expect_and_discard(Token::OpenBrace);
 
-        loop {
-            //
-        }
+        unimplemented!()
     }
 
     fn parse_throw(&mut self) -> Result<nodes::Throw> {
@@ -312,7 +318,7 @@ impl Parser {
                     // except interpolated strings.
                     Token::Boolean(b) => Ok(Literal(nodes::Literal::Boolean(b))),
                     Token::Char(c) => Ok(Literal(nodes::Literal::Char(c))),
-                    Token::Identifier(string) => Ok(Identifier(nodes::Identifier::Actual(string))),
+                    Token::Identifier(identifier) => Ok(nodes::Expression::Identifier(identifier)),
                     Token::InterpolatedString(string) => {
                         // TODO: reenter the lexer to handle interpolation
                         // properly.
@@ -426,10 +432,6 @@ impl Parser {
                             self.parse_package_definition();
                             unimplemented!()
                         }
-                        Token::Public => {
-                            self.parse_public_in_package();
-                            unimplemented!()
-                        }
                         Token::Var => {
                             self.parse_binding();
                             unimplemented!()
@@ -484,10 +486,6 @@ impl Parser {
                             self.parse_package_definition();
                             unimplemented!()
                         }
-                        Token::Public => {
-                            self.parse_public_in_package();
-                            unimplemented!()
-                        }
                         Token::Var => {
                             self.parse_binding();
                             unimplemented!()
@@ -508,7 +506,7 @@ impl Parser {
             imports,
             declarations,
             accessibility: Accessibility::Public,
-            name: Arc::new(String::from("main")),
+            name: Identifier(Arc::new(String::from("main"))),
         };
 
         let bindings = package
@@ -535,7 +533,7 @@ impl Parser {
         })
     }
 
-    fn maybe_parse_shebang(&mut self) -> Option<Arc<String>> {
+    fn maybe_parse_shebang(&mut self) -> Option<multiphase::Shebang> {
         let maybe_line = {
             let token = &self.tokens.peek()?.token;
             if let Token::Shebang(line) = token {

@@ -1,6 +1,6 @@
+use multiphase::{Identifier, InterpolatedString, Shebang, SyDoc, SylanString};
 use std::collections::{HashSet, LinkedList};
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 use version::Version;
 
 // Sylan consists of items and expressions. Items are declarative whereas expressions are executed
@@ -9,7 +9,7 @@ use version::Version;
 // expressions one after the other and discarding their values.
 
 pub struct File {
-    pub shebang: Option<Arc<String>>,
+    pub shebang: Option<Shebang>,
     pub version: Option<Version>,
     pub package: FilePackage,
 }
@@ -20,7 +20,7 @@ pub enum Item {
     Interface(Interface),
     Method(Method),
     Binding(Binding),
-    SyDoc(Arc<String>),
+    SyDoc(SyDoc),
 }
 
 #[derive(Clone, Eq, PartialEq)]
@@ -57,7 +57,7 @@ pub struct Package {
     pub accessibility: Accessibility,
     pub imports: Vec<Import>,
     pub declarations: Vec<Declaration>,
-    pub name: Arc<String>,
+    pub name: Identifier,
 }
 
 pub struct MainPackage {
@@ -102,14 +102,14 @@ pub struct Declaration {
 // interfaces; only interfaces can extend other types, and those types can only be interfaces.
 
 pub struct Class {
-    pub implements: LinkedList<Interface>,
+    pub implements: LinkedList<Type>,
     pub methods: HashSet<ConcreteMethod>,
     pub getters: HashSet<Getter>,
     pub items: HashSet<Declaration>,
 }
 
 pub struct Interface {
-    pub extends: LinkedList<Interface>,
+    pub extends: LinkedList<Type>,
     pub getters: HashSet<Getter>,
     pub methods: HashSet<Method>,
 }
@@ -203,13 +203,13 @@ pub struct Parameter<T> {
     pub identifier: Identifier,
 }
 
+pub type ValueParameter = Parameter<Expression>;
+
 #[derive(Clone, Eq, PartialEq)]
 pub struct TypeParameter {
     pub parameter: Parameter<Identifier>,
-    pub upper_bound: Option<Type>,
+    pub upper_bounds: LinkedList<Type>,
 }
-
-type ValueParameter = Parameter<Type>;
 
 // Type and value arguments are the same except for one difference: type arguments are for types at
 // compiletime whereas value arguments are for values at runtime. Both support being passed as
@@ -222,29 +222,25 @@ pub struct Argument<T> {
     pub identifier: Option<Identifier>,
 }
 
+type ValueArgument = Argument<Expression>;
+type TypeArguments = Argument<Type>;
+
 // Sylan's "symbol tables" are just a collection of bindings in the current scope. Parent scopes
 // can be looked up to find bindings in outer closures, which is how lexical scoping is
-// implemented.
-
-#[derive(Clone, Eq, Hash, PartialEq)]
-pub enum Identifier {
-    Actual(Arc<String>),
-    Ignored,
-}
-
+//
 // Bindings are for execution-time values. Statically deducable values go via package and type
 // definitions instead. (Note that "execution-time" can mean both "runtime" and "running within a
 // compile-time macro.)
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Binding {
-    pub name: Identifier,
+    pub pattern: Pattern,
     pub value: Expression,
 }
 
 impl Hash for Binding {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.name.hash(state)
+        self.pattern.hash(state)
     }
 }
 
@@ -332,10 +328,10 @@ pub enum Literal {
     Char(char),
 
     // Reentering the lexer is needed for interpolations in interpolated strings.
-    InterpolatedString(Arc<String>),
+    InterpolatedString(InterpolatedString),
 
     Number(i64, u64),
-    String(Arc<String>),
+    String(SylanString),
 }
 
 pub type PackageLookup = Vec<Identifier>;
@@ -447,6 +443,7 @@ pub struct CompositePattern {
 pub enum PatternItem {
     Literal,
     Identifier,
+    Ignored,
     Expression(Expression),
     Composite(CompositePattern),
 }
@@ -455,4 +452,10 @@ pub enum PatternItem {
 pub struct Pattern {
     pub item: PatternItem,
     pub binding: Option<Identifier>,
+}
+
+impl Hash for Pattern {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.binding.hash(state)
+    }
 }

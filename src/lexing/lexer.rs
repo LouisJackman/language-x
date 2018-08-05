@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::io;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{channel, Receiver};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
@@ -9,6 +9,7 @@ use lexing::char_escapes;
 use lexing::keywords;
 use lexing::source::Source;
 use lexing::tokens::Token;
+use multiphase::{self, SylanString};
 use peekable_buffer::PeekableBuffer;
 use version::Version;
 
@@ -253,7 +254,7 @@ impl Lexer {
                 None => break,
             }
         }
-        Token::String(Arc::new(string))
+        Token::String(SylanString(Arc::new(string)))
     }
 
     fn lex_interpolated_string(&mut self) -> Token {
@@ -270,7 +271,7 @@ impl Lexer {
                 None => break,
             }
         }
-        Token::InterpolatedString(Arc::new(string))
+        Token::InterpolatedString(multiphase::InterpolatedString(Arc::new(string)))
     }
 
     fn lex_char(&mut self) -> TokenResult {
@@ -280,7 +281,8 @@ impl Lexer {
             Some(c) => {
                 let result = if c == '\\' {
                     match self.source.read() {
-                        Some(escaped) => self.char_escapes
+                        Some(escaped) => self
+                            .char_escapes
                             .get(&escaped)
                             .map_or(self.fail(format!("invalid escape: {}", escaped)), |&c| {
                                 Ok(Token::Char(c))
@@ -321,7 +323,7 @@ impl Lexer {
                     }
                 }
             }
-            Ok(Token::Shebang(Arc::new(content)))
+            Ok(Token::Shebang(multiphase::Shebang(Arc::new(content))))
         } else {
             self.expect('!')
         }
@@ -336,7 +338,7 @@ impl Lexer {
 
             if (Some('*') == next_char) && self.source.nth_is(1, '/') {
                 self.source.discard_many(2);
-                break Ok(Token::SyDoc(Arc::new(content)));
+                break Ok(Token::SyDoc(multiphase::SyDoc(Arc::new(content))));
             } else if (Some('/') == next_char) && self.source.nth_is(1, '*') {
                 content.push('/');
                 content.push('*');
@@ -361,7 +363,7 @@ impl Lexer {
             "false" => Token::Boolean(false),
             _ => match self.keywords.get(&word[..]) {
                 Some(token) => token.clone(),
-                None => Token::Identifier(Arc::new(word)),
+                None => Token::Identifier(multiphase::Identifier(Arc::new(word))),
             },
         }
     }
@@ -634,15 +636,14 @@ mod tests {
     #[test]
     fn identifier() {
         let mut lexer = test_lexer("    \t  \n      abc");
-        assert_next(&mut lexer, Token::Identifier(Arc::new(String::from("abc"))));
+        assert_next(&mut lexer, Token::Identifier::from("abc"));
     }
 
     #[test]
     fn keywords() {
-        let mut lexer = test_lexer("    class\t  \n  public    abc var do");
+        let mut lexer = test_lexer("    class\t  \n  abc var do");
         assert_next(&mut lexer, Token::Class);
-        assert_next(&mut lexer, Token::Public);
-        assert_next(&mut lexer, Token::Identifier(Arc::new(String::from("abc"))));
+        assert_next(&mut lexer, Token::Identifier::from("abc"));
         assert_next(&mut lexer, Token::Var);
         assert_next(&mut lexer, Token::Do);
     }
@@ -668,8 +669,8 @@ mod tests {
     #[test]
     fn strings() {
         let mut lexer = test_lexer("  \"abcdef\"   \t \n\n\n\"'123'\"");
-        assert_next(&mut lexer, Token::String(Arc::new(String::from("abcdef"))));
-        assert_next(&mut lexer, Token::String(Arc::new(String::from("'123'"))));
+        assert_next(&mut lexer, Token::String::from("abcdef"));
+        assert_next(&mut lexer, Token::String::from("'123'"));
     }
 
     #[test]
@@ -677,14 +678,8 @@ mod tests {
         // TODO: test actual interpolation once the parser is complete.
 
         let mut lexer = test_lexer("   `123`   `abc`");
-        assert_next(
-            &mut lexer,
-            Token::InterpolatedString(Arc::new(String::from("123"))),
-        );
-        assert_next(
-            &mut lexer,
-            Token::InterpolatedString(Arc::new(String::from("abc"))),
-        );
+        assert_next(&mut lexer, Token::InterpolatedString::from("123"));
+        assert_next(&mut lexer, Token::InterpolatedString::from("abc"));
     }
 
     #[test]
@@ -694,7 +689,7 @@ mod tests {
         assert_next(&mut lexer, Token::BitwiseNot);
         assert_next(&mut lexer, Token::Not);
         assert_next(&mut lexer, Token::BitwiseXor);
-        assert_next(&mut lexer, Token::ShiftRight);
+        assert_next(&mut lexer, Token::DoubleRightAngleBracket);
         assert_next(&mut lexer, Token::NotEquals);
         assert_next(&mut lexer, Token::Pipe);
         assert_next(&mut lexer, Token::Compose);
@@ -739,16 +734,16 @@ mod tests {
     #[test]
     fn shebang() {
         let mut lexer = test_lexer("#!/usr/bin/env sylan");
-        let shebang = Token::Shebang(Arc::new(String::from("/usr/bin/env sylan")));
+        let shebang = Token::Shebang::from("/usr/bin/env sylan");
         assert_next(&mut lexer, shebang);
 
         let mut lexer2 = test_lexer("#!/usr/bin sylan\r\ntrue false");
-        let shebang2 = Token::Shebang(Arc::new(String::from("/usr/bin sylan")));
+        let shebang2 = Token::Shebang::from("/usr/bin sylan");
         assert_next(&mut lexer2, shebang2);
         assert_next(&mut lexer2, Token::Boolean(true));
 
         let mut lexer3 = test_lexer("#!/usr/local/bin/env sylan\n123 321");
-        let shebang3 = Token::Shebang(Arc::new(String::from("/usr/local/bin/env sylan")));
+        let shebang3 = Token::Shebang::from("/usr/local/bin/env sylan");
         assert_next(&mut lexer3, shebang3);
         assert_next(&mut lexer3, Token::Number(123, 0));
     }
@@ -756,7 +751,7 @@ mod tests {
     #[test]
     fn sydoc() {
         let mut lexer = test_lexer("/* comment */ // \n /** A SyDoc /* comment. */ */");
-        let sydoc = Token::SyDoc(Arc::new(String::from(" A SyDoc /* comment. */ ")));
+        let sydoc = Token::SyDoc::from(" A SyDoc /* comment. */ ");
         assert_next(&mut lexer, sydoc);
     }
 }

@@ -38,39 +38,51 @@ void _demoIteration() {
         println(`{key}: {value}`)
     )
 
-    var fact = for var n = 20, var result = 1 ->
-        if n <= 0 ->
+    var fact = for var n = 20, var result = 1 {
+        if n <= 0 {
             result
-        else ->
+        } else {
             continue(n - 1, n * result)
+        }
+    }
 
     println(`factorial: {fact}`)
 }
 
-int factorial(int n) ->
+int factorial(int n) {
     switch n {
-        0, 1 -> 1
+        0, 1 ->
+            1
 
         default ->
-            if n < 0 ->
+            if n < 0 {
                 throw Exception("n cannot be less than 0")
-            else ->
+            } else {
                 factorial(n * (n - 1))
+            }
     }
+}
 
-void twice<N>(N n, N f(N)) if N: Number ->
+void twice<N>(N n, N f(N)) where
+    N : Number
+{
     f(n) + f(n)
+}
 
-String double<N>(N n) if N: Add & ToString ->
+String double<N>(N n) where
+    N : Add & ToString
+{
     (n + n).toString()
+}
 
-Optional<int> demoContexts() ->
+Optional<int> demoContexts() {
     do {
         var a <- Some(5)
         doSomething()
         var b <- Empty()
         willNotBeRun()
     }
+}
 
 package counter {
 
@@ -80,17 +92,16 @@ package counter {
         Get,
     }
 
-    void start(Task sender, int n = 0) ->
+    void start(Task sender, int n = 0) {
         select Message {
-            .Increment ->
+            .Increment:
                 start(sender, n + 1)
-            .Reset(n) ->
+            .Reset(n):
                 start(sender, n)
-            .Get {
+            .Get:
                 sender.send(n)
                 start(sender, n)
-            }
-            timeout 10.seconds ->
+            timeout 10.seconds:
                 throw Exception("timed out!")
         }
 }
@@ -111,8 +122,9 @@ class Account: ToString, Concatenate<Account> {
         super(.firstName, .lastName, ageInYears = 35)
     }
 
-    override String toString() ->
+    override String toString() {
         `{firstName} {lastName} is {ageInYears} years old`
+    }
 
     override Account concatenate(Account a) {
         var firstName = firstName.concat(a.firstName)
@@ -125,17 +137,20 @@ class Account: ToString, Concatenate<Account> {
         )
     }
 
-    String get name ->
+    String get name {
         `{firstName} {lastName}`
+    }
 
-    boolean get locked ->
+    boolean get locked {
         expiry < ZonedDateTime.now()
+    }
 }
 
-extends class Account: Concatenate<Account, Result = String> {
+extend class Account: Concatenate<Account, Result = String> {
 
-    override String concatenate(This that) ->
+    override String concatenate(This that) {
         `{firstName} {that.firstName}`
+    }
 }
 
 class Person = Account
@@ -195,8 +210,9 @@ void demoNumericLiterals() {
 // functions or methods.
 
 Optional<String> optionalString = Some("test string")
-if var Some(s) = optionalString ->
+if var Some(s) = optionalString {
     println(s)
+}
 
 var c = Task(-> counter.start(currentTask))
 5.times(-> c.send(counter.Message.Increment()))
@@ -207,8 +223,9 @@ c.send(counter.Message.Get())
 
 // Should print 5 and then 6.
 2.times(->
-    select int n ->
+    select int n {
         println(`{n}`)
+    }
 )
 
 print("""

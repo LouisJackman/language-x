@@ -1,4 +1,5 @@
 mod lexing;
+mod multiphase;
 mod parsing;
 mod peekable_buffer;
 mod version;

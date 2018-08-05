@@ -241,7 +241,7 @@ mod tests {
             },
             vec![
                 Token::Dot,
-                Token::Identifier(Arc::new(String::from("forEach"))),
+                Token::Identifier(Identifier(Arc::new(String::from("forEach")))),
                 Token::OpenParentheses,
             ],
         )
