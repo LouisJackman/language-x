@@ -190,6 +190,11 @@ void closureDemo() {
 }
 
 void demoNumericLiterals() {
+    /**
+     * SyDocs can be written for code documentation. Unlike most languages, they
+     * go inside the item they describe, not just before it.
+     */
+
     int a = 5
     uint b = 5
     decimal c = 10.0
