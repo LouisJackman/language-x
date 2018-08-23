@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 mod lexing;
 mod multiphase;
 mod parsing;
