@@ -9,7 +9,7 @@ use lexing::char_escapes;
 use lexing::keywords;
 use lexing::source::Source;
 use lexing::tokens::Token;
-use multiphase::{self, SylanString};
+use multiphase::{self, Identifier, InterpolatedString, Shebang, SyDoc, SylanString};
 use peekable_buffer::PeekableBuffer;
 use version::Version;
 
@@ -254,7 +254,7 @@ impl Lexer {
                 None => break,
             }
         }
-        Token::String(SylanString(Arc::new(string)))
+        Token::String(SylanString::from(string))
     }
 
     fn lex_interpolated_string(&mut self) -> Token {
@@ -271,7 +271,7 @@ impl Lexer {
                 None => break,
             }
         }
-        Token::InterpolatedString(multiphase::InterpolatedString(Arc::new(string)))
+        Token::InterpolatedString(multiphase::InterpolatedString::from(string))
     }
 
     fn lex_char(&mut self) -> TokenResult {
@@ -323,7 +323,7 @@ impl Lexer {
                     }
                 }
             }
-            Ok(Token::Shebang(multiphase::Shebang(Arc::new(content))))
+            Ok(Token::Shebang(multiphase::Shebang::from(content)))
         } else {
             self.expect('!')
         }
@@ -338,7 +338,7 @@ impl Lexer {
 
             if (Some('*') == next_char) && self.source.nth_is(1, '/') {
                 self.source.discard_many(2);
-                break Ok(Token::SyDoc(multiphase::SyDoc(Arc::new(content))));
+                break Ok(Token::SyDoc(multiphase::SyDoc::from(content)));
             } else if (Some('/') == next_char) && self.source.nth_is(1, '*') {
                 content.push('/');
                 content.push('*');
@@ -363,7 +363,7 @@ impl Lexer {
             "false" => Token::Boolean(false),
             _ => match self.keywords.get(&word[..]) {
                 Some(token) => token.clone(),
-                None => Token::Identifier(multiphase::Identifier(Arc::new(word))),
+                None => Token::Identifier(multiphase::Identifier::from(word)),
             },
         }
     }
@@ -636,14 +636,14 @@ mod tests {
     #[test]
     fn identifier() {
         let mut lexer = test_lexer("    \t  \n      abc");
-        assert_next(&mut lexer, Token::Identifier::from("abc"));
+        assert_next(&mut lexer, Token::Identifier(Identifier::from("abc")));
     }
 
     #[test]
     fn keywords() {
         let mut lexer = test_lexer("    class\t  \n  abc var do");
         assert_next(&mut lexer, Token::Class);
-        assert_next(&mut lexer, Token::Identifier::from("abc"));
+        assert_next(&mut lexer, Token::Identifier(Identifier::from("abc")));
         assert_next(&mut lexer, Token::Var);
         assert_next(&mut lexer, Token::Do);
     }
@@ -669,8 +669,8 @@ mod tests {
     #[test]
     fn strings() {
         let mut lexer = test_lexer("  \"abcdef\"   \t \n\n\n\"'123'\"");
-        assert_next(&mut lexer, Token::String::from("abcdef"));
-        assert_next(&mut lexer, Token::String::from("'123'"));
+        assert_next(&mut lexer, Token::String(SylanString::from("abcdef")));
+        assert_next(&mut lexer, Token::String(SylanString::from("'123'")));
     }
 
     #[test]
@@ -678,8 +678,14 @@ mod tests {
         // TODO: test actual interpolation once the parser is complete.
 
         let mut lexer = test_lexer("   `123`   `abc`");
-        assert_next(&mut lexer, Token::InterpolatedString::from("123"));
-        assert_next(&mut lexer, Token::InterpolatedString::from("abc"));
+        assert_next(
+            &mut lexer,
+            Token::InterpolatedString(InterpolatedString::from("123")),
+        );
+        assert_next(
+            &mut lexer,
+            Token::InterpolatedString(InterpolatedString::from("abc")),
+        );
     }
 
     #[test]
@@ -734,16 +740,16 @@ mod tests {
     #[test]
     fn shebang() {
         let mut lexer = test_lexer("#!/usr/bin/env sylan");
-        let shebang = Token::Shebang::from("/usr/bin/env sylan");
+        let shebang = Token::Shebang(Shebang::from("/usr/bin/env sylan"));
         assert_next(&mut lexer, shebang);
 
         let mut lexer2 = test_lexer("#!/usr/bin sylan\r\ntrue false");
-        let shebang2 = Token::Shebang::from("/usr/bin sylan");
+        let shebang2 = Token::Shebang(Shebang::from("/usr/bin sylan"));
         assert_next(&mut lexer2, shebang2);
         assert_next(&mut lexer2, Token::Boolean(true));
 
         let mut lexer3 = test_lexer("#!/usr/local/bin/env sylan\n123 321");
-        let shebang3 = Token::Shebang::from("/usr/local/bin/env sylan");
+        let shebang3 = Token::Shebang(Shebang::from("/usr/local/bin/env sylan"));
         assert_next(&mut lexer3, shebang3);
         assert_next(&mut lexer3, Token::Number(123, 0));
     }
@@ -751,7 +757,7 @@ mod tests {
     #[test]
     fn sydoc() {
         let mut lexer = test_lexer("/* comment */ // \n /** A SyDoc /* comment. */ */");
-        let sydoc = Token::SyDoc::from(" A SyDoc /* comment. */ ");
+        let sydoc = Token::SyDoc(SyDoc::from(" A SyDoc /* comment. */ "));
         assert_next(&mut lexer, sydoc);
     }
 }

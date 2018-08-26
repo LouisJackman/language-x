@@ -9,6 +9,7 @@ use std::io;
 use std::ops::Index;
 
 use lexing::lexer::{LexedToken, Lexer, LexerTask, LexerTaskError};
+use multiphase::Identifier;
 use peekable_buffer::PeekableBuffer;
 
 const MAX_TOKEN_LOOKAHEAD: usize = 5;
@@ -181,7 +182,7 @@ mod tests {
     fn peek() {
         assert_next(
             |tokens| tokens.peek().unwrap().token.clone(),
-            Token::Identifier(Arc::new(String::from("List"))),
+            Token::Identifier(Identifier::from("List")),
         )
     }
 
@@ -197,7 +198,7 @@ mod tests {
                     .collect::<Vec<Token>>()
             },
             vec![
-                Token::Identifier(Arc::new(String::from("List"))),
+                Token::Identifier(Identifier::from("List")),
                 Token::OpenParentheses,
                 Token::Number(1, 0),
                 Token::SubItemSeparator,
@@ -212,7 +213,7 @@ mod tests {
                 tokens.discard_many(5);
                 tokens.peek_nth(5).unwrap().token.clone()
             },
-            Token::Identifier(Arc::new(String::from("forEach"))),
+            Token::Identifier(Identifier::from("forEach")),
         )
     }
 
@@ -241,7 +242,7 @@ mod tests {
             },
             vec![
                 Token::Dot,
-                Token::Identifier(Identifier(Arc::new(String::from("forEach")))),
+                Token::Identifier(Identifier::from("forEach")),
                 Token::OpenParentheses,
             ],
         )

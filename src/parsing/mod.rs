@@ -7,8 +7,8 @@ use multiphase::{self, Identifier};
 use parsing::nodes::Accessibility;
 use parsing::nodes::Expression::{Literal, UnaryOperator};
 use parsing::nodes::{
-    Binding, Code, ContextualBinding, ContextualCode, DeclarationItem, FilePackage, If, Import,
-    MainPackage, Package, Throw, TypeDeclaration,
+    Binding, Code, ContextualBinding, ContextualCode, ContextualScope, DeclarationItem,
+    FilePackage, If, Import, MainPackage, Package, Throw, TypeDeclaration,
 };
 use peekable_buffer::PeekableBuffer;
 use std::collections::HashSet;
@@ -41,7 +41,7 @@ fn is_ignored_binding(identifier: Identifier) -> bool {
     (*string) == "_"
 }
 
-fn get_item_accessibility(identifier: Identifier) -> Accessibility {
+fn get_item_accessibility(identifier: &Identifier) -> Accessibility {
     let Identifier(string) = identifier;
     if string.starts_with('_') {
         Accessibility::Private
@@ -141,7 +141,7 @@ impl Parser {
         unimplemented!()
     }
 
-    fn parse_do(&mut self) -> Result<nodes::ContextualCode> {
+    fn parse_do(&mut self) -> Result<nodes::ContextualScope> {
         let mut bindings = HashSet::new();
         let mut contextual_bindings = HashSet::new();
         let mut expressions = vec![];
@@ -165,10 +165,13 @@ impl Parser {
             }
         }
 
-        Ok(ContextualCode {
-            bindings,
-            contextual_bindings,
-            expressions,
+        Ok(ContextualScope {
+            code: ContextualCode {
+                bindings,
+                contextual_bindings,
+                expressions,
+            },
+            parent: None,
         })
     }
 
@@ -251,7 +254,7 @@ impl Parser {
         self.expect_and_discard(Token::CloseBrace)?;
 
         Ok(nodes::Package {
-            accessibility: get_item_accessibility(name),
+            accessibility: get_item_accessibility(&name),
             name,
             imports,
             declarations,
@@ -333,7 +336,7 @@ impl Parser {
                     Token::Add => self.parse_unary_add(),
                     Token::BitwiseNot => self.parse_bitwise_not(),
                     Token::BitwiseXor => self.parse_bitwise_xor(),
-                    Token::Do => self.parse_do().map(nodes::Expression::ContextualCode),
+                    Token::Do => self.parse_do().map(nodes::Expression::ContextualScope),
                     Token::For => self.parse_for(),
                     Token::If => self.parse_if().map(nodes::Expression::If),
                     Token::LambdaArrow => self.parse_lambda().map(nodes::Expression::Function),
@@ -408,10 +411,6 @@ impl Parser {
 
                 Some(token) => {
                     match token {
-                        Token::SyDoc(_) => {
-                            self.parse_sydoc_in_package();
-                            unimplemented!()
-                        }
                         Token::Class => {
                             self.parse_class();
                             unimplemented!()
@@ -462,10 +461,6 @@ impl Parser {
 
                 Some(token) => {
                     match token {
-                        Token::SyDoc(_) => {
-                            self.parse_sydoc_in_package();
-                            unimplemented!()
-                        }
                         Token::Class => {
                             let class = self.parse_class();
                             unimplemented!()
