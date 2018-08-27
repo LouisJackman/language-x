@@ -4,19 +4,19 @@ use lexing::lexer::{self, LexedToken};
 use lexing::tokens::Token;
 use lexing::Tokens;
 use multiphase::{self, Identifier};
-use parsing::nodes::Accessibility;
-use parsing::nodes::Expression::{Literal, UnaryOperator};
+use parsing::nodes::Expression::{self, Literal, UnaryOperator};
 use parsing::nodes::{
-    Binding, Code, ContextualBinding, ContextualCode, ContextualScope, DeclarationItem,
-    FilePackage, If, Import, MainPackage, Package, Throw, TypeDeclaration,
+    Accessibility, Binding, Case, Code, ContextualBinding, ContextualCode, ContextualScope, DeclarationItem,
+    FilePackage, If, Import, MainPackage, Package, Pattern, PatternItem, Scope, Select, Switch, Timeout, Throw, TypeDeclaration,
 };
 use peekable_buffer::PeekableBuffer;
-use std::collections::HashSet;
+use std::collections::{HashSet, LinkedList};
+use std::rc::Rc;
 use std::result;
 use std::sync::Arc;
 use version::Version;
 
-// TODO: Parse patterns instead of identifiers in bindings
+// TODO: break cycles in scopes to cleanup memory properly.
 
 pub enum ParserErrorDescription {
     Described(String),
@@ -52,11 +52,15 @@ fn get_item_accessibility(identifier: &Identifier) -> Accessibility {
 
 pub struct Parser {
     tokens: Tokens,
+    current_scope: Rc<Scope>,
 }
 
 impl Parser {
     pub fn from(tokens: Tokens) -> Self {
-        Self { tokens }
+        Self {
+            tokens,
+            current_scope: Scope::new_root(),
+        }
     }
 
     fn fail<T>(&self, message: impl Into<String>) -> Result<T> {
@@ -69,6 +73,15 @@ impl Parser {
         Err(Error::Parser(ParserError {
             description: ParserErrorDescription::Expected(expected),
         }))
+    }
+
+
+    fn expect(&mut self, expected: Token) -> Result<()> {
+        if self.next_is(&expected) {
+            Ok(())
+        } else {
+            self.expected(expected)
+        }
     }
 
     fn unexpected<T>(&self, unexpected: Token) -> Result<T> {
@@ -95,37 +108,45 @@ impl Parser {
         }
     }
 
-    fn next_is(&mut self, expected: Token) -> bool {
-        self.tokens.match_next(|lexed| lexed.token == expected)
+    fn next_is(&mut self, expected: &Token) -> bool {
+        self.tokens.match_next(|lexed| lexed.token == *expected)
     }
 
-    fn parse_unary_operator(
-        &mut self,
-        operator: nodes::UnaryOperator,
-        name: &str,
-    ) -> Result<nodes::Expression> {
+    fn parse_unary_operator(&mut self, operator: nodes::UnaryOperator,) -> Result<nodes::Expression> {
         self.tokens.discard();
         self.parse_expression()
             .map(|expression| UnaryOperator(operator, Box::new(expression)))
     }
 
     fn parse_unary_add(&mut self) -> Result<nodes::Expression> {
-        self.parse_unary_operator(nodes::UnaryOperator::Positive, "positive prefix")
+        self.parse_unary_operator(nodes::UnaryOperator::Positive)
     }
 
     fn parse_bitwise_not(&mut self) -> Result<nodes::Expression> {
-        self.parse_unary_operator(nodes::UnaryOperator::BitwiseNot, "bitwise not")
+        self.parse_unary_operator(nodes::UnaryOperator::BitwiseNot)
     }
 
     fn parse_bitwise_xor(&mut self) -> Result<nodes::Expression> {
-        self.parse_unary_operator(nodes::UnaryOperator::BitwiseXor, "bitwise XOR")
+        self.parse_unary_operator(nodes::UnaryOperator::BitwiseXor)
+    }
+
+    fn parse_method_handle(&mut self) -> Result<nodes::Expression> {
+        self.parse_unary_operator(nodes::UnaryOperator::MethodHandle)
+    }
+
+    fn parse_not(&mut self) -> Result<nodes::Expression> {
+        self.parse_unary_operator(nodes::UnaryOperator::Not)
+    }
+
+    fn parse_negate(&mut self) -> Result<nodes::Expression> {
+        self.parse_unary_operator(nodes::UnaryOperator::Negate)
     }
 
     fn parse_package_lookup(&mut self) -> Result<nodes::PackageLookup> {
         let mut lookup = vec![];
         loop {
             lookup.push(self.parse_identifier()?);
-            if self.next_is(Token::Dot) {
+            if self.next_is(&Token::Dot) {
                 self.tokens.discard();
             } else {
                 break Ok(lookup);
@@ -148,7 +169,7 @@ impl Parser {
 
         self.expect_and_discard(Token::OpenBrace)?;
         loop {
-            if self.next_is(Token::Var) {
+            if self.next_is(&Token::Var) {
                 if let Some(LexedToken {
                     token: Token::Bind, ..
                 }) = self.tokens.peek_nth(2)
@@ -157,7 +178,7 @@ impl Parser {
                 } else {
                     bindings.insert(self.parse_binding()?);
                 }
-            } else if self.next_is(Token::CloseBrace) {
+            } else if self.next_is(&Token::CloseBrace) {
                 self.tokens.discard();
                 break;
             } else {
@@ -171,7 +192,7 @@ impl Parser {
                 contextual_bindings,
                 expressions,
             },
-            parent: None,
+            parent: Some(Scope::within(&self.current_scope)),
         })
     }
 
@@ -186,11 +207,11 @@ impl Parser {
 
         let mut bindings = vec![];
         let scope = loop {
-            if self.next_is(Token::OpenBrace) {
+            if self.next_is(&Token::OpenBrace) {
                 break self.parse_scope()?;
             } else {
                 bindings.push(self.parse_binding()?);
-                if self.next_is(Token::SubItemSeparator) {
+                if self.next_is(&Token::SubItemSeparator) {
                     self.tokens.discard();
                 }
             }
@@ -205,7 +226,7 @@ impl Parser {
         let condition = self.parse_expression()?;
         let then = self.parse_scope()?;
 
-        let else_clause = if self.next_is(Token::Else) {
+        let else_clause = if self.next_is(&Token::Else) {
             self.tokens.discard();
             Some(self.parse_scope()?)
         } else {
@@ -235,14 +256,6 @@ impl Parser {
 
     fn parse_lambda(&mut self) -> Result<nodes::Function> {
         unimplemented!()
-    }
-
-    fn parse_method_handle(&mut self) -> Result<nodes::Expression> {
-        self.parse_unary_operator(nodes::UnaryOperator::MethodHandle, "method handle")
-    }
-
-    fn parse_not(&mut self) -> Result<nodes::Expression> {
-        self.parse_unary_operator(nodes::UnaryOperator::Not, "not")
     }
 
     fn parse_package_definition(&mut self) -> Result<nodes::Package> {
@@ -292,24 +305,114 @@ impl Parser {
     }
 
     fn parse_select(&mut self) -> Result<nodes::Select> {
-        unimplemented!()
-    }
-
-    fn parse_negate(&mut self) -> Result<nodes::Expression> {
-        self.parse_unary_operator(nodes::UnaryOperator::Negate, "negation")
-    }
-
-    fn parse_switch(&mut self) -> Result<nodes::Switch> {
         self.tokens.discard();
-        self.expect_and_discard(Token::OpenBrace);
+        self.expect_and_discard(Token::OpenBrace)?;
+        let mut cases = vec![];
+        let mut timeout = None;
 
-        unimplemented!()
+        loop {
+            let mut matches = LinkedList::new();
+            if self.next_is(&Token::Timeout) {
+                if timeout.is_none() {
+                    let nanoseconds = Box::new(self.parse_expression()?);
+                    let body = Box::new(if self.next_is(&Token::LambdaArrow) {
+                        self.tokens.discard();
+                        self.parse_expression()?
+                    } else {
+                        self.expect(Token::OpenBrace)?;
+                        Expression::Scope(self.parse_scope()?)
+                    });
+                    timeout = Some(Timeout { nanoseconds, body,});
+                } else {
+                    self.unexpected(Token::Timeout)?;
+                }
+            } else {
+                let body = loop {
+                    let pattern_match = if self.next_is(&Token::Default) {
+                        Pattern {
+                            item: PatternItem::Ignored,
+                            binding: None,
+                        }
+                    } else {
+                        self.parse_pattern()?
+                    };
+                    matches.push_back(pattern_match);
+                    if self.next_is(&Token::LambdaArrow) {
+                        self.tokens.discard();
+                        break self.parse_expression()?;
+                    } else if self.next_is(&Token::OpenBrace) {
+                        break Expression::Scope(self.parse_scope()?);
+                    } else {
+                        self.expect_and_discard(Token::SubItemSeparator)?;
+                    }
+                };
+                cases.push(Case {
+                    matches,
+                    body,
+                });
+            }
+
+            if self.next_is(&Token::CloseBrace) {
+                self.tokens.discard();
+                break Ok(Select {
+                    cases,
+                    timeout,
+                })
+            }
+        }
+    }
+
+    fn parse_switch(&mut self) -> Result<Switch> {
+        self.tokens.discard();
+        let expression = self.parse_expression()?;
+        self.expect_and_discard(Token::OpenBrace)?;
+        let mut cases = vec![];
+
+        loop {
+            let mut matches = LinkedList::new();
+            let body = loop {
+                let pattern_match = if self.next_is(&Token::Default) {
+                    Pattern {
+                        item: PatternItem::Ignored,
+                        binding: None,
+                    }
+                } else {
+                    self.parse_pattern()?
+                };
+                matches.push_back(pattern_match);
+                if self.next_is(&Token::LambdaArrow) {
+                    self.tokens.discard();
+                    break self.parse_expression()?;
+                } else if self.next_is(&Token::OpenBrace) {
+                    break Expression::Scope(self.parse_scope()?);
+                } else {
+                    self.expect_and_discard(Token::SubItemSeparator)?;
+                }
+            };
+            cases.push(Case {
+                matches,
+                body,
+            });
+
+            if self.next_is(&Token::CloseBrace) {
+                self.tokens.discard();
+                break Ok(Switch {
+                    expression: Box::new(expression),
+                    cases,
+                })
+            }
+        }
     }
 
     fn parse_throw(&mut self) -> Result<nodes::Throw> {
         self.tokens.discard();
         let expression = self.parse_expression()?;
         Ok(Throw(Box::new(expression)))
+    }
+
+    fn parse_open_parentheses(&mut self) -> Result<nodes::Expression> {
+        self.tokens.discard();
+        unimplemented!()
     }
 
     fn parse_expression(&mut self) -> Result<nodes::Expression> {
@@ -343,7 +446,7 @@ impl Parser {
                     Token::MethodHandle => self.parse_method_handle(),
                     Token::Not => self.parse_not(),
                     Token::OpenBrace => self.parse_scope().map(nodes::Expression::Scope),
-                    Token::OpenParentheses => self.parse_expression_grouping(),
+                    Token::OpenParentheses => self.parse_open_parentheses(),
                     Token::Select => self.parse_select().map(nodes::Expression::Select),
                     Token::Subtract => self.parse_negate(),
                     Token::Switch => self.parse_switch().map(nodes::Expression::Switch),
@@ -370,7 +473,11 @@ impl Parser {
     }
 
     fn parse_scope(&mut self) -> Result<nodes::Scope> {
-        unimplemented!()
+        let code = self.parse_code()?;
+        Ok(Scope {
+            code,
+            parent: Some(Scope::within(&self.current_scope)),
+        })
     }
 
     fn parse_code(&mut self) -> Result<nodes::Code> {
@@ -379,9 +486,9 @@ impl Parser {
 
         self.expect_and_discard(Token::OpenBrace)?;
         loop {
-            if self.next_is(Token::Var) {
+            if self.next_is(&Token::Var) {
                 bindings.insert(self.parse_binding()?);
-            } else if self.next_is(Token::CloseBrace) {
+            } else if self.next_is(&Token::CloseBrace) {
                 self.tokens.discard();
                 break;
             } else {
@@ -396,7 +503,10 @@ impl Parser {
     }
 
     fn parse_expression_grouping(&mut self) -> Result<nodes::Expression> {
-        unimplemented!()
+        self.tokens.discard();
+        let expression = self.parse_expression()?;
+        self.expect_and_discard(Token::CloseParentheses)?;
+        Ok(expression)
     }
 
     fn parse_inside_package(&mut self) -> Result<(Vec<nodes::Import>, Vec<nodes::Declaration>)> {

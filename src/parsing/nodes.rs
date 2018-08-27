@@ -1,6 +1,7 @@
 use multiphase::{Identifier, InterpolatedString, Shebang, SyDoc, SylanString};
 use std::collections::{HashSet, LinkedList};
 use std::hash::{Hash, Hasher};
+use std::rc::Rc;
 use version::Version;
 
 // Sylan consists of items and expressions. Items are declarative whereas expressions are executed
@@ -275,6 +276,15 @@ pub struct Code {
     pub expressions: Expressions,
 }
 
+impl Code {
+    pub fn new() -> Self {
+        Self {
+            bindings: HashSet::new(),
+            expressions: vec![],
+        }
+    }
+}
+
 #[derive(Clone, Eq, PartialEq)]
 pub struct ContextualCode {
     pub bindings: HashSet<Binding>,
@@ -293,13 +303,39 @@ pub struct ContextualCode {
 #[derive(Clone, Eq, PartialEq)]
 pub struct Scope {
     pub code: Code,
-    pub parent: Option<Box<Scope>>,
+    pub parent: Option<Rc<Scope>>,
+}
+
+impl Scope {
+    pub fn new_root() -> Rc<Self> {
+        let code = Code::new();
+        let parent = None;
+        Rc::new(Self { code, parent })
+    }
+
+    pub fn within(parent: &Rc<Scope>) -> Rc<Self> {
+        let code = Code::new();
+        let parent = Some(parent.clone());
+        Rc::new(Self { code, parent })
+    }
 }
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct ContextualScope {
     pub code: ContextualCode,
-    pub parent: Option<Box<Scope>>,
+    pub parent: Option<Rc<Scope>>,
+}
+
+impl ContextualScope {
+    pub fn new_root() -> Self {
+        let code = ContextualCode {
+            bindings: HashSet::new(),
+            contextual_bindings: HashSet::new(),
+            expressions: vec![],
+        };
+        let parent = None;
+        Self { code, parent }
+    }
 }
 
 // Like methods, functions have a scope and type and value parameters. Unlike methods, they do not
@@ -379,20 +415,19 @@ pub enum BinaryOperator {
 #[derive(Clone, Eq, PartialEq)]
 pub struct Switch {
     pub expression: Box<Expression>,
-    pub cases: Vec<SwitchCase>,
-    pub default: Scope,
+    pub cases: Vec<Case>,
 }
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Timeout {
-    pub nanoseconds: usize,
-    pub body: Scope,
+    pub nanoseconds: Box<Expression>,
+    pub body: Box<Expression>,
 }
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Select {
-    pub cases: Vec<SelectCase>,
-    pub timeout: Timeout,
+    pub cases: Vec<Case>,
+    pub timeout: Option<Timeout>,
 }
 
 #[derive(Clone, Eq, PartialEq)]
@@ -409,15 +444,9 @@ pub struct If {
 }
 
 #[derive(Clone, Eq, PartialEq)]
-pub struct SwitchCase {
-    pub matches: LinkedList<Expression>,
-    pub body: Scope,
-}
-
-#[derive(Clone, Eq, PartialEq)]
-pub struct SelectCase {
+pub struct Case {
     pub matches: LinkedList<Pattern>,
-    pub body: Scope,
+    pub body: Expression,
 }
 
 // Throwing an expression does not yield a value as it destroys its current process. However, it is
