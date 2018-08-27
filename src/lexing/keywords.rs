@@ -6,6 +6,7 @@ pub fn new() -> HashMap<&'static str, Token> {
     let mut map = HashMap::new();
     map.extend(vec![
         ("_", Token::Ignore),
+        ("as", Token::As),
         ("class", Token::Class),
         ("continue", Token::Continue),
         ("default", Token::Default),
@@ -31,7 +32,6 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("var", Token::Var),
         ("where", Token::Where),
         ("virtual", Token::Virtual),
-
         // Reserved but not used.
         ("atom", Token::ReservedKeyword),
         ("blittable", Token::ReservedKeyword),

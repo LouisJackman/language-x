@@ -14,6 +14,7 @@ pub enum Token {
     Version(Version),
     Add,
     And,
+    As,
     Assign,
     Bind,
     BitwiseAnd,
@@ -63,6 +64,7 @@ pub enum Token {
     Package,
     Pipe,
     ReservedKeyword,
+    Rest,
     Select,
     ShiftLeft,
 

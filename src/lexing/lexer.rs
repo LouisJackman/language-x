@@ -409,6 +409,16 @@ impl Lexer {
         }
     }
 
+    fn lex_with_leading_dot(&mut self) -> Token {
+        if self.source.next_is('.') && self.source.nth_is(1, '.') {
+            self.source.discard();
+            self.source.discard();
+            Token::Rest
+        } else {
+            Token::Dot
+        }
+    }
+
     fn lex_operator(&mut self) -> TokenResult {
         if let Some(c) = self.source.read() {
             match c {
@@ -420,10 +430,10 @@ impl Lexer {
                 '!' => Ok(self.lex_with_leading_exclamation_mark()),
                 '>' => Ok(self.lex_with_leading_right_angle_bracket()),
                 ':' => Ok(self.lex_with_leading_colon()),
+                '.' => Ok(self.lex_with_leading_dot()),
 
                 ',' => Ok(Token::SubItemSeparator),
                 '#' => Ok(Token::Compose),
-                '.' => Ok(Token::Dot),
                 '~' => Ok(Token::BitwiseNot),
                 '^' => Ok(Token::BitwiseXor),
                 '+' => Ok(Token::Add),
@@ -735,6 +745,21 @@ mod tests {
                 security: 0,
             }),
         );
+    }
+
+    #[test]
+    fn rest() {
+        let mut lexer = test_lexer(" . .. ... .. .");
+
+        assert_next(&mut lexer, Token::Dot);
+        assert_next(&mut lexer, Token::Dot);
+        assert_next(&mut lexer, Token::Dot);
+
+        assert_next(&mut lexer, Token::Rest);
+
+        assert_next(&mut lexer, Token::Dot);
+        assert_next(&mut lexer, Token::Dot);
+        assert_next(&mut lexer, Token::Dot);
     }
 
     #[test]
