@@ -451,14 +451,14 @@ pub struct Case {
 
 // Throwing an expression does not yield a value as it destroys its current process. However, it is
 // an expression and can therefore be used anywhere an expression can be used. It can throw any
-// expression that yields a type which implements the Exception interface.
+// expression that yields a type which implements the Exception interface. In "returns" the bottom
+// type, allowing it to be used everywhere.
 #[derive(Clone, Eq, PartialEq)]
 pub struct Throw(pub Box<Expression>);
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum PatternField {
-    Identifier(Identifier),
-    BoundIdentifier(Identifier, Pattern),
+    Bound(Pattern, Identifier),
     IgnoreRest,
 }
 
@@ -470,21 +470,20 @@ pub struct CompositePattern {
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum PatternItem {
-    Literal,
-    Identifier,
+    Literal(Literal),
+    Identifier(Identifier),
     Ignored,
-    Expression(Expression),
     Composite(CompositePattern),
 }
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Pattern {
     pub item: PatternItem,
-    pub binding: Option<Identifier>,
+    pub bound_match: Option<Identifier>,
 }
 
 impl Hash for Pattern {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.binding.hash(state)
+        self.bound_match.hash(state)
     }
 }

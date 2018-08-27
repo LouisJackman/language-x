@@ -4,10 +4,11 @@ use lexing::lexer::{self, LexedToken};
 use lexing::tokens::Token;
 use lexing::Tokens;
 use multiphase::{self, Identifier};
-use parsing::nodes::Expression::{self, Literal, UnaryOperator};
+use parsing::nodes::Expression::{self, UnaryOperator};
 use parsing::nodes::{
-    Accessibility, Binding, Case, Code, ContextualBinding, ContextualCode, ContextualScope, DeclarationItem,
-    FilePackage, If, Import, MainPackage, Package, Pattern, PatternItem, Scope, Select, Switch, Timeout, Throw, TypeDeclaration,
+    Accessibility, Binding, Case, Code, CompositePattern, ContextualBinding, ContextualCode,
+    ContextualScope, DeclarationItem, FilePackage, If, Import, MainPackage, Package, Pattern,
+    PatternField, PatternItem, Scope, Select, Switch, Throw, Timeout, TypeDeclaration,
 };
 use peekable_buffer::PeekableBuffer;
 use std::collections::{HashSet, LinkedList};
@@ -75,12 +76,31 @@ impl Parser {
         }))
     }
 
-
     fn expect(&mut self, expected: Token) -> Result<()> {
         if self.next_is(&expected) {
             Ok(())
         } else {
             self.expected(expected)
+        }
+    }
+
+    fn expect_and_read(&mut self, expected: Token) -> Result<Token> {
+        let next = self.tokens.read();
+        next.map(|lexed| lexed.token)
+            .filter(|token| *token == expected)
+            .map(Ok)
+            .unwrap_or_else(|| self.expected(expected))
+    }
+
+    fn expect_and_discard(&mut self, expected: Token) -> Result<()> {
+        if let Some(lexed) = self.tokens.read() {
+            if lexed.token == expected {
+                Ok(())
+            } else {
+                self.expected(expected)
+            }
+        } else {
+            self.premature_eof()
         }
     }
 
@@ -96,23 +116,14 @@ impl Parser {
         }))
     }
 
-    fn expect_and_discard(&mut self, expected: Token) -> Result<()> {
-        if let Some(lexed) = self.tokens.read() {
-            if lexed.token == expected {
-                Ok(())
-            } else {
-                self.expected(expected)
-            }
-        } else {
-            self.premature_eof()
-        }
-    }
-
     fn next_is(&mut self, expected: &Token) -> bool {
         self.tokens.match_next(|lexed| lexed.token == *expected)
     }
 
-    fn parse_unary_operator(&mut self, operator: nodes::UnaryOperator,) -> Result<nodes::Expression> {
+    fn parse_unary_operator(
+        &mut self,
+        operator: nodes::UnaryOperator,
+    ) -> Result<nodes::Expression> {
         self.tokens.discard();
         self.parse_expression()
             .map(|expression| UnaryOperator(operator, Box::new(expression)))
@@ -240,8 +251,108 @@ impl Parser {
         })
     }
 
-    fn parse_pattern(&mut self) -> Result<nodes::Pattern> {
+    fn parse_type_name(&mut self) -> Result<nodes::Type> {
         unimplemented!()
+    }
+
+    fn parse_composite_pattern_components(&mut self) -> Result<Vec<PatternField>> {
+        let mut fields = vec![];
+        loop {
+            let next = self
+                .tokens
+                .peek()
+                .map(|lexed| Ok(lexed.clone().token))
+                .unwrap_or_else(|| self.premature_eof())?;
+
+            match next {
+                Token::Dot => {
+                    self.tokens.discard();
+                    let token = self
+                        .tokens
+                        .read()
+                        .map(|lexed| Ok(lexed.token))
+                        .unwrap_or_else(|| self.premature_eof())?;
+
+                    if let Token::Identifier(identifier) = token {
+                        let pattern = Pattern {
+                            item: PatternItem::Identifier(identifier.clone()),
+                            bound_match: None,
+                        };
+                        fields.push(PatternField::Bound(pattern, identifier))
+                    } else {
+                        self.unexpected(token)?
+                    }
+                }
+                Token::Rest => {
+                    self.tokens.discard();
+                    fields.push(PatternField::IgnoreRest);
+                    self.expect(Token::CloseParentheses)?;
+                }
+                Token::CloseParentheses => break Ok(fields),
+                Token::Eof => {
+                    self.premature_eof()?;
+                }
+                _ => {
+                    let pattern = self.parse_pattern()?;
+                    self.expect_and_discard(Token::Assign)?;
+                    let identifier = self.parse_identifier()?;
+                    fields.push(PatternField::Bound(pattern, identifier));
+                }
+            }
+            self.expect_and_discard(Token::SubItemSeparator)?;
+        }
+    }
+
+    fn parse_composite_pattern(&mut self) -> Result<nodes::CompositePattern> {
+        let token = self
+            .tokens
+            .peek()
+            .map(|lexed| Ok(lexed.clone().token))
+            .unwrap_or_else(|| self.premature_eof())?;
+
+        if let Token::Identifier(_) = token {
+            let composite_type = self.parse_type_name()?;
+            self.expect_and_discard(Token::OpenParentheses)?;
+            let components = self.parse_composite_pattern_components()?;
+            self.expect_and_discard(Token::CloseParentheses)?;
+
+            let composite = CompositePattern {
+                composite_type,
+                components,
+            };
+            Ok(composite)
+        } else {
+            self.fail("expecting a type name for the composite pattern")
+        }
+    }
+
+    fn parse_pattern(&mut self) -> Result<nodes::Pattern> {
+        let token = self
+            .tokens
+            .peek()
+            .map(|lexed| Ok(lexed.clone().token))
+            .unwrap_or_else(|| self.premature_eof())?;
+
+        let item = self
+            .parse_literal(token.clone())
+            .map(|lexed_token| Ok(PatternItem::Literal(lexed_token)))
+            .unwrap_or_else(|| {
+                if let Token::Identifier(identifier) = token {
+                    Ok(if is_ignored_binding(identifier.clone()) {
+                        PatternItem::Ignored
+                    } else {
+                        PatternItem::Identifier(identifier)
+                    })
+                } else {
+                    let composite = self.parse_composite_pattern()?;
+                    Ok(PatternItem::Composite(composite))
+                }
+            });
+
+        Ok(Pattern {
+            item: item?,
+            bound_match: None,
+        })
     }
 
     fn parse_import(&mut self) -> Result<nodes::Import> {
@@ -322,7 +433,7 @@ impl Parser {
                         self.expect(Token::OpenBrace)?;
                         Expression::Scope(self.parse_scope()?)
                     });
-                    timeout = Some(Timeout { nanoseconds, body,});
+                    timeout = Some(Timeout { nanoseconds, body });
                 } else {
                     self.unexpected(Token::Timeout)?;
                 }
@@ -331,7 +442,7 @@ impl Parser {
                     let pattern_match = if self.next_is(&Token::Default) {
                         Pattern {
                             item: PatternItem::Ignored,
-                            binding: None,
+                            bound_match: None,
                         }
                     } else {
                         self.parse_pattern()?
@@ -346,18 +457,12 @@ impl Parser {
                         self.expect_and_discard(Token::SubItemSeparator)?;
                     }
                 };
-                cases.push(Case {
-                    matches,
-                    body,
-                });
+                cases.push(Case { matches, body });
             }
 
             if self.next_is(&Token::CloseBrace) {
                 self.tokens.discard();
-                break Ok(Select {
-                    cases,
-                    timeout,
-                })
+                break Ok(Select { cases, timeout });
             }
         }
     }
@@ -374,7 +479,7 @@ impl Parser {
                 let pattern_match = if self.next_is(&Token::Default) {
                     Pattern {
                         item: PatternItem::Ignored,
-                        binding: None,
+                        bound_match: None,
                     }
                 } else {
                     self.parse_pattern()?
@@ -389,17 +494,14 @@ impl Parser {
                     self.expect_and_discard(Token::SubItemSeparator)?;
                 }
             };
-            cases.push(Case {
-                matches,
-                body,
-            });
+            cases.push(Case { matches, body });
 
             if self.next_is(&Token::CloseBrace) {
                 self.tokens.discard();
                 break Ok(Switch {
                     expression: Box::new(expression),
                     cases,
-                })
+                });
             }
         }
     }
@@ -415,45 +517,53 @@ impl Parser {
         unimplemented!()
     }
 
+    fn parse_literal(&mut self, token: Token) -> Option<nodes::Literal> {
+        match token {
+            // Literal tokens are a one-to-one translation to AST nodes
+            // except interpolated strings.
+            Token::Boolean(b) => Some(nodes::Literal::Boolean(b)),
+            Token::Char(c) => Some(nodes::Literal::Char(c)),
+            Token::InterpolatedString(string) => {
+                // TODO: reenter the lexer to handle interpolation
+                // properly.
+                Some(nodes::Literal::InterpolatedString(string))
+            }
+            Token::Number(decimal, fraction) => Some(nodes::Literal::Number(decimal, fraction)),
+            Token::String(string) => Some(nodes::Literal::String(string)),
+            _ => None,
+        }
+    }
+
     fn parse_expression(&mut self) -> Result<nodes::Expression> {
         let token = self.tokens.peek().map(|x| x.clone());
         match token {
             Some(lexed) => {
-                match lexed.token {
-                    // Literal tokens are a one-to-one translation to AST nodes
-                    // except interpolated strings.
-                    Token::Boolean(b) => Ok(Literal(nodes::Literal::Boolean(b))),
-                    Token::Char(c) => Ok(Literal(nodes::Literal::Char(c))),
-                    Token::Identifier(identifier) => Ok(nodes::Expression::Identifier(identifier)),
-                    Token::InterpolatedString(string) => {
-                        // TODO: reenter the lexer to handle interpolation
-                        // properly.
-                        Ok(Literal(nodes::Literal::InterpolatedString(string)))
-                    }
-                    Token::Number(decimal, fraction) => {
-                        Ok(Literal(nodes::Literal::Number(decimal, fraction)))
-                    }
-                    Token::String(string) => Ok(Literal(nodes::Literal::String(string))),
+                let token = lexed.token;
+                self.parse_literal(token.clone())
+                    .map(|literal| Ok(nodes::Expression::Literal(literal)))
+                    .unwrap_or_else(|| match token {
+                        Token::Identifier(identifier) => {
+                            Ok(nodes::Expression::Identifier(identifier))
+                        }
+                        // Non-atomic tokens each delegate to a dedicated method.
+                        Token::Add => self.parse_unary_add(),
+                        Token::BitwiseNot => self.parse_bitwise_not(),
+                        Token::BitwiseXor => self.parse_bitwise_xor(),
+                        Token::Do => self.parse_do().map(nodes::Expression::ContextualScope),
+                        Token::For => self.parse_for(),
+                        Token::If => self.parse_if().map(nodes::Expression::If),
+                        Token::LambdaArrow => self.parse_lambda().map(nodes::Expression::Function),
+                        Token::MethodHandle => self.parse_method_handle(),
+                        Token::Not => self.parse_not(),
+                        Token::OpenBrace => self.parse_scope().map(nodes::Expression::Scope),
+                        Token::OpenParentheses => self.parse_open_parentheses(),
+                        Token::Select => self.parse_select().map(nodes::Expression::Select),
+                        Token::Subtract => self.parse_negate(),
+                        Token::Switch => self.parse_switch().map(nodes::Expression::Switch),
+                        Token::Throw => self.parse_throw().map(nodes::Expression::Throw),
 
-                    // Non-literal tokens each delegate to a dedicated method.
-                    Token::Add => self.parse_unary_add(),
-                    Token::BitwiseNot => self.parse_bitwise_not(),
-                    Token::BitwiseXor => self.parse_bitwise_xor(),
-                    Token::Do => self.parse_do().map(nodes::Expression::ContextualScope),
-                    Token::For => self.parse_for(),
-                    Token::If => self.parse_if().map(nodes::Expression::If),
-                    Token::LambdaArrow => self.parse_lambda().map(nodes::Expression::Function),
-                    Token::MethodHandle => self.parse_method_handle(),
-                    Token::Not => self.parse_not(),
-                    Token::OpenBrace => self.parse_scope().map(nodes::Expression::Scope),
-                    Token::OpenParentheses => self.parse_open_parentheses(),
-                    Token::Select => self.parse_select().map(nodes::Expression::Select),
-                    Token::Subtract => self.parse_negate(),
-                    Token::Switch => self.parse_switch().map(nodes::Expression::Switch),
-                    Token::Throw => self.parse_throw().map(nodes::Expression::Throw),
-
-                    non_expression => self.unexpected(non_expression),
-                }
+                        non_expression => self.unexpected(non_expression),
+                    })
             }
             None => self.fail(
                 "\
