@@ -32,11 +32,14 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("var", Token::Var),
         ("where", Token::Where),
         ("virtual", Token::Virtual),
+        //
         // Reserved but not used.
+        //
         ("atom", Token::ReservedKeyword),
         ("blittable", Token::ReservedKeyword),
         ("case", Token::ReservedKeyword),
         ("catch", Token::ReservedKeyword),
+        ("checked", Token::ReservedKeyword),
         ("defer", Token::ReservedKeyword),
         ("data", Token::ReservedKeyword),
         ("derives", Token::ReservedKeyword),
@@ -74,6 +77,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("transient", Token::ReservedKeyword),
         ("try", Token::ReservedKeyword),
         ("then", Token::ReservedKeyword),
+        ("unchecked", Token::ReservedKeyword),
         ("unsafe", Token::ReservedKeyword),
         ("unquote", Token::ReservedKeyword),
         ("use", Token::ReservedKeyword),
