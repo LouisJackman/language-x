@@ -120,6 +120,11 @@ impl Parser {
         self.tokens.match_next(|lexed| lexed.token == *expected)
     }
 
+
+    fn nth_is(&mut self, n: usize, expected: &Token) -> bool {
+        self.tokens.match_nth(n, |lexed| lexed.token == *expected)
+    }
+
     fn parse_unary_operator(
         &mut self,
         operator: nodes::UnaryOperator,
@@ -264,39 +269,30 @@ impl Parser {
                 .map(|lexed| Ok(lexed.clone().token))
                 .unwrap_or_else(|| self.premature_eof())?;
 
-            match next {
-                Token::Dot => {
-                    self.tokens.discard();
-                    let token = self
-                        .tokens
-                        .read()
-                        .map(|lexed| Ok(lexed.token))
-                        .unwrap_or_else(|| self.premature_eof())?;
+            let next_token_is_assign = self.nth_is(1, &Token::Assign);
 
-                    if let Token::Identifier(identifier) = token {
-                        let pattern = Pattern {
-                            item: PatternItem::Identifier(identifier.clone()),
-                            bound_match: None,
-                        };
-                        fields.push(PatternField::Bound(pattern, identifier))
-                    } else {
-                        self.unexpected(token)?
-                    }
-                }
+            match next {
                 Token::Rest => {
                     self.tokens.discard();
                     fields.push(PatternField::IgnoreRest);
                     self.expect(Token::CloseParentheses)?;
                 }
                 Token::CloseParentheses => break Ok(fields),
-                Token::Eof => {
-                    self.premature_eof()?;
+
+                Token::Identifier(ref identifier) if !next_token_is_assign => {
+                    self.tokens.discard();
+                    let pattern = Pattern {
+                        item: PatternItem::Identifier(identifier.clone()),
+                        bound_match: None,
+                    };
+                    fields.push(PatternField::Field(pattern, identifier.clone()));
                 }
+
                 _ => {
-                    let pattern = self.parse_pattern()?;
-                    self.expect_and_discard(Token::Assign)?;
                     let identifier = self.parse_identifier()?;
-                    fields.push(PatternField::Bound(pattern, identifier));
+                    self.expect_and_discard(Token::Assign)?;
+                    let pattern = self.parse_pattern()?;
+                    fields.push(PatternField::Field(pattern, identifier));
                 }
             }
             self.expect_and_discard(Token::SubItemSeparator)?;

@@ -458,7 +458,7 @@ pub struct Throw(pub Box<Expression>);
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum PatternField {
-    Bound(Pattern, Identifier),
+    Field(Pattern, Identifier),
     IgnoreRest,
 }
 

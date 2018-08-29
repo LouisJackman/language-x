@@ -514,8 +514,8 @@ the case of native compilation.
   </li>
   <li><code>...</code> can be used to omit the rest of the match.</li>
   <li>
-    <code>var</code> can be used to bind any pattern to an identifier, e.g.:
-    <code>case var account = Account(firstName, lastName = last, ...):</code>.
+    <code>as</code> can bind part of a match to a name, e.g.
+    <code>Account(firstName) as account</code>.
   </li>
   <li>
     Prefixing an identifier with a dot matches its value rather than binding

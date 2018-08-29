@@ -153,6 +153,25 @@ extend class Account: Concatenate<Account, Result = String> {
     }
 }
 
+void demoPatternMatching() {
+    var account1 = Account(firstName = "Tom", lastName = "Smith")
+    var matchingLastName = "Smith"
+
+    if var Account(firstName, lastName = .matchingLastName) as account = account1 {
+        println(`Matching first name: {firstName}`)
+        println(`Matching account: {account}`)
+    }
+
+    switch account1 {
+        Account(locked = true), Account(firstName = "unlucky") -> println("LOCKED!")
+
+        account {
+            println("NOT LOCKED")
+            println(account)
+        }
+    }
+}
+
 class Person = Account
 interface Showable = ToString
 
