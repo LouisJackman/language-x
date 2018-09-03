@@ -4,3 +4,7 @@ version = "0.1.0"
 authors = ["Louis Jackman <LouisJackman@users.noreply.github.com>"]
 
 [dependencies]
+
+[profile.release]
+panic = "abort"
+lto = true

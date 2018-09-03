@@ -37,8 +37,8 @@ pub enum Expression {
     Select(Select),
     DoContext(Box<Expression>, Scope),
     If(If),
-    For(Vec<Binding>, Scope),
-    Continue(Vec<Argument<Expression>>),
+    For(For),
+    Continue(Continue),
     Call(Call),
     PackageLookup(PackageLookup),
     Throw(Throw),
@@ -449,6 +449,19 @@ pub struct Case {
     pub body: Expression,
 }
 
+#[derive(Clone, Eq, PartialEq)]
+pub struct For {
+    pub bindings: Vec<Binding>,
+    pub scope: Scope,
+    pub label: Option<Identifier>,
+}
+
+#[derive(Clone, Eq, PartialEq)]
+pub struct Continue {
+    pub bindings: Vec<Argument<Expression>>,
+    pub label: Option<Identifier>,
+}
+
 // Throwing an expression does not yield a value as it destroys its current process. However, it is
 // an expression and can therefore be used anywhere an expression can be used. It can throw any
 // expression that yields a type which implements the Exception interface. In "returns" the bottom
@@ -457,15 +470,16 @@ pub struct Case {
 pub struct Throw(pub Box<Expression>);
 
 #[derive(Clone, Eq, PartialEq)]
-pub enum PatternField {
-    Field(Pattern, Identifier),
-    IgnoreRest,
+pub struct PatternField {
+    pub identifier: Identifier,
+    pub pattern: Pattern,
 }
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct CompositePattern {
     pub composite_type: Type,
-    pub components: Vec<PatternField>,
+    pub fields: Vec<PatternField>,
+    pub ignore_rest: bool,
 }
 
 #[derive(Clone, Eq, PartialEq)]

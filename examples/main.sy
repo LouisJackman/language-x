@@ -46,6 +46,14 @@ void _demoIteration() {
         }
     }
 
+    OUTER: for var n = 10 {
+        if 0 < n {
+            for {
+                continue OUTER(n - 1)
+            }
+        }
+    }
+
     println(`factorial: {fact}`)
 }
 
@@ -53,13 +61,10 @@ int factorial(int n) {
     switch n {
         0, 1 ->
             1
-
-        default ->
-            if n < 0 {
-                throw Exception("n cannot be less than 0")
-            } else {
-                factorial(n * (n - 1))
-            }
+        n if n < 0 ->
+            throw Exception("n cannot be less than 0")
+        n ->
+            factorial(n * (n - 1))
     }
 }
 
@@ -142,11 +147,11 @@ class Account: ToString, Concatenate<Account> {
     }
 
     boolean get locked {
-        expiry < ZonedDateTime.now()
+        expiry < ZonedDateTime.now
     }
 }
 
-extend class Account: Concatenate<Account, Result = String> {
+implement class Account: Concatenate<Account, Result = String> {
 
     override String concatenate(This that) {
         `{firstName} {that.firstName}`
@@ -163,11 +168,16 @@ void demoPatternMatching() {
     }
 
     switch account1 {
-        Account(locked = true), Account(firstName = "unlucky") -> println("LOCKED!")
 
-        account {
-            println("NOT LOCKED")
-            println(account)
+        Account(locked = true), Account(firstName = "unlucky") ->
+            println("LOCKED!")
+
+        Account(expiry) if expiry < ZonedDateTime.now ->
+            println("ALSO LOCKED")
+
+        default {
+            println("NOT LOCKED: ")
+            println(account1)
         }
     }
 }
@@ -209,10 +219,10 @@ void closureDemo() {
 }
 
 void demoNumericLiterals() {
-    /**
-     * SyDocs can be written for code documentation. Unlike most languages, they
-     * go inside the item they describe, not just before it.
-     */
+    /*
+     * SyDocs can be written for code documentation. Unlike JavaDoc but similar
+     * to Python, they go inside the item they describe rather than before it.
+     **/
 
     int a = 5
     uint b = 5

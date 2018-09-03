@@ -1,11 +1,10 @@
-#![forbid(unsafe_code)]
-
 mod lexing;
 mod multiphase;
 mod parsing;
 mod peekable_buffer;
 mod version;
 
+use std::alloc::System;
 use std::env::{args, Args};
 use std::fs::File;
 use std::io::Read;
@@ -14,6 +13,9 @@ use lexing::lexer::Lexer;
 use lexing::source::Source;
 use lexing::Tokens;
 use parsing::Parser;
+
+#[global_allocator]
+static GLOBAL: System = System;
 
 fn load_source(args: Args) -> String {
     let args_vector = args.collect::<Vec<String>>();

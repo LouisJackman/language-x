@@ -7,7 +7,7 @@ use multiphase::{self, Identifier};
 use parsing::nodes::Expression::{self, UnaryOperator};
 use parsing::nodes::{
     Accessibility, Binding, Case, Code, CompositePattern, ContextualBinding, ContextualCode,
-    ContextualScope, DeclarationItem, FilePackage, If, Import, MainPackage, Package, Pattern,
+    ContextualScope, DeclarationItem, FilePackage, For, If, Import, MainPackage, Package, Pattern,
     PatternField, PatternItem, Scope, Select, Switch, Throw, Timeout, TypeDeclaration,
 };
 use peekable_buffer::PeekableBuffer;
@@ -49,6 +49,16 @@ fn get_item_accessibility(identifier: &Identifier) -> Accessibility {
     } else {
         Accessibility::Public
     }
+}
+
+/// An expression starting with an opening parentheses is ambiguous, referring to either a
+/// grouped expression or a lambda expression parameter list. It would require unlimited
+/// lookahead to disambiguate before committing, so Sylan instead commits immediately to
+/// parsing expressions, narrowing it down to an expression group if a token appears outside of
+/// the subset allowed in pattern matching.
+enum OpenParenthesesInterpretation {
+    GroupedExpression,
+    LambdaParameterList,
 }
 
 pub struct Parser {
@@ -119,7 +129,6 @@ impl Parser {
     fn next_is(&mut self, expected: &Token) -> bool {
         self.tokens.match_next(|lexed| lexed.token == *expected)
     }
-
 
     fn nth_is(&mut self, n: usize, expected: &Token) -> bool {
         self.tokens.match_nth(n, |lexed| lexed.token == *expected)
@@ -233,7 +242,11 @@ impl Parser {
             }
         };
 
-        Ok(nodes::Expression::For(bindings, scope))
+        Ok(nodes::Expression::For(For {
+            bindings,
+            scope,
+            label: None,
+        }))
     }
 
     fn parse_if(&mut self) -> Result<nodes::If> {
@@ -260,42 +273,37 @@ impl Parser {
         unimplemented!()
     }
 
-    fn parse_composite_pattern_components(&mut self) -> Result<Vec<PatternField>> {
-        let mut fields = vec![];
-        loop {
-            let next = self
-                .tokens
-                .peek()
-                .map(|lexed| Ok(lexed.clone().token))
-                .unwrap_or_else(|| self.premature_eof())?;
+    fn parse_composite_pattern_field(&mut self, next: &Token) -> Result<Option<PatternField>> {
+        let next_token_is_assign = self.nth_is(1, &Token::Assign);
 
-            let next_token_is_assign = self.nth_is(1, &Token::Assign);
-
-            match next {
-                Token::Rest => {
-                    self.tokens.discard();
-                    fields.push(PatternField::IgnoreRest);
-                    self.expect(Token::CloseParentheses)?;
-                }
-                Token::CloseParentheses => break Ok(fields),
-
-                Token::Identifier(ref identifier) if !next_token_is_assign => {
-                    self.tokens.discard();
-                    let pattern = Pattern {
-                        item: PatternItem::Identifier(identifier.clone()),
-                        bound_match: None,
-                    };
-                    fields.push(PatternField::Field(pattern, identifier.clone()));
-                }
-
-                _ => {
-                    let identifier = self.parse_identifier()?;
-                    self.expect_and_discard(Token::Assign)?;
-                    let pattern = self.parse_pattern()?;
-                    fields.push(PatternField::Field(pattern, identifier));
-                }
+        match &next {
+            Token::Rest => {
+                self.tokens.discard();
+                self.expect(Token::CloseParentheses)?;
+                Ok(None)
             }
-            self.expect_and_discard(Token::SubItemSeparator)?;
+
+            Token::Identifier(ref identifier) if !next_token_is_assign => {
+                self.tokens.discard();
+                let pattern = Pattern {
+                    item: PatternItem::Identifier(identifier.clone()),
+                    bound_match: None,
+                };
+                Ok(Some(PatternField {
+                    identifier: identifier.clone(),
+                    pattern,
+                }))
+            }
+
+            _ => {
+                let identifier = self.parse_identifier()?;
+                self.expect_and_discard(Token::Assign)?;
+                let pattern = self.parse_pattern()?;
+                Ok(Some(PatternField {
+                    identifier,
+                    pattern,
+                }))
+            }
         }
     }
 
@@ -309,12 +317,33 @@ impl Parser {
         if let Token::Identifier(_) = token {
             let composite_type = self.parse_type_name()?;
             self.expect_and_discard(Token::OpenParentheses)?;
-            let components = self.parse_composite_pattern_components()?;
+
+            let mut fields = vec![];
+            let mut ignore_rest = false;
+            loop {
+                let next = self
+                    .tokens
+                    .peek()
+                    .map(|lexed| Ok(lexed.clone().token))
+                    .unwrap_or_else(|| self.premature_eof())?;
+
+                if next == Token::CloseParentheses {
+                    break;
+                } else if let Some(field) = self.parse_composite_pattern_field(&next)? {
+                    fields.push(field);
+                } else {
+                    ignore_rest = true;
+                }
+
+                self.expect_and_discard(Token::SubItemSeparator)?;
+            }
+
             self.expect_and_discard(Token::CloseParentheses)?;
 
             let composite = CompositePattern {
                 composite_type,
-                components,
+                fields,
+                ignore_rest,
             };
             Ok(composite)
         } else {
@@ -510,6 +539,56 @@ impl Parser {
 
     fn parse_open_parentheses(&mut self) -> Result<nodes::Expression> {
         self.tokens.discard();
+        let mut interpretation = None;
+
+        loop {
+            let next = self
+                .tokens
+                .peek()
+                .map(|lexed| Ok(lexed.clone().token))
+                .unwrap_or_else(|| self.premature_eof())?;
+
+            match next {
+                Token::Boolean(..)
+                | Token::Char(..)
+                | Token::Identifier(..)
+                | Token::Number(..)
+                | Token::String(..) => {
+
+                    // Compatible with either interpretations.
+                }
+
+                _ => {
+                    // Only compatible with grouped expressions; narrowing it down.
+                    match interpretation {
+                        None => {
+                            interpretation = Some(OpenParenthesesInterpretation::GroupedExpression);
+                        }
+                        Some(OpenParenthesesInterpretation::GroupedExpression) => {}
+                        Some(OpenParenthesesInterpretation::LambdaParameterList) => {
+                            self.fail(
+                                "lambda parameter lists cannot contain arbritary expressions; pattern matching can only be done with structural elements and literals"
+                            )?;
+                        }
+                    }
+                }
+            }
+
+            if self.next_is(&Token::SubItemSeparator) {
+                // Only compatible with lambda parameter lists; narrowing it down.
+
+                match interpretation {
+                    None => {
+                        interpretation = Some(OpenParenthesesInterpretation::LambdaParameterList);
+                    }
+                    Some(OpenParenthesesInterpretation::LambdaParameterList) => {}
+                    Some(OpenParenthesesInterpretation::GroupedExpression) => {
+                        self.fail("grouped expressions cannot contain commas; did you mean to writelambda parameters? If so, lambda parameter lists cannot contain arbritary expressions; pattern matching can only be done with structural elements and literals")?;
+                    }
+                }
+            }
+        }
+
         unimplemented!()
     }
 
@@ -530,6 +609,14 @@ impl Parser {
         }
     }
 
+    fn parse_leading_identifier(&mut self, identifier: Identifier) -> Result<nodes::Expression> {
+        if self.nth_is(1, &Token::Colon) {
+            self.parse_for()
+        } else {
+            Ok(nodes::Expression::Identifier(self.parse_identifier()?))
+        }
+    }
+
     fn parse_expression(&mut self) -> Result<nodes::Expression> {
         let token = self.tokens.peek().map(|x| x.clone());
         match token {
@@ -538,10 +625,8 @@ impl Parser {
                 self.parse_literal(token.clone())
                     .map(|literal| Ok(nodes::Expression::Literal(literal)))
                     .unwrap_or_else(|| match token {
-                        Token::Identifier(identifier) => {
-                            Ok(nodes::Expression::Identifier(identifier))
-                        }
                         // Non-atomic tokens each delegate to a dedicated method.
+                        Token::Identifier(identifier) => self.parse_leading_identifier(identifier),
                         Token::Add => self.parse_unary_add(),
                         Token::BitwiseNot => self.parse_bitwise_not(),
                         Token::BitwiseXor => self.parse_bitwise_xor(),
