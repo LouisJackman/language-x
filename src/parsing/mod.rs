@@ -7,8 +7,9 @@ use multiphase::{self, Identifier};
 use parsing::nodes::Expression::{self, UnaryOperator};
 use parsing::nodes::{
     Accessibility, Binding, Case, Code, CompositePattern, ContextualBinding, ContextualCode,
-    ContextualScope, DeclarationItem, FilePackage, For, If, Import, Lambda, LambdaSignature, MainPackage, Package, Pattern,
-    PatternField, PatternItem, Scope, Select, Switch, Throw, Timeout, TypeDeclaration, ValueParameter
+    ContextualScope, DeclarationItem, FilePackage, For, If, Import, Lambda, LambdaSignature,
+    MainPackage, Package, Pattern, PatternField, PatternItem, Scope, Select, Switch, Throw,
+    Timeout, TypeDeclaration, ValueParameter,
 };
 use peekable_buffer::PeekableBuffer;
 use std::collections::{HashSet, LinkedList};
@@ -553,7 +554,6 @@ impl Parser {
         Ok(Throw(Box::new(expression)))
     }
 
-
     /// An expression starting with an opening parentheses is ambiguous, referring to either a
     /// grouped expression or a lambda expression parameter list. It would require unlimited
     /// lookahead to disambiguate before committing, so Sylan instead commits immediately to
@@ -573,7 +573,7 @@ impl Parser {
                 .unwrap_or_else(|| self.premature_eof())?;
 
             match next {
-                Token::SubItemSeparator => { },
+                Token::SubItemSeparator => {}
                 Token::CloseParentheses => break,
                 unexpected => self.unexpected(unexpected)?,
             }
@@ -603,7 +603,9 @@ impl Parser {
                     .map(|pattern| result::Result::unwrap(pattern))
                     .collect::<Vec<Pattern>>();
 
-                Ok(nodes::Expression::Lambda(self.parse_lambda(successfully_converted)?))
+                Ok(nodes::Expression::Lambda(
+                    self.parse_lambda(successfully_converted)?,
+                ))
             }
         } else if expressions.len() == 1 {
             Ok(expressions[0].clone())
@@ -655,7 +657,9 @@ impl Parser {
                         Token::Do => self.parse_do().map(nodes::Expression::ContextualScope),
                         Token::For => self.parse_for(None),
                         Token::If => self.parse_if().map(nodes::Expression::If),
-                        Token::LambdaArrow => self.parse_lambda(vec![]).map(nodes::Expression::Lambda),
+                        Token::LambdaArrow => {
+                            self.parse_lambda(vec![]).map(nodes::Expression::Lambda)
+                        }
                         Token::MethodHandle => self.parse_method_handle(),
                         Token::Not => self.parse_not(),
                         Token::OpenBrace => self.parse_scope().map(nodes::Expression::Scope),
