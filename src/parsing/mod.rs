@@ -7,8 +7,8 @@ use multiphase::{self, Identifier};
 use parsing::nodes::Expression::{self, UnaryOperator};
 use parsing::nodes::{
     Accessibility, Binding, Case, Code, CompositePattern, ContextualBinding, ContextualCode,
-    ContextualScope, DeclarationItem, FilePackage, For, If, Import, MainPackage, Package, Pattern,
-    PatternField, PatternItem, Scope, Select, Switch, Throw, Timeout, TypeDeclaration,
+    ContextualScope, DeclarationItem, FilePackage, For, If, Import, Lambda, LambdaSignature, MainPackage, Package, Pattern,
+    PatternField, PatternItem, Scope, Select, Switch, Throw, Timeout, TypeDeclaration, ValueParameter
 };
 use peekable_buffer::PeekableBuffer;
 use std::collections::{HashSet, LinkedList};
@@ -19,6 +19,7 @@ use version::Version;
 
 // TODO: break cycles in scopes to cleanup memory properly.
 
+#[derive(Debug)]
 pub enum ParserErrorDescription {
     Described(String),
     Expected(Token),
@@ -26,10 +27,12 @@ pub enum ParserErrorDescription {
     PrematureEof,
 }
 
+#[derive(Debug)]
 pub struct ParserError {
     description: ParserErrorDescription,
 }
 
+#[derive(Debug)]
 pub enum Error {
     Lexer(lexer::Error),
     Parser(ParserError),
@@ -49,16 +52,6 @@ fn get_item_accessibility(identifier: &Identifier) -> Accessibility {
     } else {
         Accessibility::Public
     }
-}
-
-/// An expression starting with an opening parentheses is ambiguous, referring to either a
-/// grouped expression or a lambda expression parameter list. It would require unlimited
-/// lookahead to disambiguate before committing, so Sylan instead commits immediately to
-/// parsing expressions, narrowing it down to an expression group if a token appears outside of
-/// the subset allowed in pattern matching.
-enum OpenParenthesesInterpretation {
-    GroupedExpression,
-    LambdaParameterList,
 }
 
 pub struct Parser {
@@ -227,7 +220,7 @@ impl Parser {
         Ok(TypeDeclaration::Extension(specification))
     }
 
-    fn parse_for(&mut self) -> Result<nodes::Expression> {
+    fn parse_for(&mut self, label: Option<Identifier>) -> Result<nodes::Expression> {
         self.tokens.discard();
 
         let mut bindings = vec![];
@@ -245,7 +238,7 @@ impl Parser {
         Ok(nodes::Expression::For(For {
             bindings,
             scope,
-            label: None,
+            label,
         }))
     }
 
@@ -390,8 +383,31 @@ impl Parser {
         unimplemented!()
     }
 
-    fn parse_lambda(&mut self) -> Result<nodes::Function> {
+    fn reinterpret_expression_as_pattern(&mut self, expression: Expression) -> Result<Pattern> {
         unimplemented!()
+    }
+
+    // TODO: work out how to parse type parameters and default values for lambdas
+    // unambiguously.
+    fn parse_lambda(&mut self, parameter_patterns: Vec<Pattern>) -> Result<nodes::Lambda> {
+        self.tokens.discard();
+
+        let scope = self.parse_scope()?;
+
+        let value_parameters = parameter_patterns
+            .into_iter()
+            .map(|pattern| ValueParameter {
+                pattern,
+                default_value: None,
+            })
+            .collect::<Vec<ValueParameter>>();
+
+        let signature = LambdaSignature {
+            type_parameters: vec![],
+            value_parameters,
+        };
+
+        Ok(Lambda { signature, scope })
     }
 
     fn parse_package_definition(&mut self) -> Result<nodes::Package> {
@@ -537,59 +553,63 @@ impl Parser {
         Ok(Throw(Box::new(expression)))
     }
 
+
+    /// An expression starting with an opening parentheses is ambiguous, referring to either a
+    /// grouped expression or a lambda expression parameter list. It would require unlimited
+    /// lookahead to disambiguate before committing, so Sylan instead commits immediately to
+    /// parsing expressions, narrowing it down to an expression group if a token appears outside of
+    /// the subset allowed in pattern matching.
     fn parse_open_parentheses(&mut self) -> Result<nodes::Expression> {
         self.tokens.discard();
-        let mut interpretation = None;
+        let mut expressions = vec![];
 
         loop {
+            expressions.push(self.parse_expression()?);
+
             let next = self
                 .tokens
-                .peek()
+                .read()
                 .map(|lexed| Ok(lexed.clone().token))
                 .unwrap_or_else(|| self.premature_eof())?;
 
             match next {
-                Token::Boolean(..)
-                | Token::Char(..)
-                | Token::Identifier(..)
-                | Token::Number(..)
-                | Token::String(..) => {
-
-                    // Compatible with either interpretations.
-                }
-
-                _ => {
-                    // Only compatible with grouped expressions; narrowing it down.
-                    match interpretation {
-                        None => {
-                            interpretation = Some(OpenParenthesesInterpretation::GroupedExpression);
-                        }
-                        Some(OpenParenthesesInterpretation::GroupedExpression) => {}
-                        Some(OpenParenthesesInterpretation::LambdaParameterList) => {
-                            self.fail(
-                                "lambda parameter lists cannot contain arbritary expressions; pattern matching can only be done with structural elements and literals"
-                            )?;
-                        }
-                    }
-                }
-            }
-
-            if self.next_is(&Token::SubItemSeparator) {
-                // Only compatible with lambda parameter lists; narrowing it down.
-
-                match interpretation {
-                    None => {
-                        interpretation = Some(OpenParenthesesInterpretation::LambdaParameterList);
-                    }
-                    Some(OpenParenthesesInterpretation::LambdaParameterList) => {}
-                    Some(OpenParenthesesInterpretation::GroupedExpression) => {
-                        self.fail("grouped expressions cannot contain commas; did you mean to writelambda parameters? If so, lambda parameter lists cannot contain arbritary expressions; pattern matching can only be done with structural elements and literals")?;
-                    }
-                }
+                Token::SubItemSeparator => { },
+                Token::CloseParentheses => break,
+                unexpected => self.unexpected(unexpected)?,
             }
         }
 
-        unimplemented!()
+        if self.next_is(&Token::LambdaArrow) {
+            let parameter_patterns = expressions
+                .into_iter()
+                .map(|expression| self.reinterpret_expression_as_pattern(expression))
+                .collect::<Vec<Result<Pattern>>>();
+
+            let failed = parameter_patterns
+                .iter()
+                .find(|result| !result.is_ok())
+                .is_some();
+
+            if failed {
+                let failed_conversion = parameter_patterns
+                    .into_iter()
+                    .map(|pattern| result::Result::unwrap_err(pattern))
+                    .next()
+                    .unwrap();
+                Err(failed_conversion)
+            } else {
+                let successfully_converted = parameter_patterns
+                    .into_iter()
+                    .map(|pattern| result::Result::unwrap(pattern))
+                    .collect::<Vec<Pattern>>();
+
+                Ok(nodes::Expression::Lambda(self.parse_lambda(successfully_converted)?))
+            }
+        } else if expressions.len() == 1 {
+            Ok(expressions[0].clone())
+        } else {
+            self.fail("multiple expressions found in a grouped expression; is it missing an operator or a comma?")
+        }
     }
 
     fn parse_literal(&mut self, token: Token) -> Option<nodes::Literal> {
@@ -611,7 +631,9 @@ impl Parser {
 
     fn parse_leading_identifier(&mut self, identifier: Identifier) -> Result<nodes::Expression> {
         if self.nth_is(1, &Token::Colon) {
-            self.parse_for()
+            self.tokens.discard();
+            self.tokens.discard();
+            self.parse_for(Some(identifier))
         } else {
             Ok(nodes::Expression::Identifier(self.parse_identifier()?))
         }
@@ -631,9 +653,9 @@ impl Parser {
                         Token::BitwiseNot => self.parse_bitwise_not(),
                         Token::BitwiseXor => self.parse_bitwise_xor(),
                         Token::Do => self.parse_do().map(nodes::Expression::ContextualScope),
-                        Token::For => self.parse_for(),
+                        Token::For => self.parse_for(None),
                         Token::If => self.parse_if().map(nodes::Expression::If),
-                        Token::LambdaArrow => self.parse_lambda().map(nodes::Expression::Function),
+                        Token::LambdaArrow => self.parse_lambda(vec![]).map(nodes::Expression::Lambda),
                         Token::MethodHandle => self.parse_method_handle(),
                         Token::Not => self.parse_not(),
                         Token::OpenBrace => self.parse_scope().map(nodes::Expression::Scope),

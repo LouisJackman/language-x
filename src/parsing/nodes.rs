@@ -19,16 +19,17 @@ pub enum Item {
     Package(Package),
     Class(Class),
     Interface(Interface),
+    Function(Function),
     Method(Method),
     Binding(Binding),
     SyDoc(SyDoc),
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Expression {
     ContextualScope(ContextualScope),
     Scope(Scope),
-    Function(Function),
+    Lambda(Lambda),
     Identifier(Identifier),
     Literal(Literal),
     UnaryOperator(UnaryOperator, Box<Expression>),
@@ -136,7 +137,7 @@ pub struct TypeAssignment {
     pub assignee: Type,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Type {
     pub name: Identifier,
     pub arguments: Vec<Argument<Type>>,
@@ -198,18 +199,23 @@ pub struct Getter {
 // at compiletime whereas value parameters are for values at runtime, and only type parameters can
 // have optional upperbounds. They both have identifiers and optional default values.
 
-#[derive(Clone, Eq, PartialEq)]
-pub struct Parameter<T> {
-    pub default_value: Option<T>,
-    pub identifier: Identifier,
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ValueParameter {
+    pub pattern: Pattern,
+    pub default_value: Option<Expression>,
 }
 
-pub type ValueParameter = Parameter<Expression>;
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ValueParameterWithTypeAnnotation {
+    parameter: ValueParameter,
+    type_annotation: Type,
+}
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TypeParameter {
-    pub parameter: Parameter<Identifier>,
+    pub name: Identifier,
     pub upper_bounds: LinkedList<Type>,
+    pub default_value: Option<Type>,
 }
 
 // Type and value arguments are the same except for one difference: type arguments are for types at
@@ -217,7 +223,7 @@ pub struct TypeParameter {
 // positional or keyword arguments; unlike other languages it is the choice of the caller rather
 // than the definer. If passed as a keyword argument, an identifier is carried with it in the parse
 // tree.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Argument<T> {
     pub value: T,
     pub identifier: Option<Identifier>,
@@ -228,12 +234,13 @@ type TypeArguments = Argument<Type>;
 
 // Sylan's "symbol tables" are just a collection of bindings in the current scope. Parent scopes
 // can be looked up to find bindings in outer closures, which is how lexical scoping is
+// implemented.
 //
 // Bindings are for execution-time values. Statically deducable values go via package and type
 // definitions instead. (Note that "execution-time" can mean both "runtime" and "running within a
 // compile-time macro.)
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Binding {
     pub pattern: Pattern,
     pub value: Expression,
@@ -245,7 +252,7 @@ impl Hash for Binding {
     }
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContextualBinding {
     pub name: Identifier,
     pub value: Expression,
@@ -270,7 +277,7 @@ type Expressions = Vec<Expression>;
 // In other words, these declarations are block scoped with a temporal dead zone rather than using
 // scope hoisting.
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Code {
     pub bindings: HashSet<Binding>,
     pub expressions: Expressions,
@@ -285,7 +292,7 @@ impl Code {
     }
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContextualCode {
     pub bindings: HashSet<Binding>,
     pub contextual_bindings: HashSet<ContextualBinding>,
@@ -300,7 +307,7 @@ pub struct ContextualCode {
 // which case they are immediately invoked and then destroyed afterwards. In this case they
 // function similarly to the immediately-invoked functions or do-blocks of other languages.
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Scope {
     pub code: Code,
     pub parent: Option<Rc<Scope>>,
@@ -320,7 +327,7 @@ impl Scope {
     }
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContextualScope {
     pub code: ContextualCode,
     pub parent: Option<Rc<Scope>>,
@@ -345,20 +352,32 @@ impl ContextualScope {
 // attached to a binding in a scope. After being lexed from different tokens, they become
 // indistinguishable in the AST.
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FunctionSignature {
     pub type_parameters: Vec<TypeParameter>,
-    pub value_parameters: Vec<ValueParameter>,
+    pub value_parameters: Vec<ValueParameterWithTypeAnnotation>,
     pub return_type: Type,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LambdaSignature {
+    pub type_parameters: Vec<TypeParameter>,
+    pub value_parameters: Vec<ValueParameter>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Function {
     pub signature: FunctionSignature,
     pub scope: Scope,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Lambda {
+    pub signature: LambdaSignature,
+    pub scope: Scope,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Literal {
     Boolean(bool),
     Char(char),
@@ -378,7 +397,7 @@ pub type PackageLookup = Vec<Identifier>;
 // `=` for assignment is not an AST node in Sylan but is instead a required
 // token while parsing a `Binding` node.
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum UnaryOperator {
     BitwiseNot,
     BitwiseXor,
@@ -388,7 +407,7 @@ pub enum UnaryOperator {
     Positive,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BinaryOperator {
     Add,
     And,
@@ -412,51 +431,51 @@ pub enum BinaryOperator {
     Subtract,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Switch {
     pub expression: Box<Expression>,
     pub cases: Vec<Case>,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Timeout {
     pub nanoseconds: Box<Expression>,
     pub body: Box<Expression>,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Select {
     pub cases: Vec<Case>,
     pub timeout: Option<Timeout>,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Call {
     pub target: Box<Expression>,
     pub arguments: Vec<Argument<Expression>>,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct If {
     pub condition: Box<Expression>,
     pub then: Scope,
     pub else_clause: Option<Scope>,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Case {
     pub matches: LinkedList<Pattern>,
     pub body: Expression,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct For {
     pub bindings: Vec<Binding>,
     pub scope: Scope,
     pub label: Option<Identifier>,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Continue {
     pub bindings: Vec<Argument<Expression>>,
     pub label: Option<Identifier>,
@@ -466,23 +485,23 @@ pub struct Continue {
 // an expression and can therefore be used anywhere an expression can be used. It can throw any
 // expression that yields a type which implements the Exception interface. In "returns" the bottom
 // type, allowing it to be used everywhere.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Throw(pub Box<Expression>);
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PatternField {
     pub identifier: Identifier,
     pub pattern: Pattern,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CompositePattern {
     pub composite_type: Type,
     pub fields: Vec<PatternField>,
     pub ignore_rest: bool,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PatternItem {
     Literal(Literal),
     Identifier(Identifier),
@@ -490,7 +509,7 @@ pub enum PatternItem {
     Composite(CompositePattern),
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Pattern {
     pub item: PatternItem,
     pub bound_match: Option<Identifier>,
