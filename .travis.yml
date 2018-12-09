@@ -7,3 +7,7 @@ matrix:
   allow_failures:
     - rust: nightly
   fast_finish: true
+git:
+  depth: 1
+  quiet: true
+  submodules: false
