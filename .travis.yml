@@ -12,8 +12,9 @@ git:
   quiet: true
   submodules: false
 before_script:
-  - rustup component add rustfmt
+  - rustup component add rustfmt clippy
 script:
   - cargo fmt --all -- --check
-  - cargo build
+  - cargo clippy --all-targets --all-features -- -D warnings
+  - RUSTFLAGS="-D warnings" cargo build
   - cargo test 
