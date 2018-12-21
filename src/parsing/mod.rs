@@ -384,7 +384,7 @@ impl Parser {
         unimplemented!()
     }
 
-    fn reinterpret_expression_as_pattern(&mut self, expression: Expression) -> Result<Pattern> {
+    fn reinterpret_expression_as_pattern(&mut self, _expression: Expression) -> Result<Pattern> {
         unimplemented!()
     }
 
@@ -763,7 +763,7 @@ impl Parser {
                             unimplemented!()
                         }
 
-                        unexpected => {
+                        _unexpected => {
                             //self.unexpected(unexpected);
                             unimplemented!()
                         }
@@ -789,7 +789,7 @@ impl Parser {
                 Some(token) => {
                     match token {
                         Token::Class => {
-                            let class = self.parse_class();
+                            let _class = self.parse_class();
                             unimplemented!()
                         }
                         Token::Extends => {

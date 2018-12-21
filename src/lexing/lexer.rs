@@ -2,14 +2,13 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::io;
 use std::sync::mpsc::{channel, Receiver};
-use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use lexing::char_escapes;
 use lexing::keywords;
 use lexing::source::Source;
 use lexing::tokens::Token;
-use multiphase::{self, Identifier, InterpolatedString, Shebang, SyDoc, SylanString};
+use multiphase::{self, SylanString};
 use peekable_buffer::PeekableBuffer;
 use version::Version;
 
@@ -622,6 +621,7 @@ impl Lexer {
 mod tests {
 
     use super::*;
+    use multiphase::{Identifier, InterpolatedString, Shebang, SyDoc};
 
     fn test_lexer(s: &str) -> Lexer {
         let source_chars = s.chars().collect::<Vec<char>>();
@@ -665,7 +665,7 @@ mod tests {
         assert_next(&mut lexer, Token::Number(23, 0));
         assert_next(&mut lexer, Token::Number(32, 0));
         assert_next(&mut lexer, Token::Number(0, 32));
-        assert_next(&mut lexer, Token::Number(123123123, 32));
+        assert_next(&mut lexer, Token::Number(123_123_123, 32));
     }
 
     #[test]

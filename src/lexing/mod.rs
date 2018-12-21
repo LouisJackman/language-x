@@ -9,7 +9,6 @@ use std::io;
 use std::ops::Index;
 
 use lexing::lexer::{LexedToken, Lexer, LexerTask, LexerTaskError};
-use multiphase::Identifier;
 use peekable_buffer::PeekableBuffer;
 
 const MAX_TOKEN_LOOKAHEAD: usize = 5;
@@ -148,8 +147,8 @@ mod tests {
     use super::source::Source;
     use super::tokens::Token;
     use super::*;
+    use multiphase::Identifier;
     use std::fmt::Debug;
-    use std::sync::Arc;
 
     const TEST_SOURCE: &str = r#"
 
