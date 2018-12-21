@@ -11,3 +11,9 @@ git:
   depth: 1
   quiet: true
   submodules: false
+before_script:
+  - rustup component add rustfmt
+script:
+  - cargo fmt --all -- --check
+  - cargo build
+  - cargo test 
