@@ -240,10 +240,16 @@ type TypeArguments = Argument<Type>;
 // definitions instead. (Note that "execution-time" can mean both "runtime" and "running within a
 // compile-time macro.)
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq)]
 pub struct Binding {
     pub pattern: Pattern,
     pub value: Expression,
+}
+
+impl PartialEq for Binding {
+    fn eq(&self, other: &Self) -> bool {
+        self.pattern == other.pattern
+    }
 }
 
 impl Hash for Binding {
@@ -252,10 +258,16 @@ impl Hash for Binding {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq)]
 pub struct ContextualBinding {
     pub name: Identifier,
     pub value: Expression,
+}
+
+impl PartialEq for ContextualBinding {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
 }
 
 impl Hash for ContextualBinding {
@@ -509,10 +521,16 @@ pub enum PatternItem {
     Composite(CompositePattern),
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq)]
 pub struct Pattern {
     pub item: PatternItem,
     pub bound_match: Option<Identifier>,
+}
+
+impl PartialEq for Pattern {
+    fn eq(&self, other: &Self) -> bool {
+        self.bound_match == other.bound_match
+    }
 }
 
 impl Hash for Pattern {

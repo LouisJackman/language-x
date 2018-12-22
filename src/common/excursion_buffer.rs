@@ -5,6 +5,5 @@
 /// An example use case is duplicating a buffer of tokens by broadcasting incoming tokens over a
 /// channel from original buffers to excursions created from it.
 pub trait ExcursionBuffer {
-
     fn start_excursion(&mut self) -> Self;
 }
