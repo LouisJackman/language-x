@@ -1,8 +1,8 @@
-use multiphase::{Identifier, InterpolatedString, Shebang, SyDoc, SylanString};
+use common::multiphase::{Identifier, InterpolatedString, Shebang, SyDoc, SylanString};
+use common::version::Version;
 use std::collections::{HashSet, LinkedList};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-use version::Version;
 
 // Sylan consists of items and expressions. Items are declarative whereas expressions are executed
 // and yield values. Such values can be the void value for expressions executed solely for

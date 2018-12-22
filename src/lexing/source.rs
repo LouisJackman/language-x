@@ -1,6 +1,6 @@
 use std::ops::Index;
 
-use peekable_buffer::PeekableBuffer;
+use common::peekable_buffer::PeekableBuffer;
 
 pub struct Source {
     content: Vec<char>,

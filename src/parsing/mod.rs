@@ -1,9 +1,16 @@
 mod nodes;
 
+use std::collections::{HashSet, LinkedList};
+use std::rc::Rc;
+use std::result;
+use std::sync::Arc;
+
+use common::multiphase::{self, Identifier};
+use common::peekable_buffer::PeekableBuffer;
+use common::version::Version;
 use lexing::lexer::{self, LexedToken};
 use lexing::tokens::Token;
 use lexing::Tokens;
-use multiphase::{self, Identifier};
 use parsing::nodes::Expression::{self, UnaryOperator};
 use parsing::nodes::{
     Accessibility, Binding, Case, Code, CompositePattern, ContextualBinding, ContextualCode,
@@ -11,12 +18,6 @@ use parsing::nodes::{
     MainPackage, Package, Pattern, PatternField, PatternItem, Scope, Select, Switch, Throw,
     Timeout, TypeDeclaration, ValueParameter,
 };
-use peekable_buffer::PeekableBuffer;
-use std::collections::{HashSet, LinkedList};
-use std::rc::Rc;
-use std::result;
-use std::sync::Arc;
-use version::Version;
 
 // TODO: break cycles in scopes to cleanup memory properly.
 
