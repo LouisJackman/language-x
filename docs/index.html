@@ -26,22 +26,6 @@ pre {
     padding: 10px;
 }
 
-nav {
-    text-align: center;
-}
-
-nav ul {
-    padding-left: 0;
-}
-
-nav li {
-    display: inline;
-}
-
-nav li:not(:last-child) {
-    margin-right: 15px;
-}
-
 li.done::after {
     content: " [DONE]";
     color: green;
@@ -63,13 +47,46 @@ li.done::after {
     Sylan is an experimental programming language project to investigate what a
     spiritual successor to Java and C# might look like.
   </p>
+
+  <h2>Contents</h2>
+
   <nav>
     <ul>
       <li><a href="#example">Example</a></li>
       <li><a href="#synopsis">Synopsis</a></li>
       <li><a href="#todo">TODO</a></li>
       <li><a href="#goals">Goals</a></li>
-      <li><a href="#details">Details</a></li>
+      <li>
+        <a href="#details">Details</a>
+        <ul>
+          <li><a href="#details-modules-and-packages">Modules and Packages</a></li>
+          <li><a href="#details-accessibility-levels">Accessibility Levels</a></li>
+          <li><a href="#details-types">Types</a></li>
+          <li><a href="#details-items-and-expressions">Items and Expressions</a></li>
+          <li><a href="#details-pattern-matching">Pattern Matching</a></li>
+          <li>
+            <a href="#details-matching-in-switch-and-select">
+              Matching in Switch and Select
+            </a>
+          </li>
+          <li><a href="#details-invocations">Invocations</a></li>
+          <li>
+            <a href="#details-compile-time-metaprogramming">
+              Compile-time Metaprogramming
+            </a>
+          </li>
+          <li>
+            <a href="#details-runtime-structure-information">
+              Runtime Structure Information
+            </a>
+          </li>
+          <li><a href="#details-the-runtime">The Runtime</a></li>
+          <li><a href="#details-interoperability">Interoperability</a></li>
+          <li><a href="#details-standard-library">Standard Library</a></li>
+          <li><a href="#details-to-consider">To Consider</a></li>
+        </ul>
+      </li>
+      <li><a href="#implementation-details">Implementation Details</a></li>
     </ul>
   </nav>
 </header>
@@ -80,17 +97,22 @@ li.done::after {
 <pre>
 #!/usr/bin/env sylan
 
-// If no package is specified, "main" is assumed.
+/*
+ * If no package is specified, "main" is assumed. A `module-info.sy` file is not
+ * required for the top level program as there is an inferred `main` module that
+ * contains top-level programs.
+ */
 package main
 
 import sylan.io.{println, print}
 import sylan.datetime.ZonedDateTime
 
-// Package items like functions and classes are private to the package if
-// prefixed with an underscore.
-//
-// This also works with fields in classes and methods in classes and interfaces.
-void _demoIteration() {
+void demoIteration() {
+    /**
+     * SyDocs can be written for code documentation. Unlike JavaDoc but similar
+     * to Python, they go inside the item they describe rather than before it.
+     */
+
     List(1, 2, 3).forEach(n ->
         println(`{n}`)
     )
@@ -118,39 +140,75 @@ void _demoIteration() {
         println(`{key}: {value}`)
     )
 
-    var fact = for var n = 20, var result = 1 ->
-        if n &lt;= 0 ->
+    /*
+     * Sylan does not allow scope shadowing. As functions are just
+     * variables of a "function type", `factorial` would clash with the
+     * top-level `factorial` function defined later on, hence the disambiguating
+     * name `innerFactorial`.
+     */
+    var innerFactorial = for var n = 20, var result = 1 {
+        if n &lt;= 0 {
             result
-        else ->
-            continue(n - 1, n * result)
-
-    println(`factorial: {fact}`)
-}
-
-int factorial(int n) ->
-    switch n {
-        0, 1 -> 1
-
-        default ->
-            if n &lt; 0 ->
-                throw Exception("n cannot be less than 0")
-            else ->
-                factorial(n * (n - 1))
+        } else {
+            continue n - 1, n * result
+        }
     }
 
-void twice&lt;N>(N n, N f(N)) if N: Number ->
+    OUTER: for var n = 10 {
+        if 0 &lt; n {
+            for {
+
+                /*
+                 * A `for` with no clauses is an infinite loop, except for the
+                 * use of a continue label here that lets it jump to an outer
+                 * loop.
+                 */
+                OUTER: continue n - 1
+            }
+        }
+    }
+
+    println(`factorial: {innerFactorial}`)
+}
+
+/*
+ * All variables (including functions), packages, classes, getters, fields,
+ * and methods are private unless explicitly opened up with the `public`
+ * keyword. If the developer wants to expose them openly but only to
+ * its own module, they can use the `internal` keyword.
+ */
+
+internal int factorial(int n) {
+    switch n {
+        0, 1 ->
+            1
+        n if n &lt; 0 ->
+            throw Exception("n cannot be less than 0")
+        n ->
+            factorial(n * (n - 1))
+    }
+}
+
+private void twice&lt;N>(N n, N f(N)) where
+    N : Number
+{
     f(n) + f(n)
+}
 
-String double&lt;N>(N n) if N: Add & ToString ->
+String double&lt;N>(N n) where
+    N : Add &amp; ToString
+{
     (n + n).toString()
+}
 
-Optional&lt;int> demoContexts() ->
+Optional&lt;int> demoContexts() {
     do {
         var a &lt;- Some(5)
         doSomething()
         var b &lt;- Empty()
         willNotBeRun()
     }
+}
 
 package counter {
 
@@ -160,41 +218,42 @@ package counter {
         Get,
     }
 
-    void start(Task sender, int n = 0) ->
+    public void start(Task sender, int n = 0) {
         select Message {
-            .Increment ->
+            .Increment:
                 start(sender, n + 1)
-            .Reset(n) ->
+            .Reset(n):
                 start(sender, n)
-            .Get {
+            .Get:
                 sender.send(n)
                 start(sender, n)
-            }
-            timeout 10.seconds ->
+            timeout 10.seconds:
                 throw Exception("timed out!")
         }
+    }
 }
 
 interface Concatenate&lt;T, Result = T> {
-    Result concatenate(T y)
+    public Result concatenate(T y)
 }
 
-class Account: ToString, Concatenate&lt;Account> {
+class Account implements ToString, Concatenate&lt;Account> {
     String firstName
     String lastName
     int ageInYears
 
     ZonedDateTime _expiry = ZonedDateTime.now() + 1.year
 
-    Account(String firstName, String lastName) {
+    public Account(String firstName, String lastName) {
         println("instantiating an Account...")
         super(.firstName, .lastName, ageInYears = 35)
     }
 
-    override String toString() ->
+    public override String toString() {
         `{firstName} {lastName} is {ageInYears} years old`
+    }
 
-    override Account concatenate(Account a) {
+    public override Account concatenate(Account a) {
         var firstName = firstName.concat(a.firstName)
         var lastName = lastName.concat(a.lastName)
 
@@ -205,21 +264,56 @@ class Account: ToString, Concatenate&lt;Account> {
         )
     }
 
-    String get name ->
+    public String get name {
         `{firstName} {lastName}`
+    }
 
-    boolean get locked ->
-        expiry &lt; ZonedDateTime.now()
+    public boolean get locked {
+        expiry &lt; ZonedDateTime.now
+    }
 }
 
-extends class Account: Concatenate&lt;Account, Result = String> {
+extend class Account implements Concatenate&lt;Account, Result = String> {
 
-    override String concatenate(This that) ->
+    public override String concatenate(This that) {
         `{firstName} {that.firstName}`
+    }
 }
 
-class Person = Account
-interface Showable = ToString
+void demoPatternMatching() {
+    var account1 = Account(firstName = "Tom", lastName = "Smith")
+    var matchingLastName = "Smith"
+
+    if var Account(firstName, lastName = .matchingLastName) as account = account1 {
+        println(`Matching first name: {firstName}`)
+        println(`Matching account: {account}`)
+    }
+
+    switch account1 {
+
+        Account(locked = true), Account(firstName = "unlucky") ->
+            println("LOCKED!")
+
+        Account(expiry) if expiry &lt; ZonedDateTime.now ->
+            println("ALSO LOCKED")
+
+        default {
+            println("NOT LOCKED: ")
+            println(account1)
+        }
+    }
+}
+
+/*
+ * Easy aliasing of various constructs to allow easy code repair during
+ * large-scale refactoring. Any item in any module can be aliased, which can
+ * ease module versioning where new major module versions are effectively
+ * different modules.
+ */
+alias counter2 = counter
+alias Person = Account
+alias Showable = ToString
+alias factorial2 = factorial
 
 int maxBound = 5
 
@@ -255,11 +349,6 @@ void closureDemo() {
 }
 
 void demoNumericLiterals() {
-    /**
-     * SyDocs can be written for code documentation. Unlike most languages, they
-     * go inside the item they describe, not just before it.
-     */
-
     int a = 5
     uint b = 5
     decimal c = 10.0
@@ -276,12 +365,15 @@ void demoNumericLiterals() {
     double m = 8f32
 }
 
-// Top-level code is allowed, but only in the main package. Code in other packages must be in
-// functions or methods.
+/*
+ * Top-level code is allowed, but only in the main package. Code in other packages must be in
+ * functions or methods.
+ */
 
 Optional&lt;String> optionalString = Some("test string")
-if var Some(s) = optionalString ->
+if var Some(s) = optionalString {
     println(s)
+}
 
 var c = Task(-> counter.start(currentTask))
 5.times(-> c.send(counter.Message.Increment()))
@@ -292,8 +384,9 @@ c.send(counter.Message.Get())
 
 // Should print 5 and then 6.
 2.times(->
-    select int n ->
+    select int n {
         println(`{n}`)
+    }
 )
 
 print("""
@@ -347,7 +440,17 @@ language should take Java's.
 <p>
 A gap exists between scripting languages and application languages; would enough
 type inference and support for features like top-level executable code and
-shebangs help bridge the gap?
+shebangs help bridge the gap to allow both to be done in one language?
+</p>
+
+<p>
+Strong isolation boundaries at modules and explicitly declared dependent modules
+and their full versions are required to evolve large systems over time without
+breaking compatibility. Major version changes, according to semantic versioning,
+are breaking changes, and should therefore be considered completely different
+mdoules. Non-pinned dependency versions or disallowing the import of multiple
+major versions of the same module does not scale in the modern world of software
+development.
 </p>
 
 <p>
@@ -361,9 +464,11 @@ the case of native compilation.
 <ul>
   <li class="done">Lex.</li>
   <li>Parse.</li>
+  <li>Implement the runtime.</li>
   <li>Interpret without any checks.</li>
   <li>Add checks such as types.</li>
   <li>Add optimisations like persistent data structures.</li>
+  <li>Compile with bundled runtime.</li>
 </ul>
 
 <h2 id="goals">Goals</h2>
@@ -373,6 +478,8 @@ the case of native compilation.
   <li>
     Support mixed-ability teams by not adding footguns or abstractions that do
     not scale; powerful features should have very little action-at-a-distance.
+    Computer science concepts are trumped by real world, large-scale software
+    engineering concerns.
   </li>
   <li>
     Use null-free static types and increase type-system expressiveness over Java
@@ -384,8 +491,9 @@ the case of native compilation.
     compiler and an initial Language Server Protocol implementation.
   </li>
   <li>
-    Python/Perl style distribution; expect an interpreter on the OS and avoid
-    bureaucratic requirements to run small programs.
+    Focus on AOT compilation for ease of distribution, Go- and Rust-style.
+    Support interpretation for embedding, quick debugging, and interactive
+    development.
   </li>
   <li>
     Use ubiquitous immutability to reduce unnecessary side-effects and coupling;
@@ -419,22 +527,89 @@ the case of native compilation.
 
 <h2 id="details">Details</h2>
 
-<h3>Accessibility Levels</h3>
+<h3 id="details-modules-and-packages">Modules and Packages</h3>
+
 <ul>
-  <li>Public and private.</li>
+  <li>Packages live within modules.</li>
   <li>
-    Private level is denoted by prefixing a package, class, interface, package
-    var, method, or function with an underscore.
+    Modules are the most coarse encapsulation boundary developers have.
+  </li>
+  <li>
+    Package are for laying out the structure of modules.
+  <li>
+    There is an implicit <code>main</code> module and <code>main</code> package.
+    The implicitness is to reduce boilerplate for single-line programs and
+    scripts.
+  </li>
+  <li>
+    Programs must be in a <code>main</code> module and a <code>main</code>
+    package, but libraries must have their own unique modules and packages.
+  </li>
+  <li>Modules, unlike packages, are versioned.</li>
+  <li>They declare which packages they depend on.</li>
+  <li>
+    Only items that are public and all of whose parents are also public are
+    exposed.
+  </li>
+  <li>
+    The <code>internal</code> accessibility modifier allows making something
+    public to other packages, but only within the module.
+  </li>
+  <li>
+    A different major version of a module is effectively considered a different
+    module in practice. In fact, multiple major versions of the same module can
+    be required at once. Cross-module aliases can be used to gradually evolve
+    major package versions over time without breaking compatibility.
+  </li>
+  <li>
+    Leaving a version number out assumes 0.x. Major version 0 is the only
+    version for which breaking changes across minor versions is acceptable.
+  </li>
+  <li>
+    The use of private-by-default accessibility combined with no reflection or
+    runtime metadata should give some decent oppertunities for dead-code
+    elimination and inter-procedural optimisations within a module.
   </li>
 </ul>
 
-<h3>Types</h3>
+<h3 id="details-accessibility-levels">Accessibility Levels</h3>
+<ul>
+  <li>Private, internal, and public.</li>
+  <li>
+    Private is the default, no keyword required.
+  </li>
+  <li>
+    The <code>internal</code> keyword exposes an item to its parent, but only
+    within its module.
+  </li>
+  <li>
+    The <code>public</code> keyword exposes an item to its parent, available
+    from outside the module too.
+  </li>
+</ul>
+
+<h3 id="details-items-and-expressions">Items and Expressions</h3>
+
+<ul>
+  <li>Items declare rigid, static program structure.</li>
+  <li>Expressions express computations and are obviously Turing complete.</li>
+  <li>
+    Items can contain expressions, i.e. a method item containing a method body
+    with expressions.
+  </li>
+  <li>
+    Expressions cannot contain items.
+  </li>
+</ul>
+
+<h3 id="details-types">Types</h3>
 
 <ul>
   <li>Built-ins and user-defined.</li>
   <li>
-    No difference between them from the user's perspective except for literal
-    support and built-ins being predefined by the compiler and runtime.
+    No difference between them from the user's perspective except for some of
+    them having literals baked into the language  and built-ins being predefined
+    by the compiler and runtime.
   </li>
   <li>
     Final classes and trait-like interfaces. No concrete inheritance or
@@ -465,9 +640,54 @@ the case of native compilation.
     what type-soundness issues they encounter. Perhaps implement a more
     restricted version of it.
   </li>
+  <li>
+    Only nominal types, no structural types. While it would be nice to mandate
+    that all type inference should be derivable from inner expressions outwards
+    without going the other way, that isn't possible due to constructs like
+    immediately-invoked lambdas or lambdas with parameters being passed as
+    a parameter typed as a lambda that takes compatible but more precise types.
+  </li>
+  <li>
+    Once we allow that, there's no reason not to allow LHS type inference to
+    flow from the RHS as long as it only flows to declarations within a function
+    or method body and does not escape it.
+  </li>
+  <li>
+    Sylan is more opionated than most language on how to use type annotations:
+    all items should be 100% explicitly typed whereas all declarations scoped to
+    a method or function should be 100% implicitly typed. The language will not
+    expose edgecases where type annotations are ever actually neccessary in
+    method or function bodies (like the "<code>:: Float</code> to disambiguate
+    <code>Show</code>" problem of Haskell). This is why numbers have explicit
+    type suffixes.
+  </li>
+  <li>
+    This ensures APIs and program structure is rigid and explicitly typed while
+    expressions are consise, without boilerplate, and utterly consistent rather
+    than making type annotations a matter of taste.
+  </li>
 </ul>
 
-<h3>Methods and Functions</h3>
+<h3 id="details-language-versioning">Language Versioning</h3>
+
+<ul>
+  <li>Keyword <code>v</code> can start a file to denote the source version.</li>
+  <li>Has a version after it, e.g. <code>v1.0</code></li>
+  <li>
+    If not present, assume to be the latest minor version of the earliest major
+    release of the language, i.e. 1.x.
+  </li>
+  <li>
+    Three things are versioned: the source, the tokens, and the AST.
+  </li>
+  <li>
+    A source version pins its tokens version; a tokens version pins its AST
+    version. So the versioning between the three isn't neccessarily in lockstep,
+    but it is fixed.
+  </li>
+</ul>
+
+<h3 id="details-methods-and-functions">Methods and Functions</h3>
 
 <ul>
   <li>
@@ -494,7 +714,7 @@ the case of native compilation.
   </li>
 </ul>
 
-<h3>Pattern Matching</h3>
+<h3 id="details-pattern-matching">Pattern Matching</h3>
 
 <ul>
   <li>Literals are matched as is.</li>
@@ -524,7 +744,7 @@ the case of native compilation.
   </li>
 </ul>
 
-<h3>Matching in Switch and Select</h3>
+<h3 id="details-matching-in-switch-and-select">Matching in Switch and Select</h3>
 
 <ul>
   <li>
@@ -549,7 +769,7 @@ the case of native compilation.
   </li>
 </ul>
 
-<h3>Invocations</h3>
+<h3 id="details-invocations">Invocations</h3>
 
 <ul>
   <li>
@@ -588,17 +808,7 @@ the case of native compilation.
   </li>
 </ul>
 
-<h3>Language Versioning</h3>
-
-<ul>
-  <li>Keyword <code>v</code> can start a file.</li>
-  <li>Has a version after it, e.g. <code>v1.0</code></li>
-  <li>
-    If not present, assume to be the earliest stable release of the language.
-  </li>
-</ul>
-
-<h3>Compile-time Metaprogramming</h3>
+<h3 id="details-compile-time-metaprogramming">Compile-time Metaprogramming</h3>
 
 <ul>
   <li>
@@ -613,16 +823,21 @@ the case of native compilation.
   <li>Will eliminate the need for reflection.</li>
   <li>
     What are the security implications of running arbitrary code from the
-    compiler?
+    compiler? Surely we should at least ban system side-effects?
   </li>
   <li>
     CL's <code>defmacro</code> is too low-level; a Java-like annotation syntax
     could be used for a more controlled subset, perhaps hygienic macro system a
     la Scheme.
   </li>
+  <li>
+    Macros can only be invoked against a specific tokens version or an AST
+    version. The compiler just won't compile macros designed for a v2 AST when
+    invoked against a v3 source.
+  </li>
 </ul>
 
-<h3>Runtime Structure Information</h3>
+<h3 id="details-runtime-structure-information">Runtime Structure Information</h3>
 
 <ul>
   <li>No reflection.</li>
@@ -635,7 +850,7 @@ the case of native compilation.
   <li>Improves performance as metaprogramming is done at compile-time.</li>
 </ul>
 
-<h3>The Runtime</h3>
+<h3 id="details-the-runtime">The Runtime</h3>
 
 <ul>
   <li>It will probably be heavily BEAM-inspired.</li>
@@ -669,17 +884,20 @@ the case of native compilation.
   </li>
 </ul>
 
-<h3>The Build System</h3>
+<h3 id="details-the-build-system">The Build System</h3>
 
 <ul>
   <li>
     Go-style; just derive information from the source files rather than using
     separate configurations.
   </li>
-  <li>If we must have config files, consider JSON5.
+  <li>
+    Strong compile-time metaprogramming can assist here, similar to how Jai
+    replaces Makefiles with compile-time profiles.
+  </li>
 </ul>
 
-<h3>Interoperability</h3>
+<h3 id="details-interoperability">Interoperability</h3>
 
 <ul>
   <li>
@@ -689,7 +907,7 @@ the case of native compilation.
   </li>
 </ul>
 
-<h3>Standard Library</h3>
+<h3 id="details-standard-library">Standard Library</h3>
 
 <ul>
   <li>
@@ -698,7 +916,7 @@ the case of native compilation.
   </li>
 </ul>
 
-<h3>To Consider</h3>
+<h3 id="details-to-consider">To Consider</h3>
 
 <ul>
   <li>
@@ -714,6 +932,15 @@ the case of native compilation.
     them. See Python 3 for an implementation of this.
   </li>
 </ul>
+
+<h2 id="implementation-details">Implementation Details</h2>
+
+<p>
+For more documentation on the actual implementation of Sylan, read the Rust
+docmentation comments of the code. A good starting point is the documentation of
+<a href="https://github.com/LouisJackman/sylan/blob/master/src/main.rs">the main
+top-level source file</a>.
+</p>
 
 </main>
 </body>

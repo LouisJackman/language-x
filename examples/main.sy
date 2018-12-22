@@ -1,16 +1,21 @@
 #!/usr/bin/env sylan
 
-// If no package is specified, "main" is assumed.
+/*
+ * If no package is specified, "main" is assumed. A `module-info.sy` file is not
+ * required for the top level program as there is an inferred `main` module that
+ * contains top-level programs.
+ */
 package main
 
 import sylan.io.{println, print}
 import sylan.datetime.ZonedDateTime
 
-// Package items like functions and classes are private to the package if
-// prefixed with an underscore.
-//
-// This also works with fields in classes and methods in classes and interfaces.
-void _demoIteration() {
+void demoIteration() {
+    /**
+     * SyDocs can be written for code documentation. Unlike JavaDoc but similar
+     * to Python, they go inside the item they describe rather than before it.
+     */
+
     List(1, 2, 3).forEach(n ->
         println(`{n}`)
     )
@@ -38,26 +43,44 @@ void _demoIteration() {
         println(`{key}: {value}`)
     )
 
-    var fact = for var n = 20, var result = 1 {
+    /*
+     * Sylan does not allow scope shadowing. As functions are just
+     * variables of a "function type", `factorial` would clash with the
+     * top-level `factorial` function defined later on, hence the disambiguating
+     * name `innerFactorial`.
+     */
+    var innerFactorial = for var n = 20, var result = 1 {
         if n <= 0 {
             result
         } else {
-            continue(n - 1, n * result)
+            continue n - 1, n * result
         }
     }
 
     OUTER: for var n = 10 {
         if 0 < n {
             for {
-                continue OUTER(n - 1)
+
+                // A `for` with no clauses is an infinite loop, except for the
+                // use of a continue label here that lets it jump to an outer
+                // loop.
+                OUTER: continue n - 1
             }
         }
     }
 
-    println(`factorial: {fact}`)
+    println(`factorial: {innerFactorial}`)
 }
 
-int factorial(int n) {
+
+/*
+ * All variables (including functions), packages, classes, getters, fields,
+ * and methods are private unless explicitly opened up with the `public`
+ * keyword. If the developer wants to expose them openly but only to
+ * its own module, they can use the `internal` keyword.
+ */
+
+internal int factorial(int n) {
     switch n {
         0, 1 ->
             1
@@ -68,7 +91,7 @@ int factorial(int n) {
     }
 }
 
-void twice<N>(N n, N f(N)) where
+private void twice<N>(N n, N f(N)) where
     N : Number
 {
     f(n) + f(n)
@@ -97,7 +120,7 @@ package counter {
         Get,
     }
 
-    void start(Task sender, int n = 0) {
+    public void start(Task sender, int n = 0) {
         select Message {
             .Increment:
                 start(sender, n + 1)
@@ -109,29 +132,30 @@ package counter {
             timeout 10.seconds:
                 throw Exception("timed out!")
         }
+    }
 }
 
 interface Concatenate<T, Result = T> {
-    Result concatenate(T y)
+    public Result concatenate(T y)
 }
 
-class Account: ToString, Concatenate<Account> {
+class Account implements ToString, Concatenate<Account> {
     String firstName
     String lastName
     int ageInYears
 
     ZonedDateTime _expiry = ZonedDateTime.now() + 1.year
 
-    Account(String firstName, String lastName) {
+    public Account(String firstName, String lastName) {
         println("instantiating an Account...")
         super(.firstName, .lastName, ageInYears = 35)
     }
 
-    override String toString() {
+    public override String toString() {
         `{firstName} {lastName} is {ageInYears} years old`
     }
 
-    override Account concatenate(Account a) {
+    public override Account concatenate(Account a) {
         var firstName = firstName.concat(a.firstName)
         var lastName = lastName.concat(a.lastName)
 
@@ -142,18 +166,18 @@ class Account: ToString, Concatenate<Account> {
         )
     }
 
-    String get name {
+    public String get name {
         `{firstName} {lastName}`
     }
 
-    boolean get locked {
+    public boolean get locked {
         expiry < ZonedDateTime.now
     }
 }
 
-implement class Account: Concatenate<Account, Result = String> {
+extend class Account implements Concatenate<Account, Result = String> {
 
-    override String concatenate(This that) {
+    public override String concatenate(This that) {
         `{firstName} {that.firstName}`
     }
 }
@@ -182,8 +206,16 @@ void demoPatternMatching() {
     }
 }
 
-class Person = Account
-interface Showable = ToString
+/*
+ * Easy aliasing of various constructs to allow easy code repair during
+ * large-scale refactoring. Any item in any module can be aliased, which can
+ * ease module versioning where new major module versions are effectively
+ * different modules.
+ */
+alias counter2 = counter
+alias Person = Account
+alias Showable = ToString
+alias factorial2 = factorial
 
 int maxBound = 5
 
@@ -219,11 +251,6 @@ void closureDemo() {
 }
 
 void demoNumericLiterals() {
-    /*
-     * SyDocs can be written for code documentation. Unlike JavaDoc but similar
-     * to Python, they go inside the item they describe rather than before it.
-     **/
-
     int a = 5
     uint b = 5
     decimal c = 10.0
@@ -240,8 +267,10 @@ void demoNumericLiterals() {
     double m = 8f32
 }
 
-// Top-level code is allowed, but only in the main package. Code in other packages must be in
-// functions or methods.
+/*
+ * Top-level code is allowed, but only in the main package within the main
+ * module. Code in other packages must be in functions or methods.
+ */
 
 Optional<String> optionalString = Some("test string")
 if var Some(s) = optionalString {
