@@ -8,8 +8,9 @@ pub mod tokens;
 use std::io;
 use std::ops::Index;
 
+use common::excursion_buffer::ExcursionBuffer;
+use common::peekable_buffer::PeekableBuffer;
 use lexing::lexer::{LexedToken, Lexer, LexerTask, LexerTaskError};
-use peekable_buffer::PeekableBuffer;
 
 const MAX_TOKEN_LOOKAHEAD: usize = 5;
 
@@ -39,6 +40,16 @@ impl Tokens {
     }
 }
 
+impl ExcursionBuffer for Tokens {
+    fn start_excursion(&mut self) -> Self {
+        Self {
+            lookahead: self.lookahead.clone(),
+            lookahead_len: self.lookahead_len,
+            lexer_task: self.lexer_task.start_excursion(),
+        }
+    }
+}
+
 pub struct LexedTokenReadMany(Vec<LexedToken>);
 
 impl Index<usize> for LexedTokenReadMany {
@@ -52,7 +63,7 @@ impl Index<usize> for LexedTokenReadMany {
 
 impl<'a> PeekableBuffer<'a, LexedToken, LexedTokenReadMany> for Tokens {
     fn peek_many(&mut self, n: usize) -> Option<&[LexedToken]> {
-        let tokens = &self.lexer_task.tokens;
+        let lexer = &self.lexer_task;
 
         // Expand and the lookahead if it's not big enough.
         let pending_peeks = n - self.lookahead_len;
@@ -62,7 +73,7 @@ impl<'a> PeekableBuffer<'a, LexedToken, LexedTokenReadMany> for Tokens {
             if m <= n {
                 break true;
             }
-            self.lookahead[n] = match tokens.recv() {
+            self.lookahead[n] = match lexer.recv() {
                 Ok(token) => token,
                 Err(_) => break false,
             };
@@ -104,7 +115,7 @@ impl<'a> PeekableBuffer<'a, LexedToken, LexedTokenReadMany> for Tokens {
             if non_lookahead_to_consume == 0 {
                 break true;
             }
-            match self.lexer_task.tokens.recv() {
+            match self.lexer_task.recv() {
                 Ok(token) => read_tokens.push(token),
                 Err(_) => break false,
             }
@@ -133,7 +144,7 @@ impl<'a> PeekableBuffer<'a, LexedToken, LexedTokenReadMany> for Tokens {
             if non_lookahead_to_discard <= 0 {
                 break true;
             }
-            match self.lexer_task.tokens.recv() {
+            match self.lexer_task.recv() {
                 Ok(_) => {}
                 Err(_) => break false,
             }
@@ -144,11 +155,13 @@ impl<'a> PeekableBuffer<'a, LexedToken, LexedTokenReadMany> for Tokens {
 
 #[cfg(test)]
 mod tests {
-    use super::source::Source;
-    use super::tokens::Token;
-    use super::*;
-    use multiphase::Identifier;
     use std::fmt::Debug;
+
+    use common::multiphase::Identifier;
+    use lexing::source::Source;
+    use lexing::tokens::Token;
+
+    use super::*;
 
     const TEST_SOURCE: &str = r#"
 

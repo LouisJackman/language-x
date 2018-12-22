@@ -1,16 +1,17 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::io;
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::{channel, Receiver, RecvError, Sender};
 use std::thread::{self, JoinHandle};
 
+use common::excursion_buffer::ExcursionBuffer;
+use common::multiphase::{self, SylanString};
+use common::peekable_buffer::PeekableBuffer;
+use common::version::Version;
 use lexing::char_escapes;
 use lexing::keywords;
 use lexing::source::Source;
 use lexing::tokens::Token;
-use multiphase::{self, SylanString};
-use peekable_buffer::PeekableBuffer;
-use version::Version;
 
 // TODO: implement multline strings.
 // TODO: lex shebang and version string before starting the main lexing loop.
@@ -53,8 +54,8 @@ type LexedTokenResult = Result<LexedToken, Error>;
 type Number = (i64, u64);
 
 pub struct LexerTask {
-    pub tokens: Receiver<LexedToken>,
-    pub lexer_handle: JoinHandle<Result<(), Error>>,
+    tokens: Receiver<LexedToken>,
+    lexer_handle: JoinHandle<Result<(), Error>>,
 }
 
 impl LexerTask {
@@ -67,6 +68,16 @@ impl LexerTask {
             },
             Err(err) => Err(LexerTaskError::Task(err)),
         }
+    }
+
+    pub fn recv(&self) -> Result<LexedToken, RecvError> {
+        self.tokens.recv()
+    }
+}
+
+impl ExcursionBuffer for LexerTask {
+    fn start_excursion(&mut self) -> Self {
+        unimplemented!()
     }
 }
 
@@ -620,8 +631,9 @@ impl Lexer {
 #[cfg(test)]
 mod tests {
 
+    use common::multiphase::{Identifier, InterpolatedString, Shebang, SyDoc};
+
     use super::*;
-    use multiphase::{Identifier, InterpolatedString, Shebang, SyDoc};
 
     fn test_lexer(s: &str) -> Lexer {
         let source_chars = s.chars().collect::<Vec<char>>();
