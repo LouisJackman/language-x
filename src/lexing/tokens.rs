@@ -1,5 +1,5 @@
-use multiphase::{Identifier, InterpolatedString, Shebang, SyDoc, SylanString};
-use version::Version;
+use common::multiphase::{Identifier, InterpolatedString, Shebang, SyDoc, SylanString};
+use common::version::Version;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
@@ -36,6 +36,7 @@ pub enum Token {
     Eof,
     Equals,
     Embeds,
+    Extend,
     Extends,
     For,
     Get,
@@ -44,14 +45,15 @@ pub enum Token {
     If,
     Ignorable,
     Ignore,
-    Implement,
     Implements,
     Import,
     Interface,
+    Internal,
     LambdaArrow,
     LessThan,
     LessThanOrEquals,
     MethodHandle,
+    Module,
     Modulo,
     Multiply,
     Not,
@@ -63,7 +65,12 @@ pub enum Token {
     Override,
     Package,
     Pipe,
+
+    // Does nothing but let us reserve keywords for later on.
     ReservedKeyword,
+
+    Reject,
+    Requires,
     Rest,
     Select,
     ShiftLeft,
