@@ -1,6 +1,7 @@
 use common::multiphase::{Identifier, InterpolatedString, Shebang, SyDoc, SylanString};
 use common::version::Version;
 
+/// All tokens that can currently exist in all version of a Sylan program source.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
     Boolean(bool),
@@ -66,7 +67,7 @@ pub enum Token {
     Package,
     Pipe,
 
-    // Does nothing but let us reserve keywords for later on.
+    /// Does nothing but let us reserve keywords for future use.
     ReservedKeyword,
 
     Reject,
@@ -75,8 +76,8 @@ pub enum Token {
     Select,
     ShiftLeft,
 
-    // Could be either a right-shift operator or two closing type parameter
-    // brackets. Disamgiguate in the parser.
+    /// Could be either a right-shift operator or two closing type parameter
+    /// brackets. Disambiguate in the parser.
     DoubleRightAngleBracket,
 
     SubItemSeparator,
@@ -90,6 +91,8 @@ pub enum Token {
     Where,
 }
 
+/// EOF is a special type of token because it simplifies logic over handling it
+/// in a special typed manner in every lexing case.
 impl Default for Token {
     fn default() -> Token {
         Token::Eof

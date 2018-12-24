@@ -1,9 +1,17 @@
-mod char_escapes;
-mod keywords;
-
-pub mod lexer;
-pub mod source;
-pub mod tokens;
+//! # Sylan's lexer
+//!
+//! This is responsible for turning source files into token streams.
+//!
+//! A source is anything that implements `PeekableBuffer`, so it can be a file read character by
+//! character or a source loaded entirely into memory in one go. Currently it's implemented as the
+//! latter due to IO system calls being expensive while memory is plentiful these days.
+//!
+//! That source is lexed into tokens, or "lexemes", which are atomic terminators of the language
+//! grammar, which are then fed into the parser.
+//!
+//! The lexer is encapsulated in a `LexerTask` that runs concurrently in its own thread. That lexer
+//! task is then hidden behind a `PeekableBuffer`. This allows consumers to treat it as a buffer
+//! without even considering the concurrency that backs the implementation.
 
 use std::io;
 use std::ops::Index;
@@ -11,6 +19,13 @@ use std::ops::Index;
 use common::excursion_buffer::ExcursionBuffer;
 use common::peekable_buffer::PeekableBuffer;
 use lexing::lexer::{LexedToken, Lexer, LexerTask, LexerTaskError};
+
+mod char_escapes;
+mod keywords;
+
+pub mod lexer;
+pub mod source;
+pub mod tokens;
 
 const MAX_TOKEN_LOOKAHEAD: usize = 5;
 

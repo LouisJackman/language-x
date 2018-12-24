@@ -1,6 +1,7 @@
 //! Keywords are reserved keywords that help the parser interpret tokens and resolve ambiguities.
-//! Some of the "keywords" here are actually just reserved words. They are reserved to avoid use as
-//! symbols in source files
+//! Some of the "keywords" here are actually just reserved words. They are reserved to avoid their
+//! use as symbols in source files so that they can potentially be used in the future without
+//! breaking existing code.
 
 use std::collections::HashMap;
 

@@ -1,7 +1,7 @@
-//! Types that cross over multiple phases.
+//! Immutable types that cross over multiple phases.
 //!
 //! For example, string literals are passed unaltered between the lexer,
-//! the parser, and compilers, and the runtime.
+//! the parser, and compiler, and the runtime.
 
 use std::sync::Arc;
 

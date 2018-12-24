@@ -1,20 +1,28 @@
-use common::multiphase::{Identifier, InterpolatedString, Shebang, SyDoc, SylanString};
-use common::version::Version;
+//! Sylan consists of items and expressions. Items are declarative whereas
+//! expressions are executed and yield values. Such values can be the void value
+//! for expressions executed solely for side-effects. Non-declaration statements
+//! don't exist but can be approximated by stacking expressions one after the
+//! other and discarding their values.
+
 use std::collections::{HashSet, LinkedList};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
-// Sylan consists of items and expressions. Items are declarative whereas expressions are executed
-// and yield values. Such values can be the void value for expressions executed solely for
-// side-effects. Non-declaration statements don't exist but can be approximated by stacking
-// expressions one after the other and discarding their values.
+use common::multiphase::{Identifier, InterpolatedString, Shebang, SyDoc, SylanString};
+use common::version::Version;
 
+/// Shebangs and source versions are special, which is why they're outside of
+/// the `FilePackage` in which all other items and expressions reside. Both
+/// shebangs must be completely resolved before anything else can be parsed,
+/// and the result of parsing version can completely change the lexing and
+/// parsing of all subsequent tokens.
 pub struct File {
     pub shebang: Option<Shebang>,
     pub version: Option<Version>,
     pub package: FilePackage,
 }
 
+/// The declarations that make up the structure of a Sylan program.
 pub enum Item {
     Package(Package),
     Class(Class),
@@ -25,6 +33,8 @@ pub enum Item {
     SyDoc(SyDoc),
 }
 
+/// The expressions that allow Turing-complete computations, i.e. allowing
+/// Sylan to do actual useful work.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Expression {
     ContextualScope(ContextualScope),
@@ -45,15 +55,15 @@ pub enum Expression {
     Throw(Throw),
 }
 
+/// Every node in Sylan is either an item or an expression, even the special
+/// shebang and version tokens (both of which are technically items).
 pub enum Node {
-    File(File),
     Item(Item),
     Expression(Expression),
 }
 
-// Packages only have declarative constructs, with the exception of the main package that can also
-// have executable code to simplify small scripts.
-
+/// Packages only have items at top-level, with the exception of the main package that can also have
+/// executable code to simplify small scripts.
 #[derive(Clone)]
 pub struct Package {
     pub accessibility: Accessibility,
@@ -69,6 +79,10 @@ pub struct MainPackage {
 
 pub enum FilePackage {
     EntryPoint(MainPackage),
+
+    // TODO: this needs to be removed; each package will be lexed and parsed individually
+    // and linked in a later phase, probably in the simplification but more likely one of the
+    // backends.
     Imported(Package),
 }
 
@@ -77,12 +91,10 @@ pub struct Import {
     pub lookup: PackageLookup,
 }
 
-// Declarations only have accessibility in packages and classes. In scopes, they are always public
-// in that scope.
-
 #[derive(Clone)]
 pub enum Accessibility {
     Public,
+    Internal,
     Private,
 }
 
@@ -99,10 +111,8 @@ pub struct Declaration {
     pub item: DeclarationItem,
 }
 
-// There are concrete classes and interfaces, the latter being more similar to typeclasses and
-// traits than traditional protocol-like OO interfaces. Concrete classes can only implement
-// interfaces; only interfaces can extend other types, and those types can only be interfaces.
-
+/// Concrete classes that support implementing interfaces and embedding other
+/// classes, but cannot extend other classes directly.
 pub struct Class {
     pub implements: LinkedList<Type>,
     pub methods: HashSet<ConcreteMethod>,
@@ -110,6 +120,10 @@ pub struct Class {
     pub items: HashSet<Declaration>,
 }
 
+/// Interfaces that support extending other interfaces, providing empty methods
+/// that implementors must implement, providing already-defined utility methods,
+/// and even allowing already-defined methods to be specialised via overriding
+/// in implementing classes.
 pub struct Interface {
     pub extends: LinkedList<Type>,
     pub getters: HashSet<Getter>,
@@ -149,11 +163,6 @@ pub enum TypeDeclaration {
     Assignment(TypeAssignment),
 }
 
-// Methods and functions are different constructs; only methods can be overridden, be abstract, and
-// must be tied to a type. Otherwise they are higher-order constructs that can be passed around
-// like normal functions. Like Python and unlike JS, their reference to their type and instance are
-// bound to the method itself.
-
 pub struct ConcreteMethod {
     pub method_type: Type,
     pub function: Function,
@@ -170,14 +179,17 @@ pub enum MethodItem {
     Abstract(AbstractMethod),
 }
 
+/// Methods, which can be potentially abstract (i.e. with undefined bodies) in
+/// interfaces, can be overridable and virtual in interfaces, and must be tied
+/// to either a class an interface.
+///
+/// Otherwise they are higher-order constructs that can be passed around like
+/// normal functions. Like Python and unlike JS, their reference to their type
+/// and instance are bound to the method itself.
 pub struct Method {
     pub name: Identifier,
     pub item: MethodItem,
 }
-
-// Getters are basically just methods without the ability to specify type or value parameters. They
-// have a single type, similar to a field. They are invoked without the call syntax with
-// parentheses.
 
 pub struct ConcreteGetter {
     pub body: Scope,
@@ -189,16 +201,17 @@ pub enum GetterItem {
     Abstract,
 }
 
+/// Getters are essentially just methods without the ability to specify type or
+/// value parameters. They have a single type, similar to a field. They are
+/// invoked without the call syntax with parentheses.
 pub struct Getter {
     pub getter_type: Type,
     pub name: Identifier,
     pub item: GetterItem,
 }
 
-// Type and value parameters are the same except for two differences: type parameters are for types
-// at compiletime whereas value parameters are for values at runtime, and only type parameters can
-// have optional upperbounds. They both have identifiers and optional default values.
-
+/// Value parameters are for values at runtime and have identifiers and
+/// optional default values.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ValueParameter {
     pub pattern: Pattern,
@@ -211,6 +224,8 @@ pub struct ValueParameterWithTypeAnnotation {
     type_annotation: Type,
 }
 
+/// Type parameters are for types at compile-time and have optional upper
+/// bounds, identifiers, and optional default values.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TypeParameter {
     pub name: Identifier,
@@ -218,28 +233,31 @@ pub struct TypeParameter {
     pub default_value: Option<Type>,
 }
 
-// Type and value arguments are the same except for one difference: type arguments are for types at
-// compiletime whereas value arguments are for values at runtime. Both support being passed as
-// positional or keyword arguments; unlike other languages it is the choice of the caller rather
-// than the definer. If passed as a keyword argument, an identifier is carried with it in the parse
-// tree.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Argument<T> {
     pub value: T,
     pub identifier: Option<Identifier>,
 }
 
+/// Value arguments are for values at runtime. They support being passed as
+/// positional or keyword arguments; unlike other languages it is the choice of
+/// the caller rather than the definer. If passed as a keyword argument, an
+/// identifier is carried with it in the parse tree.
 type ValueArgument = Argument<Expression>;
+
+/// Type arguments are for values at runtime. They support being passed as
+/// positional or keyword arguments; unlike other languages it is the choice of
+/// the caller rather than the definer. If passed as a keyword argument, an
+/// identifier is carried with it in the parse tree.
 type TypeArguments = Argument<Type>;
 
-// Sylan's "symbol tables" are just a collection of bindings in the current scope. Parent scopes
-// can be looked up to find bindings in outer closures, which is how lexical scoping is
-// implemented.
-//
-// Bindings are for execution-time values. Statically deducable values go via package and type
-// definitions instead. (Note that "execution-time" can mean both "runtime" and "running within a
-// compile-time macro.)
+// Sylan's "symbol tables" are just a collection of bindings in the current
+// scope. Parent scopes can be looked up to find bindings in outer closures,
+// which is how lexical scoping is implemented.
 
+/// Bindings are for execution-time values. Statically deducible values go via
+/// package and type definitions instead. (Note that "execution-time" can mean
+/// both "runtime" and "running within a compile-time macro.)
 #[derive(Clone, Debug, Eq)]
 pub struct Binding {
     pub pattern: Pattern,
@@ -276,19 +294,19 @@ impl Hash for ContextualBinding {
     }
 }
 
-// Expressions are seperate from bindings.
+/// Expressions are seperate from bindings.
 type Expressions = Vec<Expression>;
 
-// Declarations within a code block are expected to be fully resolved before executing its
-// expressions. This is to allow techniques like mutual recursion and self-referencial methods
-// without forward declarations.
-//
-// Note that the declarations aren't accessible until their declarations have been executed, but
-// don't cause compilation problems if accessed within a delayed computation within the same scope.
-//
-// In other words, these declarations are block scoped with a temporal dead zone rather than using
-// scope hoisting.
-
+/// Declarations within a code block are expected to be fully resolved before
+/// executing its expressions. This is to allow techniques like mutual recursion
+/// and self-referential methods without forward declarations.
+///
+/// Note that the declarations aren't accessible until their declarations have
+/// been executed, but don't cause compilation problems if accessed within a
+/// delayed computation within the same scope.
+///
+/// In other words, these declarations are block scoped with a temporal dead
+/// zone rather than using scope hoisting.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Code {
     pub bindings: HashSet<Binding>,
@@ -311,14 +329,14 @@ pub struct ContextualCode {
     pub expressions: Expressions,
 }
 
-// Scopes, unlike non-main packages, can contain executable code. Unlike all packages, they can be
-// within do contexts and refer to parent scopes. They can declare variables with bindings but
-// cannot declare new types or subpackages like packages can.
-//
-// All functions, methods, and getters have an attached scope. Scopes can also be standalone, in
-// which case they are immediately invoked and then destroyed afterwards. In this case they
-// function similarly to the immediately-invoked functions or do-blocks of other languages.
-
+/// Scopes, unlike non-main packages, can contain executable code. Unlike all
+/// packages, they can refer to parent scopes. They can declare variables with
+/// bindings but cannot declare new types or subpackages like packages can.
+///
+/// All functions, methods, and getters have an attached scope. Scopes can also
+/// be standalone, in which case they are immediately invoked and then destroyed
+/// afterwards. In this case they function similarly to the immediately-invoked
+/// functions or do-blocks of other languages.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Scope {
     pub code: Code,
@@ -357,13 +375,6 @@ impl ContextualScope {
     }
 }
 
-// Like methods, functions have a scope and type and value parameters. Unlike methods, they do not
-// carry references to types or instances, and cannot be overridden or be abstract.
-//
-// There is no difference between a function or a lambda. A lambda is merely a function that isn't
-// attached to a binding in a scope. After being lexed from different tokens, they become
-// indistinguishable in the AST.
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FunctionSignature {
     pub type_parameters: Vec<TypeParameter>,
@@ -377,6 +388,13 @@ pub struct LambdaSignature {
     pub value_parameters: Vec<ValueParameter>,
 }
 
+/// Like methods, functions have a scope and type and value parameters. Unlike
+/// methods, they do not carry references to types or instances, and cannot be
+/// overridden or be abstract.
+///
+/// There is no difference between a function or a lambda. A lambda is merely a
+/// function that isn't attached to a binding in a scope. After being lexed from
+/// different tokens they become indistinguishable in the AST.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Function {
     pub signature: FunctionSignature,
@@ -394,7 +412,12 @@ pub enum Literal {
     Boolean(bool),
     Char(char),
 
-    // Reentering the lexer is needed for interpolations in interpolated strings.
+    /// Reentering the lexer is needed for interpolations in interpolated
+    /// strings.
+    ///
+    /// TODO: this could lead to impenetrable Sylan code and significant lexer
+    /// complications. Let's just allow interpolating symbols, nothing else,
+    /// and call it a day.
     InterpolatedString(InterpolatedString),
 
     Number(i64, u64),
@@ -403,12 +426,11 @@ pub enum Literal {
 
 pub type PackageLookup = Vec<Identifier>;
 
-// Sylan allows overridding existing operators but not defining new ones,
-// otherwise an operator would be an `Identifier` instead of in an enum.
-//
-// `=` for assignment is not an AST node in Sylan but is instead a required
-// token while parsing a `Binding` node.
-
+/// Sylan allows overridding existing operators but not defining new ones,
+/// otherwise an operator would be an `Identifier` instead of in an enum.
+///
+/// `=` for assignment is not an AST node in Sylan but is instead a required
+/// token while parsing a `Binding` node.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum UnaryOperator {
     BitwiseNot,
@@ -419,6 +441,11 @@ pub enum UnaryOperator {
     Positive,
 }
 
+/// Sylan allows overridding existing operators but not defining new ones,
+/// otherwise an operator would be an `Identifier` instead of in an enum.
+///
+/// `=` for assignment is not an AST node in Sylan but is instead a required
+/// token while parsing a `Binding` node.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BinaryOperator {
     Add,
@@ -493,10 +520,11 @@ pub struct Continue {
     pub label: Option<Identifier>,
 }
 
-// Throwing an expression does not yield a value as it destroys its current process. However, it is
-// an expression and can therefore be used anywhere an expression can be used. It can throw any
-// expression that yields a type which implements the Exception interface. In "returns" the bottom
-// type, allowing it to be used everywhere.
+/// Throwing an expression does not yield a value as it destroys its current
+/// process. However, it is an expression and can therefore be used anywhere an
+/// expression can be used. It can throw any expression that yields a type which
+/// implements the Exception interface. In "returns" the bottom type which
+/// allows it to be used anywhere.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Throw(pub Box<Expression>);
 

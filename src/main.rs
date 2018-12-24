@@ -1,14 +1,17 @@
-//!
 //! # The Sylan Programming Language
+//!
+//! These RustDoc comments here document the language's implementation. To see an overview of the
+//! language itself, its raison detre, decision rationales, and broader non-technical architecture,
+//! see the documentation at `docs/index.html`.
 //!
 //! ## Modules
 //!
 //! `main.rs` stitches the whole system together by building a dependency and execution order chain
 //! between the modules:
 //! ```
-//!                                ,-> interpreter -> runtime
-//! lexing -> parsing -> backend -<
-//!                                `-> runtime -> compiler
+//!                                                  ,-> interpreter -> runtime
+//! lexing -> parsing -> simplification -> backend -<
+//!                                                  `-> runtime -> compiler
 //! ```
 //!
 //! The interpreter invokes the runtime whereas the runtime is baked into the compiled artefact,
@@ -27,7 +30,7 @@
 //! * Emits tokens over a channel.
 //!
 //! Parser:
-//! * The parser thrad.
+//! * The parser thread.
 //! * An additional parsing excursion thread.
 //! * Receives tokens from a channel.
 //! * Each parser can create a single excursion, creating a new parser with its own thread.
@@ -47,10 +50,11 @@
 //!
 //! Following the module chain above, here is the data flow between the modules:
 //! ```
-//!                             ,-> Side Effects via Interpretation with the Runtime
-//! Tokens -> AST -> Sylan IL -<
-//!                             `-> LLVM IL -> LLVM Target -> Side Effects via Target Executable
-//!                                                           with the Bundled Runtime
+//!                                       ,-> Side Effects via Interpretation with the Runtime
+//! Source -> Tokens -> AST -> Sylan IL -<
+//!                                       `-> LLVM IL -> LLVM Target -> Side Effects via Target
+//!                                                                     Executable with the Bundled
+//!                                                                     Runtime
 //! ```
 //!
 //! TODO: specify precisely how the runtime gets bundled with the compiled artefact. My vague idea
@@ -61,11 +65,6 @@
 //! ## Further Details
 //!
 //! _For more details on each stage, see each modules' documentation._
-//!
-
-mod common;
-mod lexing;
-mod parsing;
 
 use std::alloc::System;
 use std::env::{args, Args};
@@ -76,6 +75,10 @@ use lexing::lexer::Lexer;
 use lexing::source::Source;
 use lexing::Tokens;
 use parsing::Parser;
+
+mod common;
+mod lexing;
+mod parsing;
 
 #[global_allocator]
 static GLOBAL: System = System;

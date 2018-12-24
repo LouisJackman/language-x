@@ -1,4 +1,40 @@
-mod nodes;
+//! # Sylan's Parser
+//!
+//! The parser turns a token stream into an abstract syntax tree that can be
+//! better reasoned about semantically, ready for submission to further
+//! simplification steps and then a backend for execution or creation of an
+//! executable.
+//!
+//! All AST nodes are either items or expressions. Items are top-level
+//! declarations that describe the whole program structure. Expressions
+//! describe actual computations. Expressions can be contained within items,
+//! but items cannot be contained within expressions with the exception of
+//! variable bindings.
+//!
+//! All expressions must be inside function or method blocks, which are items.
+//! The exception is the `main` package in the `main` module which allows
+//! top-level code.
+//!
+//! Statements don't really exist in Sylan. The closest equivalent is an
+//! expression that returns Sylan's unit type `void` or an `ignorable`
+//! expression that throws away a method's or function's non-`void` return
+//! value. That said, the only item allowed inside expressions (e.g. within the
+//! body of a lambda in the middle of an outer expression), variable bindings
+//! with `var`, pretty much look and feel like statements from other languages.
+//!
+//! Expressions just resolve inner expressions outwards until done; a function
+//! or method block can have multiple expressions which Sylan, being a strict,
+//! non-pure language, can just execute sequentially at runtime without needing
+//! monads or uniqueness types to enforce the order.
+//!
+//! A simplification step is performed before giving the AST to the backend as
+//! a jump is needed from Sylan's pragmatic, large syntax to the much smaller,
+//! more "pure" form that defines the core Sylan execution semantics. See the
+//! `sylan_il` for more details.
+//!
+//! A concurrent design similar to the lexer's might be possible, but will
+//! require a sort of zipper or lazy tree structure. More research is needed
+//! here. Until then, there is no `ParserTask` equivalent to the `LexerTask`.
 
 use std::collections::{HashSet, LinkedList};
 use std::rc::Rc;
@@ -18,6 +54,8 @@ use parsing::nodes::{
     MainPackage, Package, Pattern, PatternField, PatternItem, Scope, Select, Switch, Throw,
     Timeout, TypeDeclaration, ValueParameter,
 };
+
+mod nodes;
 
 // TODO: break cycles in scopes to cleanup memory properly.
 
@@ -47,40 +85,42 @@ fn is_ignored_binding(identifier: Identifier) -> bool {
     (*string) == "_"
 }
 
-fn get_item_accessibility(identifier: &Identifier) -> Accessibility {
-    let Identifier(string) = identifier;
-    if string.starts_with('_') {
-        Accessibility::Private
-    } else {
-        Accessibility::Public
-    }
-}
-
 pub struct Parser {
     tokens: Tokens,
     current_scope: Rc<Scope>,
 }
 
-impl Parser {
-    pub fn from(tokens: Tokens) -> Self {
+impl From<Tokens> for Parser {
+    fn from(tokens: Tokens) -> Self {
         Self {
             tokens,
             current_scope: Scope::new_root(),
         }
     }
+}
 
+impl Parser {
+    /// Fail at parsing, describing the reason why.
     fn fail<T>(&self, message: impl Into<String>) -> Result<T> {
         Err(Error::Parser(ParserError {
             description: ParserErrorDescription::Described(message.into()),
         }))
     }
 
+    /// Fail at parsing, stating that the `expected` token was expected but
+    /// did not appear.
     fn expected<T>(&self, expected: Token) -> Result<T> {
         Err(Error::Parser(ParserError {
             description: ParserErrorDescription::Expected(expected),
         }))
     }
 
+    /// Return a successful empty result if it is indeed the next token in the
+    /// stream. Otherwise, fail at parsing, stating that the `expected` token
+    /// was expected but did not appear.
+    ///
+    /// The successful empty result is mostly useful when combined with the `?`
+    /// operator.
     fn expect(&mut self, expected: Token) -> Result<()> {
         if self.next_is(&expected) {
             Ok(())
@@ -89,6 +129,9 @@ impl Parser {
         }
     }
 
+    /// Return the next read token in the stream if it matches the expected
+    /// token. Otherwise fail at parsing, stating that the `expected` token was
+    /// expected but did not appear.
     fn expect_and_read(&mut self, expected: Token) -> Result<Token> {
         let next = self.tokens.read();
         next.map(|lexed| lexed.token)
@@ -97,6 +140,9 @@ impl Parser {
             .unwrap_or_else(|| self.expected(expected))
     }
 
+    /// Discard the next read token in the stream if it matches the expected
+    /// token. Otherwise fail at parsing, stating that the `expected` token was
+    /// expected but did not appear.
     fn expect_and_discard(&mut self, expected: Token) -> Result<()> {
         if let Some(lexed) = self.tokens.read() {
             if lexed.token == expected {
@@ -109,25 +155,37 @@ impl Parser {
         }
     }
 
+    /// Fail at parsing, stating that the `unexpected` token was unexpected
+    /// and therefore cannot be handled.
     fn unexpected<T>(&self, unexpected: Token) -> Result<T> {
         Err(Error::Parser(ParserError {
             description: ParserErrorDescription::Unexpected(unexpected),
         }))
     }
 
+    /// Fail at parsing because an EOF was encountered unexpectedly.
     fn premature_eof<T>(&self) -> Result<T> {
         Err(Error::Parser(ParserError {
             description: ParserErrorDescription::PrematureEof,
         }))
     }
 
+    /// Check whether the next token matches `expected`.
     fn next_is(&mut self, expected: &Token) -> bool {
         self.tokens.match_next(|lexed| lexed.token == *expected)
     }
 
+    /// Check whether the `n`th token matches `expected`, where `n` is
+    /// zero-indexed.
     fn nth_is(&mut self, n: usize, expected: &Token) -> bool {
         self.tokens.match_nth(n, |lexed| lexed.token == *expected)
     }
+
+    // The following methods are sub-parsers that are reentrant and handle the
+    // parsing of a particular subcontext of the overall source. Each expects
+    // the whole context next in the stream, so previous steps working out which
+    // sub-parser to delegate to should use peeks and not reads to discern it
+    // from subsequent tokens in the buffer.
 
     fn parse_unary_operator(
         &mut self,
@@ -421,7 +479,7 @@ impl Parser {
         self.expect_and_discard(Token::CloseBrace)?;
 
         Ok(nodes::Package {
-            accessibility: get_item_accessibility(&name),
+            accessibility: Accessibility::Public,
             name,
             imports,
             declarations,
@@ -560,6 +618,8 @@ impl Parser {
     /// lookahead to disambiguate before committing, so Sylan instead commits immediately to
     /// parsing expressions, narrowing it down to an expression group if a token appears outside of
     /// the subset allowed in pattern matching.
+    ///
+    /// TODO: update this comment to reflect the actual final design of this.
     fn parse_open_parentheses(&mut self) -> Result<nodes::Expression> {
         self.tokens.discard();
         let mut expressions = vec![];
@@ -898,6 +958,8 @@ impl Parser {
         })
     }
 
+    /// Parse an AST from a lexer, ensuring the underlying lexer task has
+    /// finished before continuing.
     pub fn parse(mut self) -> Result<nodes::File> {
         let file = self.parse_file();
         self.tokens.join_lexer_thread();

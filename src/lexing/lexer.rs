@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::io;
-use std::sync::mpsc::{channel, Receiver, RecvError, Sender};
+use std::sync::mpsc::{channel, Receiver, RecvError};
 use std::thread::{self, JoinHandle};
 
 use common::excursion_buffer::ExcursionBuffer;
@@ -22,6 +22,10 @@ use lexing::tokens::Token;
 
 const LEXER_THREAD_NAME: &str = "Sylan Lexer";
 
+/// A lexed token that remembers its position and "trivia". Trivia is whitespace
+/// on either side. Tracking this allows tooling to pull apart code, refactor
+/// it, and then put it back together without breaking whitespace formatting in
+/// the existing source.
 #[derive(Clone, Eq, PartialEq, Debug, Default)]
 pub struct LexedToken {
     pub position: usize,
@@ -53,6 +57,8 @@ type LexedTokenResult = Result<LexedToken, Error>;
 
 type Number = (i64, u64);
 
+/// The task that lexes and emitted a token stream over a channel. It's a lexed token channel
+/// combined with a join handle on the underlying thread.
 pub struct LexerTask {
     tokens: Receiver<LexedToken>,
     lexer_handle: JoinHandle<Result<(), Error>>,
@@ -81,6 +87,8 @@ impl ExcursionBuffer for LexerTask {
     }
 }
 
+/// A lexer that is used by a `LexerTask` to produce a stream of tokens. Each lexer has a source
+/// code to lex, and a set of character escapes and known keyword mappings to use.
 pub struct Lexer {
     source: Source,
     char_escapes: HashMap<char, char>,
@@ -98,6 +106,7 @@ impl From<Source> for Lexer {
 }
 
 impl Lexer {
+    /// Fail at lexing, describing the reason why.
     fn fail(&self, description: impl Into<String>) -> TokenResult {
         Err(Error {
             description: ErrorDescription::Described(description.into()),
@@ -105,6 +114,8 @@ impl Lexer {
         })
     }
 
+    /// Fail at lexing, stating that the `expected` character was expected but
+    /// did not appear.
     fn expect(&self, expected: char) -> TokenResult {
         Err(Error {
             description: ErrorDescription::Expected(expected),
@@ -112,12 +123,20 @@ impl Lexer {
         })
     }
 
+    /// Fail at lexing, stating that the `unexpected` character was unexpected
+    /// and therefore cannot be handled.
     fn unexpected(&self, unexpected: char) -> TokenResult {
         Err(Error {
             description: ErrorDescription::Unexpected(unexpected),
             position: self.source.position,
         })
     }
+
+    // The following methods are sub-lexers that are reentrant and handle the
+    // lexing of a particular subcontext of the overall source. Each expects
+    // the whole context next in the stream, so previous steps working out which
+    // sub-lexer to delegate to should use peeks and not reads to discern it
+    // from subsequent characters in the buffer.
 
     fn lex_multi_line_comment(&mut self, buffer: &mut String) -> Option<Error> {
         self.source.discard_many(2);
@@ -223,7 +242,6 @@ impl Lexer {
 
         self.lex_absolute_number()
             .map(|(real, fractional)| {
-
                 // TODO: lex this properly. Unlike an absolute number, it must support more than one
                 // decimal place.
                 Token::Version(Version {
@@ -606,6 +624,8 @@ impl Lexer {
         }
     }
 
+    /// Start lexing from the top-level of the source, returning a lexing task running concurrently
+    /// in another thread and feeding tokens through a channel as it goes.
     pub fn lex(mut self) -> io::Result<LexerTask> {
         let (tx, rx) = channel();
         let thread = thread::Builder::new().name(LEXER_THREAD_NAME.to_string());
@@ -632,7 +652,6 @@ impl Lexer {
 
 #[cfg(test)]
 mod tests {
-
     use common::multiphase::{Identifier, InterpolatedString, Shebang, SyDoc};
 
     use super::*;

@@ -1,3 +1,12 @@
+//! A source is a Sylan source file fronted by a `PeekableBuffer` that hides how
+//! the source file is actually loaded. It currently loads the entire file into
+//! memory in a single read, as modern systems tend to make IO system calls
+//! relatively expensive compared to allocating a larger piece of memory.
+//!
+//! As this is hidden behind the `PeekableBuffer` abstraction, it is possible
+//! in the future to support lazily streaming sources as lexing and parsing
+//! commences on already-streamed fragments without breaking compatibility.
+
 use std::ops::Index;
 
 use common::peekable_buffer::PeekableBuffer;
@@ -49,20 +58,20 @@ impl<'a> PeekableBuffer<'a, char, CharReadMany<'a>> for Source {
         }
     }
 
-    fn peek_nth(&mut self, n: usize) -> Option<&char> {
-        if self.content.len() <= (self.position + n) {
-            None
-        } else {
-            Some(&self.content[self.position + n])
-        }
-    }
-
     fn discard_many(&mut self, n: usize) -> bool {
         if self.content.len() < (self.position + n) {
             false
         } else {
             self.position += n;
             true
+        }
+    }
+
+    fn peek_nth(&mut self, n: usize) -> Option<&char> {
+        if self.content.len() <= (self.position + n) {
+            None
+        } else {
+            Some(&self.content[self.position + n])
         }
     }
 }
