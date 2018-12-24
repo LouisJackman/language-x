@@ -223,11 +223,13 @@ impl Lexer {
 
         self.lex_absolute_number()
             .map(|(real, fractional)| {
+
+                // TODO: lex this properly. Unlike an absolute number, it must support more than one
+                // decimal place.
                 Token::Version(Version {
                     major: real as u64,
                     minor: fractional,
                     patch: 0,
-                    security: 0,
                 })
             })
             .map(Ok)
@@ -754,7 +756,6 @@ mod tests {
                 major: 10,
                 minor: 23,
                 patch: 0,
-                security: 0,
             }),
         );
     }
