@@ -78,6 +78,9 @@ void demoIteration() {
  * and methods are private unless explicitly opened up with the `public`
  * keyword. If the developer wants to expose them openly but only to
  * its own module, they can use the `internal` keyword.
+ *
+ * As can be seen in this function and the previous, Sylan allows functions to
+ * stand alone in packages without being tied to classes or interfaces.
  */
 
 internal int factorial(int n) {
@@ -87,27 +90,33 @@ internal int factorial(int n) {
         n if n < 0 ->
             throw Exception("n cannot be less than 0")
         n ->
+            /*
+             * Guaranteed tail call elimination will ensure a stack overflow
+             * does not occur.
+             */
             factorial(n * (n - 1))
     }
 }
 
 ignorable internal int printFactorial(int n) {
     /*
-     * Sylan does not allow callers to throw away non-`void` function or methods results unless they're declared with
-     * the `ignorable` modifier.
+     * Sylan does not allow callers to throw away non-`void` function or methods
+     * results unless they're declared with the `ignorable` modifier.
      *
-     * This makes sense when getting a return value is potentially useful but not the entire reason behind invoking it.
-     * Such a function or method can be assumed to have side effects, with the exception of constant-time operation NOPs
-     * or the like.
+     * This makes sense when getting a return value is potentially useful but
+     * not the entire reason behind invoking it.  Such a function or method can
+     * be assumed to have side effects, with the exception of constant-time
+     * operation NOPs or the like.
      */
 
     var result = factorial(n)
     println(result)
 
     /*
-     * Sylan is an expression-oriented language, so everything returns a value including loops and `if`s. Therefore,
-     * the last value is returned by default. The lack of explicit `return`s mean there is always a single exit point
-     * from a function or method: the last expression.
+     * Sylan is an expression-oriented language, so everything returns a value
+     * including loops and `if`s. Therefore, the last value is returned by
+     * default. The lack of explicit `return`s mean there is always a single
+     * exit point from a function or method: the last expression.
      */
     result
 }
@@ -125,6 +134,13 @@ String double<N>(N n) where
 }
 
 Optional<int> demoContexts() {
+
+    /*
+     * Haskell programmers will recognise this as a monadic do notation.
+     * Non-Haskell programmers will be glad to know that this otherwise esoteric
+     * feature can make tangled code such as optionality-checking chains and
+     * validation code much cleaner.
+     */
     do {
         var a <- Some(5)
         doSomething()
@@ -160,9 +176,56 @@ interface Concatenate<T, Result = T> {
     public Result concatenate(T y)
 }
 
-class Account implements ToString, Concatenate<Account> {
+interface Equals<T = Self> {
+    public boolean equals(T other)
+
+    /*
+     * Sylan's interface methods can have bodies like Java 8's defender methods.
+     * Unlike Java 8, private methods with bodies are also allowed with the
+     * `default` keyword. Similar to C# but unlike Java, a default method body
+     * in an interface can only be overridden if annotated with `virtual`.
+     * `virtual` is not necessary for non-default methods since the lack of
+     * concrete inheritance in Sylan means there is no other possible use case
+     * for them except to be implemented by the implementor.
+     */
+    public virtual notEquals(T other) default {
+        !equals(other)
+    }
+}
+
+class Name {
+    /**
+     * Getters, hashing, equality checking, and the constructor all just exist
+     * automatically. They can still be manually overridden if necessary though.
+     */
+
     String firstName
     String lastName
+}
+
+class Account implements ToString, Concatenate<Account> {
+    /**
+     * Classes can implement interfaces but cannot extend other classes.
+     * Interfaces can extend other interfaces though. Concrete inheritance
+     * generally causes more problems that it's worth and type embedding plus a
+     * more powerful interface system makes up for the difference.
+     */
+
+    /*
+     * This just picks up a class and embeds its contents them into another
+     * class. Clashes with existing fields are not tolerated, causing a
+     * compilation error.
+     *
+     * Embedded classes can implement methods for implementing interfaces on its
+     * behalf, but it will refuse to clash with existing methods defined in the
+     * embedding class itself.
+     *
+     * Note that no relationship whatsoever is established between the classes
+     * after the embedding; there is no concrete subtyping in Sylan. It's solely
+     * for DRY: don't repeat yourself.
+     */
+    embed Name
+
     int ageInYears
 
     ZonedDateTime _expiry = ZonedDateTime.now() + 1.year
@@ -187,6 +250,10 @@ class Account implements ToString, Concatenate<Account> {
         )
     }
 
+    /*
+     * Getters are defined like methods but look like fields. Setters don't
+     * exist because Sylan is an immutable language.
+     */
     public String get name {
         `{firstName} {lastName}`
     }
@@ -207,7 +274,8 @@ void demoPatternMatching() {
     var account1 = Account(firstName = "Tom", lastName = "Smith")
     var matchingLastName = "Smith"
 
-    if var Account(firstName, lastName = .matchingLastName) as account = account1 {
+    if var Account(firstName, lastName = .matchingLastName) as account
+            = account1 {
         println(`Matching first name: {firstName}`)
         println(`Matching account: {account}`)
     }
@@ -224,14 +292,18 @@ void demoPatternMatching() {
             println("NOT LOCKED: ")
             println(account1)
         }
+
+        /*
+         * Switches are expressions, support multiple cases, can do pattern
+         * matching, and have support for conditional "guards".
+         */
     }
 }
 
 /*
- * Easy aliasing of various constructs to allow easy code repair during
- * large-scale refactoring. Any item in any module can be aliased, which can
- * ease module versioning where new major module versions are effectively
- * different modules.
+ * Aliasing of various constructs to allow easy code repair during large-scale
+ * refactoring. Any item in any module can be aliased, which can ease module
+ * versioning where new major module versions are effectively different modules.
  */
 alias counter2 = counter
 alias Person = Account
@@ -293,7 +365,7 @@ void demoNumericLiterals() {
  * module. Code in other packages must be in functions or methods.
  */
 
-Optional<String> optionalString = Some("test string")
+var optionalString = Some("test string")
 if var Some(s) = optionalString {
     println(s)
 }

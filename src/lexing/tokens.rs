@@ -35,7 +35,7 @@ pub enum Token {
     Else,
     Eof,
     Equals,
-    Embeds,
+    Embed,
     Extend,
     Extends,
     For,

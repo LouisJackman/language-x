@@ -16,7 +16,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("default", Token::Default),
         ("do", Token::Do),
         ("else", Token::Else),
-        ("embeds", Token::Embeds),
+        ("embed", Token::Embed),
         ("extend", Token::Extend),
         ("extends", Token::Extends),
         ("for", Token::For),
