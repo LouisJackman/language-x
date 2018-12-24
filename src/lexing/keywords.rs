@@ -1,3 +1,7 @@
+//! Keywords are reserved keywords that help the parser interpret tokens and resolve ambiguities.
+//! Some of the "keywords" here are actually just reserved words. They are reserved to avoid use as
+//! symbols in source files
+
 use std::collections::HashMap;
 
 use lexing::tokens::Token;
@@ -74,6 +78,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("pragma", Token::ReservedKeyword),
         ("quasiquote", Token::ReservedKeyword),
         ("quote", Token::ReservedKeyword),
+        ("return", Token::ReservedKeyword),
         ("reader", Token::ReservedKeyword),
         ("ref", Token::ReservedKeyword),
         ("stackalloc", Token::ReservedKeyword),

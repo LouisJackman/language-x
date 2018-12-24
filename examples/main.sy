@@ -91,6 +91,27 @@ internal int factorial(int n) {
     }
 }
 
+ignorable internal int printFactorial(int n) {
+    /*
+     * Sylan does not allow callers to throw away non-`void` function or methods results unless they're declared with
+     * the `ignorable` modifier.
+     *
+     * This makes sense when getting a return value is potentially useful but not the entire reason behind invoking it.
+     * Such a function or method can be assumed to have side effects, with the exception of constant-time operation NOPs
+     * or the like.
+     */
+
+    var result = factorial(n)
+    println(result)
+
+    /*
+     * Sylan is an expression-oriented language, so everything returns a value including loops and `if`s. Therefore,
+     * the last value is returned by default. The lack of explicit `return`s mean there is always a single exit point
+     * from a function or method: the last expression.
+     */
+    result
+}
+
 private void twice<N>(N n, N f(N)) where
     N : Number
 {
@@ -252,7 +273,7 @@ void closureDemo() {
 
 void demoNumericLiterals() {
     int a = 5
-    uint b = 5
+    uint b = 5u
     decimal c = 10.0
 
     byte d = 5u8
