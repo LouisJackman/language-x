@@ -49,30 +49,50 @@ script:
 # Required for code coverage with kcov and codecov.io
 # Adapted from: https://github.com/codecov/example-rust
 after_success: |
-  wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz \
-      && tar xzf master.tar.gz \
-      && cd kcov-master \
-      && mkdir build \
-      && cd build \
-      && cmake .. \
-      && make \
-      && make install DESTDIR=../../kcov-build \
-      && cd ../.. \
-      && rm -rf kcov-master \
-      && for file in $(find target/debug -maxdepth 1 -name 'sylan-*' -executable -type f)
-      do
-          mkdir -p "target/cov/$(basename $file)" \
-              && ./kcov-build/usr/local/bin/kcov \
-                  --exclude-pattern=/.cargo,/usr/lib \
-                  --verify "target/cov/$(basename $file)" \
-                  "$file"
-          if [ "$?" == 0 ]
-          then
-              echo succeeded coverage report for file "$file"
-          else
-              echo failed kcov
-              exit 1
-          fi
-      done \
-      && bash <(curl -s https://codecov.io/bash) \
-      && echo Finished coverage
+  set -o errexit
+  set -o nounset
+  set -o pipefail
+
+  # Download and unpack the kcov program.
+  wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz
+  tar xzf master.tar.gz \
+
+  (
+      # Build it.
+      cd kcov-master \
+      mkdir build \
+      cd build \
+      cmake .. \
+      make \
+
+      # Install it.
+      make install DESTDIR=../../kcov-build \
+  )
+
+  # Clean it up.
+  rm -rf kcov-master \
+
+  # For each test program, find the test executable and report its coverage.
+  for file in $(find target/debug -maxdepth 1 -name 'sylan-*' -executable -type f)
+  do
+
+      # Generate the coverage report
+      mkdir -p "target/cov/$(basename $file)" \
+      ./kcov-build/usr/local/bin/kcov \
+          --exclude-pattern=/.cargo,/usr/lib \
+          --verify "target/cov/$(basename $file)" \
+          "$file"
+
+      if [ "$?" == 0 ]
+      then
+          echo succeeded coverage report for file "$file"
+      else
+          echo failed kcov
+          exit 1
+      fi
+  done
+
+  # Pass report to codecov.io and finish.
+  bash <(curl -s https://codecov.io/bash) \
+  echo Finished coverage
+
