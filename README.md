@@ -949,5 +949,5 @@ case of native compilation.
 For more documentation on the actual implementation of Sylan, read the Rust
 documentation comments of the code. A good starting point is the documentation
 of [the main top-level source
-file](https://github.com/LouisJackman/sylan/blob/master/src/main.rs").
+file](https://github.com/LouisJackman/sylan/blob/master/src/main.rs).
 
