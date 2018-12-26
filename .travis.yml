@@ -59,7 +59,7 @@ after_success: |
       && make install DESTDIR=../../kcov-build \
       && cd ../.. \
       && rm -rf kcov-master \
-      && for file in target/debug/sylan-*
+      && for file in $(find . -name 'sylan-*' -executable -depth 1 -type f)
       do
           mkdir -p "target/cov/$(basename $file)" \
               && ./kcov-build/usr/local/bin/kcov \
