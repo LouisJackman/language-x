@@ -66,7 +66,7 @@ after_success: |
                   --exclude-pattern=/.cargo,/usr/lib \
                   --verify "target/cov/$(basename $file)" \
                   "$file"
-          if [ "$0" != 0 ]
+          if [ "$?" != 0 ]
           then
               echo "failed kcov"
               exit 1
