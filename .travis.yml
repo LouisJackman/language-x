@@ -59,17 +59,20 @@ after_success: |
       && make install DESTDIR=../../kcov-build \
       && cd ../.. \
       && rm -rf kcov-master \
-      && for file in $(find . -maxdepth 1 -name 'sylan-*' -executable -type f)
+      && for file in $(find target/debug -maxdepth 1 -name 'sylan-*' -executable -type f)
       do
           mkdir -p "target/cov/$(basename $file)" \
               && ./kcov-build/usr/local/bin/kcov \
                   --exclude-pattern=/.cargo,/usr/lib \
                   --verify "target/cov/$(basename $file)" \
                   "$file"
-          if [ "$?" != 0 ]
+          if [ "$?" == 0 ]
           then
-              echo "failed kcov"
+              echo succeeded coverage report for file "$file"
+          else
+              echo failed kcov
               exit 1
           fi
       done \
-      && bash <(curl -s https://codecov.io/bash)
+      && bash <(curl -s https://codecov.io/bash) \
+      && echo Finished coverage
