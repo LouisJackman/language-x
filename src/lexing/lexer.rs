@@ -13,7 +13,7 @@ use lexing::keywords;
 use lexing::source::Source;
 use lexing::tokens::Token;
 
-// TODO: implement multline strings.
+// TODO: implement multiline strings.
 // TODO: lex shebang and version string before starting the main lexing loop.
 // TODO: implement escapes not just for chars but also strings comments, and
 //       SyDocs.
@@ -288,9 +288,6 @@ impl Lexer {
     }
 
     fn lex_interpolated_string(&mut self) -> Token {
-        // Just lex the whole string for now; reenter the lexer from the parser
-        // when doing the interpolation.
-
         self.source.discard();
 
         let mut string = String::new();
