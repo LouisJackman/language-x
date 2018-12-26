@@ -9,9 +9,9 @@
 //! `main.rs` stitches the whole system together by building a dependency and execution order chain
 //! between the modules:
 //! ```
-//!                                                  ,-> interpreter -> runtime
-//! lexing -> parsing -> simplification -> backend -<
-//!                                                  `-> runtime -> compiler
+//!                                                        ,-> interpreter -> runtime
+//! lexing -> parsing -> simplification -> IL -> backend -<
+//!                                                        `-> runtime -> compiler
 //! ```
 //!
 //! The interpreter invokes the runtime whereas the runtime is baked into the compiled artefact,
@@ -50,12 +50,32 @@
 //!
 //! Following the module chain above, here is the data flow between the modules:
 //! ```
-//!                                       ,-> Side Effects via Interpretation with the Runtime
-//! Source -> Tokens -> AST -> Sylan IL -<
-//!                                       `-> LLVM IL -> LLVM Target -> Side Effects via Target
-//!                                                                     Executable with the Bundled
-//!                                                                     Runtime
+//!                                                        ,-> Side Effects via Interpretation
+//!                                                       /    with the Runtime
+//! Source -> Tokens -> AST -> Kernel Sylan -> Sylan IL -<
+//!                                                       `-> LLVM IL -> LLVM Target -> Side
+//!                                                                                     Effects
+//!                                                                                     via Target
+//!                                                                                     Executable
+//!                                                                                     with the
+//!                                                                                     Bundled
+//!                                                                                     Runtime
 //! ```
+//!
+//! Source, tokens, and the AST are the usual for programming language implementations. See the
+//! `lexing` and `parsing` modules for more information.
+//!
+//! "Simplification" creates Kernel Sylan from the AST, which is a strict subset of Sylan that
+//! strips away conveniences and just exposes the core Sylan semantics. This is the stage from which
+//! type checking and Sylan IL creation is performed. This stage still has symbol names and types;
+//! it's essentially an AST but stripped down to the language fundamentals.
+//!
+//! Sylan Intermediate Language has no symbol names except for public, exposed items. It is untyped,
+//! therefore the type-checking of Kernel Sylan _must_ have validated before creating Sylan IL from
+//! it. It doesn't understand runtime features, expecting IL generation to generate calls out to the
+//! runtime functions at the right points. It also is not preemptive, so IL generation must put in
+//! yield points correctly to provide ersatz preemptiveness on what is fundamentally a cooperatively
+//! scheduled form.
 //!
 //! TODO: specify precisely how the runtime gets bundled with the compiled artefact. My vague idea
 //! currently is to implement it as a Rust module, expose demangled symbols, and then statically

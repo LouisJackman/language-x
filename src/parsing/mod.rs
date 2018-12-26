@@ -30,7 +30,7 @@
 //! A simplification step is performed before giving the AST to the backend as
 //! a jump is needed from Sylan's pragmatic, large syntax to the much smaller,
 //! more "pure" form that defines the core Sylan execution semantics. See the
-//! `sylan_il` for more details.
+//! `simplification` module for more details.
 //!
 //! A concurrent design similar to the lexer's might be possible, but will
 //! require a sort of zipper or lazy tree structure. More research is needed
@@ -45,15 +45,15 @@ use common::multiphase::{self, Identifier};
 use common::peekable_buffer::PeekableBuffer;
 use common::version::Version;
 use lexing::lexer::{self, LexedToken};
-use lexing::tokens::Token;
 use lexing::Tokens;
-use parsing::nodes::Expression::{self, UnaryOperator};
+use lexing::tokens::Token;
 use parsing::nodes::{
     Accessibility, Binding, Case, Code, CompositePattern, ContextualBinding, ContextualCode,
     ContextualScope, DeclarationItem, FilePackage, For, If, Import, Lambda, LambdaSignature,
     MainPackage, Package, Pattern, PatternField, PatternItem, Scope, Select, Switch, Throw,
     Timeout, TypeDeclaration, ValueParameter,
 };
+use parsing::nodes::Expression::{self, UnaryOperator};
 
 mod nodes;
 
