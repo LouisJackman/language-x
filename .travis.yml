@@ -50,7 +50,6 @@ script:
 # Adapted from: https://github.com/codecov/example-rust
 after_success: |
   set -o errexit
-  set -o nounset
   set -o pipefail
 
   # Download and unpack the kcov program.
