@@ -7,8 +7,17 @@
  */
 package main
 
-import sylan.io.{println, print}
-import sylan.datetime.ZonedDateTime
+/*
+ * Most of those imports are already in the prelude and thus already imported:
+ * `sylan.lang`. They are explicitly imported here to give an idea of the standard
+ * package structure.
+ */
+import sylan.io.println
+import sylan.util.toString.ToString
+import sylan.util.collections.{HashMap, List}
+import sylan.util.concurrency.Task
+import sylan.util.datetime.ZonedDateTime
+import sylan.util.optional.{Empty, Some}
 
 void demoIteration() {
     /**
@@ -17,20 +26,26 @@ void demoIteration() {
      */
 
     List(1, 2, 3).forEach(n ->
+
+        /*
+         * Backquoted strings allow interpolation. Only single symbols can be
+         * interpolated; interpolating arbitrary expressions was purposely
+         * omitted due to its ability to create cryptic one-liners.
+         */
         println(`{n}`)
     )
 
     var highlight = s -> `>> {s} <<`
 
     1.to(5)
-        .map(double # ::toString # highlight)
+        .map(Number::double # ToString::toString # highlight)
         .forEach(println)
 
     var quadruple = n -> n.double().double()
 
     123456789
         |> quadruple
-        |> ::toString
+        |> Object::toString
         |> highlight
         |> println
 
@@ -82,7 +97,6 @@ void demoIteration() {
  * As can be seen in this function and the previous, Sylan allows functions to
  * stand alone in packages without being tied to classes or interfaces.
  */
-
 internal int factorial(int n) {
     switch n {
         0, 1 ->
@@ -136,10 +150,10 @@ String double<N>(N n) where
 Optional<int> demoContexts() {
 
     /*
-     * Haskell programmers will recognise this as a monadic do notation.
-     * Non-Haskell programmers will be glad to know that this otherwise esoteric
-     * feature can make tangled code such as optionality-checking chains and
-     * validation code much cleaner.
+     * Haskell programmers will recognise this as a monadic do notation, which
+     * Sylan calls "contexts". Non-Haskell programmers will be glad to know that
+     * this feature can make tangled code such as optionality-checking chains
+     * and validation code much cleaner.
      */
     do {
         var a <- Some(5)
@@ -184,11 +198,12 @@ interface Equals<T = Self> {
      * Unlike Java 8, private methods with bodies are also allowed with the
      * `default` keyword. Similar to C# but unlike Java, a default method body
      * in an interface can only be overridden if annotated with `virtual`.
-     * `virtual` is not necessary for non-default methods since the lack of
-     * concrete inheritance in Sylan means there is no other possible use case
-     * for them except to be implemented by the implementor.
+     *
+     * `virtual` is default for non-default methods since the lack of concrete
+     * inheritance in Sylan means there is no other possible use case for them
+     * except to be implemented by the implementor.
      */
-    public virtual notEquals(T other) default {
+    public default virtual notEquals(T other) {
         !equals(other)
     }
 }
@@ -197,10 +212,14 @@ class Name {
     /**
      * Getters, hashing, equality checking, and the constructor all just exist
      * automatically. They can still be manually overridden if necessary though.
+     * `close` is also automatically implemented for classes that implement
+     * `AutoCloseable`, the default implementation just closing all
+     * `AutoCloseable` fields. This can also be overridden if the default
+     * implementation makes no sense.
      */
 
-    String firstName
-    String lastName
+    internal String firstName
+    internal String lastName
 }
 
 class Account implements ToString, Concatenate<Account> {
@@ -212,19 +231,29 @@ class Account implements ToString, Concatenate<Account> {
      */
 
     /*
-     * This just picks up a class and embeds its contents them into another
-     * class. Clashes with existing fields are not tolerated, causing a
-     * compilation error.
+     * Embedding a field hoists all of its _accessible_ methods and getters into
+     * the class itself. Embedded methods take the lowest priority: methods in
+     * the class itself and default methods in implementing interfaces both take
+     * priority over embedded methods, although other embedded methods will
+     * still call the embedder's method if calling it by name.
      *
-     * Embedded classes can implement methods for implementing interfaces on its
-     * behalf, but it will refuse to clash with existing methods defined in the
-     * embedding class itself.
+     * As getters are also embedded, it can look awfully close to multiple
+     * inheritance of state, but is not due to the lack of mutability and the
+     * fact that only one getter of each given name and type can emerge from the
+     * prioritisation.
+     *
+     * Embedded classes can implement methods for implementing interfaces on the
+     * embedder's behalf, following the rules above.
      *
      * Note that no relationship whatsoever is established between the classes
      * after the embedding; there is no concrete subtyping in Sylan. It's solely
-     * for DRY: don't repeat yourself.
+     * for DRY, a.k.a. Don't Repeat Yourself.
+     *
+     * The earlier embeddings take priority over the later ones, to be
+     * consistent with the MRO of inheritance. Therefore, changing the order of
+     * embeds can change behaviour.
      */
-    embed Name
+    embed Name name
 
     int ageInYears
 
@@ -232,7 +261,14 @@ class Account implements ToString, Concatenate<Account> {
 
     public Account(String firstName, String lastName) {
         println("instantiating an Account...")
-        super(.firstName, .lastName, ageInYears = 35)
+
+        /*
+         * Constructors are the only place in Sylan where assignments are
+         * allowed outside the context of a binding.
+         */
+        name.firstName = firstName
+        name.lastName = lastName
+        ageInYears = 35
     }
 
     public override String toString() {
@@ -263,6 +299,13 @@ class Account implements ToString, Concatenate<Account> {
     }
 }
 
+/*
+ * Type extensions allow modules to add their own features to an existing class
+ * when imported. Note that this implements `Concatenate` again just with
+ * different type parameters passed to `Concatenate`; Sylan considers these to
+ * be two completely different implementations. This is a more disciplined
+ * replacement for method overloading.
+ */
 extend class Account implements Concatenate<Account, Result = String> {
 
     public override String concatenate(This that) {
@@ -312,7 +355,7 @@ alias factorial2 = factorial
 
 int maxBound = 5
 
-void closureDemo() {
+void demoClosures() {
     var x = 5
 
     var account1 = Account(
@@ -343,21 +386,93 @@ void closureDemo() {
     println(`n == {n}`)
 }
 
-void demoNumericLiterals() {
+class NumericLiteralsClass implements ToString {
+
+    // Non-overflowable numbers.
     int a = 5
     uint b = 5u
     decimal c = 10.0
 
+    // Overflowable, machine-width numbers.
     byte d = 5u8
     uint16 e = 11u16
     uint32 f = 12u32
     uint64 g = 13u64
     int8 h = 15s8
     short i = 13s16
-    int32 j = 7s32
+    int32 j = 7s
     long k = 7s64
-    float l = 12f16
-    double m = 8f32
+    float l = 12f
+    double m = 8f64
+
+    public override String toString() {
+        `{a}{b}{c}{d}{e}{f}{g}{h}{i}{j}{k}{l}{m}`
+    }
+}
+
+class AutoCloseableDemo implements AutoCloseable {
+
+    public AutoCloseableDemo() {
+        println("Opened")
+    }
+
+    public override void close() {
+        println("Closed")
+    }
+}
+
+void demoAutoCloseables() {
+
+    /*
+     * Sylan, like Erlang and Go, strongly discourages catching exceptional
+     * problems on a routine basis - if something is truly "exceptional" then
+     * the developer wouldn't have thought of a meaningful response to it.
+     * Instead it encourages assertive programming through a "happy path" and
+     * using supervisor tasks to allow the system to heal from unexpected
+     * failures.
+     *
+     * Sylan does not offer `try`/`catch` for this reason, and also to ensure
+     * that exception-driven control flow isn't possible.
+     *
+     * However, there still needs to be a strategy regarding closing resources
+     * in tasks that have had unexpected failures. Sylan offers `AutoClosable`
+     * types and the `try` keyword for this, which are a sort of middle ground
+     * between Java's `AutoCloseable` and try-with-resources feature and Go's
+     * `defer` keyword.
+     *
+     * If an `AutoCloseable` type is prefixed with the `try` keyword, its
+     * `close` method is invoked at the end of the scope _even if the
+     * code in the scope completely fails unexpectedly_. The closing is done in
+     * the reverse order that they are set up. If any `defer`d `close` methods
+     * themselves fail, all other deferred calls are given a chance to run too,
+     * and all errors are accumulated into one and rethrown once they're all
+     * finished.
+     */
+
+    println("Entering scope")
+    {
+        var closeable = try AutoCloseableDemo()
+        println("Using closeable")
+    }
+    println("Leaving scope")
+
+    // Prints "Entering scope", "Opened", "Using closeable", "Closed", and finally "Leaving scope".
+}
+
+void demo() {
+    demoIteration()
+
+    printFactorial(42)
+    var x = twice(4, double)
+    println(`{x}`)
+
+    demoContexts()
+    demoPatternMatching()
+    demoClosures()
+
+    println(NumericLiteralsDemo().toString())
+
+    demoAutoCloseable()
 }
 
 /*
@@ -393,7 +508,7 @@ var x = {
     println("Returning 5 to be bound as x...")
     5
 }
-print(`{x}`)
+println(`{x}`)
 
 /*
   A multiline comment.
@@ -402,3 +517,5 @@ print(`{x}`)
     A nested multiline comment.
   */
 */
+
+demo()

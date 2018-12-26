@@ -24,6 +24,8 @@ pre {
     overflow: auto;
     border: 1px solid black;
     padding: 10px;
+    height: 60em;
+    overflow: scroll;
 }
 
 li.done::after {
@@ -62,6 +64,9 @@ li.done::after {
           <li><a href="#details-modules-and-packages">Modules and Packages</a></li>
           <li><a href="#details-accessibility-levels">Accessibility Levels</a></li>
           <li><a href="#details-types">Types</a></li>
+            <li><a href="#details-type-hierarchy">Type Hierarchy</a></li>
+            <li><a href="#details-type-embedding">Type Embedding</a></li>
+            <li><a href="#details-type-inference">Type Inference</a></li>
           <li><a href="#details-items-and-expressions">Items and Expressions</a></li>
           <li><a href="#details-pattern-matching">Pattern Matching</a></li>
           <li>
@@ -80,6 +85,7 @@ li.done::after {
               Runtime Structure Information
             </a>
           </li>
+            <li><a href="#details-resource-management">Resource Management</a></li>
           <li><a href="#details-the-runtime">The Runtime</a></li>
           <li><a href="#details-interoperability">Interoperability</a></li>
           <li><a href="#details-standard-library">Standard Library</a></li>
@@ -104,8 +110,17 @@ li.done::after {
  */
 package main
 
-import sylan.io.{println, print}
-import sylan.datetime.ZonedDateTime
+/*
+ * Most of those imports are already in the prelude and thus already imported:
+ * `sylan.lang`. They are explicitly imported here to give an idea of the standard
+ * package structure.
+ */
+import sylan.io.println
+import sylan.util.toString.ToString
+import sylan.util.collections.{HashMap, List}
+import sylan.util.concurrency.Task
+import sylan.util.datetime.ZonedDateTime
+import sylan.util.optional.{Empty, Some}
 
 void demoIteration() {
     /**
@@ -114,20 +129,26 @@ void demoIteration() {
      */
 
     List(1, 2, 3).forEach(n ->
+
+        /*
+         * Backquoted strings allow interpolation. Only single symbols can be
+         * interpolated; interpolating arbitrary expressions was purposely
+         * omitted due to its ability to create cryptic one-liners.
+         */
         println(`{n}`)
     )
 
     var highlight = s -> `>> {s} &lt;&lt;`
 
     1.to(5)
-        .map(double # ::toString # highlight)
+        .map(Number::double # ToString::toString # highlight)
         .forEach(println)
 
     var quadruple = n -> n.double().double()
 
     123456789
         |> quadruple
-        |> ::toString
+        |> Object::toString
         |> highlight
         |> println
 
@@ -179,7 +200,6 @@ void demoIteration() {
  * As can be seen in this function and the previous, Sylan allows functions to
  * stand alone in packages without being tied to classes or interfaces.
  */
-
 internal int factorial(int n) {
     switch n {
         0, 1 ->
@@ -233,10 +253,10 @@ String double&lt;N>(N n) where
 Optional&lt;int> demoContexts() {
 
     /*
-     * Haskell programmers will recognise this as a monadic do notation.
-     * Non-Haskell programmers will be glad to know that this otherwise esoteric
-     * feature can make tangled code such as optionality-checking chains and
-     * validation code much cleaner.
+     * Haskell programmers will recognise this as a monadic do notation, which
+     * Sylan calls "contexts". Non-Haskell programmers will be glad to know that
+     * this feature can make tangled code such as optionality-checking chains
+     * and validation code much cleaner.
      */
     do {
         var a &lt;- Some(5)
@@ -281,11 +301,12 @@ interface Equals&lt;T = Self> {
      * Unlike Java 8, private methods with bodies are also allowed with the
      * `default` keyword. Similar to C# but unlike Java, a default method body
      * in an interface can only be overridden if annotated with `virtual`.
-     * `virtual` is not necessary for non-default methods since the lack of
-     * concrete inheritance in Sylan means there is no other possible use case
-     * for them except to be implemented by the implementor.
+     *
+     * `virtual` is default for non-default methods since the lack of concrete
+     * inheritance in Sylan means there is no other possible use case for them
+     * except to be implemented by the implementor.
      */
-    public virtual notEquals(T other) default {
+    public default virtual notEquals(T other) {
         !equals(other)
     }
 }
@@ -294,10 +315,14 @@ class Name {
     /**
      * Getters, hashing, equality checking, and the constructor all just exist
      * automatically. They can still be manually overridden if necessary though.
+     * `close` is also automatically implemented for classes that implement
+     * `AutoCloseable`, the default implementation just closing all
+     * `AutoCloseable` fields. This can also be overridden if the default
+     * implementation makes no sense.
      */
 
-    String firstName
-    String lastName
+    internal String firstName
+    internal String lastName
 }
 
 class Account implements ToString, Concatenate&lt;Account> {
@@ -309,19 +334,29 @@ class Account implements ToString, Concatenate&lt;Account> {
      */
 
     /*
-     * This just picks up a class and embeds its contents them into another
-     * class. Clashes with existing fields are not tolerated, causing a
-     * compilation error.
+     * Embedding a field hoists all of its _accessible_ methods and getters into
+     * the class itself. Embedded methods take the lowest priority: methods in
+     * the class itself and default methods in implementing interfaces both take
+     * priority over embedded methods, although other embedded methods will
+     * still call the embedder's method if calling it by name.
      *
-     * Embedded classes can implement methods for implementing interfaces on its
-     * behalf, but it will refuse to clash with existing methods defined in the
-     * embedding class itself.
+     * As getters are also embedded, it can look awfully close to multiple
+     * inheritance of state, but is not due to the lack of mutability and the
+     * fact that only one getter of each given name and type can emerge from the
+     * prioritisation.
+     *
+     * Embedded classes can implement methods for implementing interfaces on the
+     * embedder's behalf, following the rules above.
      *
      * Note that no relationship whatsoever is established between the classes
      * after the embedding; there is no concrete subtyping in Sylan. It's solely
-     * for DRY: don't repeat yourself.
+     * for DRY, a.k.a. Don't Repeat Yourself.
+     *
+     * The earlier embeddings take priority over the later ones, to be
+     * consistent with the MRO of inheritance. Therefore, changing the order of
+     * embeds can change behaviour.
      */
-    embed Name
+    embed Name name
 
     int ageInYears
 
@@ -329,7 +364,14 @@ class Account implements ToString, Concatenate&lt;Account> {
 
     public Account(String firstName, String lastName) {
         println("instantiating an Account...")
-        super(.firstName, .lastName, ageInYears = 35)
+
+        /*
+         * Constructors are the only place in Sylan where assignments are
+         * allowed outside the context of a binding.
+         */
+        name.firstName = firstName
+        name.lastName = lastName
+        ageInYears = 35
     }
 
     public override String toString() {
@@ -360,6 +402,13 @@ class Account implements ToString, Concatenate&lt;Account> {
     }
 }
 
+/*
+ * Type extensions allow modules to add their own features to an existing class
+ * when imported. Note that this implements `Concatenate` again just with
+ * different type parameters passed to `Concatenate`; Sylan considers these to
+ * be two completely different implementations. This is a more disciplined
+ * replacement for method overloading.
+ */
 extend class Account implements Concatenate&lt;Account, Result = String> {
 
     public override String concatenate(This that) {
@@ -409,7 +458,7 @@ alias factorial2 = factorial
 
 int maxBound = 5
 
-void closureDemo() {
+void demoClosures() {
     var x = 5
 
     var account1 = Account(
@@ -440,21 +489,93 @@ void closureDemo() {
     println(`n == {n}`)
 }
 
-void demoNumericLiterals() {
+class NumericLiteralsClass implements ToString {
+
+    // Non-overflowable numbers.
     int a = 5
     uint b = 5u
     decimal c = 10.0
 
+    // Overflowable, machine-width numbers.
     byte d = 5u8
     uint16 e = 11u16
     uint32 f = 12u32
     uint64 g = 13u64
     int8 h = 15s8
     short i = 13s16
-    int32 j = 7s32
+    int32 j = 7s
     long k = 7s64
-    float l = 12f16
-    double m = 8f32
+    float l = 12f
+    double m = 8f64
+
+    public override String toString() {
+        `{a}{b}{c}{d}{e}{f}{g}{h}{i}{j}{k}{l}{m}`
+    }
+}
+
+class AutoCloseableDemo implements AutoCloseable {
+
+    public AutoCloseableDemo() {
+        println("Opened")
+    }
+
+    public override void close() {
+        println("Closed")
+    }
+}
+
+void demoAutoCloseables() {
+
+    /*
+     * Sylan, like Erlang and Go, strongly discourages catching exceptional
+     * problems on a routine basis - if something is truly "exceptional" then
+     * the developer wouldn't have thought of a meaningful response to it.
+     * Instead it encourages assertive programming through a "happy path" and
+     * using supervisor tasks to allow the system to heal from unexpected
+     * failures.
+     *
+     * Sylan does not offer `try`/`catch` for this reason, and also to ensure
+     * that exception-driven control flow isn't possible.
+     *
+     * However, there still needs to be a strategy regarding closing resources
+     * in tasks that have had unexpected failures. Sylan offers `AutoClosable`
+     * types and the `try` keyword for this, which are a sort of middle ground
+     * between Java's `AutoCloseable` and try-with-resources feature and Go's
+     * `defer` keyword.
+     *
+     * If an `AutoCloseable` type is prefixed with the `try` keyword, its
+     * `close` method is invoked at the end of the scope _even if the
+     * code in the scope completely fails unexpectedly_. The closing is done in
+     * the reverse order that they are set up. If any `defer`d `close` methods
+     * themselves fail, all other deferred calls are given a chance to run too,
+     * and all errors are accumulated into one and rethrown once they're all
+     * finished.
+     */
+
+    println("Entering scope")
+    {
+        var closeable = try AutoCloseableDemo()
+        println("Using closeable")
+    }
+    println("Leaving scope")
+
+    // Prints "Entering scope", "Opened", "Using closeable", "Closed", and finally "Leaving scope".
+}
+
+void demo() {
+    demoIteration()
+
+    printFactorial(42)
+    var x = twice(4, double)
+    println(`{x}`)
+
+    demoContexts()
+    demoPatternMatching()
+    demoClosures()
+
+    println(NumericLiteralsDemo().toString())
+
+    demoAutoCloseable()
 }
 
 /*
@@ -490,7 +611,7 @@ var x = {
     println("Returning 5 to be bound as x...")
     5
 }
-print(`{x}`)
+println(`{x}`)
 
 /*
   A multiline comment.
@@ -499,6 +620,8 @@ print(`{x}`)
     A nested multiline comment.
   */
 */
+
+demo()
 </pre>
 
 <h2 id="synopsis">Synopsis</h2>
@@ -513,7 +636,7 @@ serialisation, and portability built-in.
 What about the next language and runtime after Java and .NET? Better distributed
 and concurrent programming support would be a good starting point. Null-free
 types, ubiquitous immutability, a lack of concrete inheritance, built-in
-supervisor trees, and transparently asynchronous IO would acknowledge this era
+    supervisor trees, and transparently non-blocking IO would acknowledge this era
 of computing.
 </p>
 
@@ -525,8 +648,8 @@ of dynamic languages throughout the previous decade.
 
 <p>
 Large semantic changes will likely be rejected by developers if not presented in
-a syntax similar to existing languages; like Java took C++'s syntax, the next
-language should take Java's.
+    a syntax similar to existing languages; like Java and C# took C++'s syntax, the
+    next language should take Java's and C#'s.
 </p>
 
 <p>
@@ -578,9 +701,9 @@ the case of native compilation.
     and C#.
   </li>
   <li>
-    Make interpreter and other components easy to work with; make tool and IDE
-    integration as easy as possible. Perhaps an FFI into the final parser and
-    compiler and an initial Language Server Protocol implementation.
+      Make tool and IDE integration as easy as possible. Perhaps an FFI into the
+      final parser and compiler and an initial Language Server Protocol
+      implementation.
   </li>
   <li>
     Focus on AOT compilation for ease of distribution, Go- and Rust-style.
@@ -635,7 +758,7 @@ the case of native compilation.
   </li>
   <li>
     Programs must be in a <code>main</code> module and a <code>main</code>
-    package, but libraries must have their own unique modules and packages.
+      package, but libraries must have their own unique modules names.
   </li>
   <li>Modules, unlike packages, are versioned.</li>
   <li>They declare which packages they depend on.</li>
@@ -690,7 +813,8 @@ the case of native compilation.
     with expressions.
   </li>
   <li>
-    Expressions cannot contain items.
+      Expressions cannot contain items, with one exception: let bindings within
+      lambdas expressions.
   </li>
 </ul>
 
@@ -702,10 +826,6 @@ the case of native compilation.
     No difference between them from the user's perspective except for some of
     them having literals baked into the language  and built-ins being predefined
     by the compiler and runtime. No Java-like primitive vs object distinction.
-  </li>
-  <li>
-    Final classes and trait-like interfaces. No concrete inheritance or
-    abstract classes.
   </li>
   <li>
     Constructors are special; this is done to allow function-style
@@ -721,11 +841,6 @@ the case of native compilation.
     without return values, avoids special-cases when composing functions in
     various ways.
   </li>
-  <li>
-    <code>super</code> is to either disambiguate which interface's method to
-    delegate to, or to fallback to the auto-generated constructor in
-    user-defined constructors. It does not deal with concrete class inheritance.
-  </li>
   <li>Generics like C#, as in no type erasure.</li>
   <li>
     Support higher-kinded types, but keep an eye on projects like Dotty to see
@@ -733,32 +848,99 @@ the case of native compilation.
     restricted version of it.
   </li>
   <li>
-    Only nominal types, no structural types. While it would be nice to mandate
-    that all type inference should be derivable from inner expressions outwards
-    without going the other way, that isn't possible due to constructs like
-    immediately-invoked lambdas or lambdas with parameters being passed as
-    a parameter typed as a lambda that takes compatible but more precise types.
-  </li>
-  <li>
-    Once we allow that, there's no reason not to allow LHS type inference to
-    flow from the RHS as long as it only flows to declarations within a function
-    or method body and does not escape it.
-  </li>
-  <li>
-    Sylan is more opionated than most language on how to use type annotations:
-    all items should be 100% explicitly typed whereas all declarations scoped to
-    a method or function should be 100% implicitly typed. The language will not
-    expose edgecases where type annotations are ever actually neccessary in
-    method or function bodies (like the "<code>:: Float</code> to disambiguate
-    <code>Show</code>" problem of Haskell). This is why numbers have explicit
-    type suffixes.
-  </li>
-  <li>
-    This ensures APIs and program structure is rigid and explicitly typed while
-    expressions are consise, without boilerplate, and utterly consistent rather
-    than making type annotations a matter of taste.
+      While public fields are encouraged, unlike Java Sylan can add getters to
+      intercept them at a later date without breaking API compatibility. This
+      makes it fine to expose fields publicly. Setters do not exist due to Sylan
+      being a fully immutable language.
   </li>
 </ul>
+
+    <h3 id="details-type-hierarchy">Type Hierarchies</h3>
+    <ul>
+        <li>
+            Final classes and trait-like interfaces. No concrete inheritance or
+            abstract classes. Discourages "type taxonomy".
+        </li>
+        <li>
+            <code>super</code> is to either disambiguate which interface's method to
+            delegate to, or to fallback to the auto-generated constructor or other
+            auto-generated method like <code>hashcode</code> or <code>equals</code> in
+            user-defined constructors and methods. It does not deal with concrete class
+            inheritance.
+        </li>
+        <li>
+            Interfaces can provide default method implementations, which can be
+            overridden in implementing classes if they are <code>virtual</code>.
+            <code>override</code> on a method in a implementing class documents that it
+            must override rather than just shadow. Method shadowing by default, while
+            problematic in some areas, allows interfaces to add new virtual default
+            methods over time without breaking backwards compatibility with implementors
+            that already define their own methods of the same name. "Shadowing" is when
+            a method occupies that name in a class' own other methods but does not
+            override calls to that method name in the interfaces' default methods.
+        </li>
+        <li>
+            Method resolution is done via Dylan- and Python 3-inspired MRO rather than
+            forcing explicit disambiguation like Java 8's defender methods. This is done
+            to ensure that default method additions do not break backwards compatibility
+            with implementing types that potentially implement another interface that
+            has a method compatible with the newly added method, causing a diamond
+            inheritance clash. See
+            <a href="https://en.wikipedia.org/wiki/C3_linearization">C3 linearization</a>.
+        </li>
+    </ul>
+
+    <h3 id="details-type-embedding">Type Embedding</h3>
+
+    <ul>
+        <li>
+            The <code>embed</code> keyword allows classes to embed other classes. This
+            just takes all methods and and getters of a class and hoists them to the
+            top level of the class itself. Fields must still be accessed via the field
+            itself, however.
+        </li>
+        <li>
+            If multiple embeds embed a getter or a method of the same signature, the
+            earliest one takes priority. This is to follow the first-takes-priority
+            system characteristics of MRO in inheritance, and to avoid
+            backwards-compatibility breakages caused by the addition of new methods or
+            getters to embedded types.
+        </li>
+        <li>
+            There is no sub-typing relationship established by embedding whatsoever.
+            Sylan does not support subtyping.
+        </li>
+    </ul>
+
+    <h3 id="details-type-inference">Type Inference</h3>
+    <ul>
+        <li>
+            Only nominal types, no structural types. While it would be nice to mandate
+            that all type inference should be derivable from inner expressions outwards
+            without going the other way, that isn't possible due to constructs like
+            immediately-invoked lambdas or lambdas with parameters being passed as
+            a parameter typed as a lambda that takes compatible but more precise types.
+        </li>
+        <li>
+            Once we allow that, there's no reason not to allow LHS type inference to
+            flow from the RHS as long as it only flows to declarations within a function
+            or method body and does not escape it.
+        </li>
+        <li>
+            Sylan is more opinionated than most language on how to use type annotations:
+            all items should be 100% explicitly typed whereas all declarations scoped to
+            a method or function should be 100% implicitly typed. The language will not
+            expose edge cases where type annotations are ever actually necessary in
+            method or function bodies (like the "<code>:: Float</code> to disambiguate
+            <code>Show</code>" problem of Haskell). This is why numbers have explicit
+            type suffixes.
+        </li>
+        <li>
+            This ensures APIs and program structure is rigid and explicitly typed while
+            expressions are concise, without boilerplate, and utterly consistent rather
+            than making type annotations a matter of taste.
+        </li>
+    </ul>
 
 <h3 id="details-language-versioning">Language Versioning</h3>
 
@@ -794,15 +976,16 @@ the case of native compilation.
     an instance bundled in their closure.
   </li>
   <li>
-    <code>::method</code> is a shorthand for <code>(o, ...args) ->
-    o.method(...args)</code>, where the type of <code>o</code> is inferred from
-    the context.
+      <code>Class::method</code> is a shorthand for <code>(o, ...args) ->
+      o.method(...args)</code>, where the type of <code>o</code> is
+      <code>Class</code>.
   </li>
   <li>
     As methods and functions are both higher-order, invoked the same way, and
     have the same type when passed around, there is no real loss of
     composibility from being different constructs. They can be composed together
-    easily: <code>var printDouble = ::double # ::toString # println</code>.
+      easily: <code>var printDouble = Number::double # ToString::toString #
+      println</code>.
   </li>
 </ul>
 
@@ -840,7 +1023,7 @@ the case of native compilation.
 
 <ul>
   <li>
-    They both have cases which each match one or more patterns seperated by
+      They both have cases which each match one or more patterns separated by
     commas.
   </li>
   <li>
@@ -851,8 +1034,9 @@ the case of native compilation.
     are covered.
   </li>
   <li>
-    <code>select</code> is non-exhaustive, silently throwing away messages that
-    don't match either the type or the matching patterns.
+      <code>select</code> is non-exhaustive, sending non-matching messages to the
+      <code>noReceiver</code> task's mailbox (whose behaviour can be manually
+      overridden).
   </li>
   <li>
     <code>select</code> blocks the current task until someone sends the process
@@ -908,7 +1092,7 @@ the case of native compilation.
     the same language as runtime.
   </li>
   <li>
-    Derive from Lisp and Jai but reduce footguns like Common Lisp automatic
+      Derive from Lisp and Jai but reduce foot guns like Common Lisp automatic
     variable captures.
   </li>
   <li>Do not copy D or C++.</li>
@@ -942,7 +1126,27 @@ the case of native compilation.
   <li>Improves performance as metaprogramming is done at compile-time.</li>
 </ul>
 
-<h3 id="details-the-runtime">The Runtime</h3>
+    <h3 id="details-resource-management">Resource Management</h3>
+    <ul>
+        <li>
+            Closable resources like file handles are managed consistently via the
+            <code>AutoCloseable</code> interface.
+        </li>
+        <li>
+            The <code>try</code> keyword can prefix any <code>AutoCloseable</code>
+            value, in which case it is guaranteed to close at the end of the scope even
+            if the current task fails.
+        </li>
+        <li>
+            All <code>try</code>`d values are guaranteed to have a chance to run their
+            close method, even if one of them fails before all are complete.
+        </li>
+        <li>
+            They are closed in the order they were set up, reversed.
+        </li>
+    </ul>
+
+    <h3 id="details-the-runtime">The Runtime</h3>
 
 <ul>
   <li>It will probably be heavily BEAM-inspired.</li>
@@ -950,7 +1154,7 @@ the case of native compilation.
   <li>No mutable data except the execution of tasks over time.</li>
   <li>
     Lightweight processes. Immutability means changes can only be sent via
-    messages.
+      messages or tracked via services external to the Sylan program.
   </li>
   <li>
     Initial toy implementation to use threads. Real implementation can use
@@ -964,11 +1168,9 @@ the case of native compilation.
     at any time.)
   </li>
   <li>
-    Look at leveraging existing GCs via native interop, like Boehm-GC. However,
-    they might be unsuitable for many lightweight tasks collecting
-    concurrently.
+      Persistent data structures, which should be definable as a library rather
+      than baked into the language itself.
   </li>
-  <li>Persistent data structures.</li>
   <li>
     Async IO; use a library like Tokio. OK to block in the prototype, but don't
     add any language features that break compatibility with async in the proper
@@ -992,10 +1194,30 @@ the case of native compilation.
 <h3 id="details-interoperability">Interoperability</h3>
 
 <ul>
+    <li>
+        <code>extern</code> allows calling functions that are either statically
+        linked in or via a named dynamically linked library.
+    </li>
+    <li>
+        Public exposed symbols in Sylan are accessible by either statically
+        linking the result into another executable or by creating a dynamically
+        linked library when building the Sylan program and then referring to it
+        dynamically from other executables.
+    </li>
+    <li>
+        As Sylan does not support ad hoc overloading, all demangling is
+        straightforward. One underscore denotes a package change while two
+        indicate a method belonging to a type. E.g.:
+        <code>sylan.util.collections.HashMap#put</code> becomes
+        <code>sylan_util_collections_HashMap__put</code>.
+    </li>
   <li>
     Lightweight tasks will be awkward with POSIX/WinNT threads for native
-    interop; see Erlang and Go's issues here. Not sure of a better alternative
-    if we're using userland stacks and scheduling.
+      interoperability; see Erlang and Go's issues here. Not sure of a better
+      alternative if we're using userland stacks and scheduling. Entering and
+      exiting Sylan from non-Sylan code will probably require allocating threads
+      allocated solely to avoid blocking in foreign code blocking the Sylan
+      runtime.
   </li>
 </ul>
 
@@ -1003,19 +1225,13 @@ the case of native compilation.
 
 <ul>
   <li>
-    Standard lib should be modular, like Java 9's JRE. Implementations can
-    opt-in to each, similar to C11 features like VLAs.
+      Standard lib should be modular, like Java 9's JRE.
   </li>
 </ul>
 
 <h3 id="details-to-consider">To Consider</h3>
 
 <ul>
-  <li>
-    What happens if a task does multiple selections with different types? Do
-    messages of the wrong type get saved to be selected later on, or are messages
-    always thrown away if the current blocking select does not support that type?
-  </li>
   <li>
     Parameterisable packages, perhaps a less powerful version of ML functors.
   </li>
@@ -1026,15 +1242,24 @@ the case of native compilation.
   <li>
       Subtyping for built in types, like subranges across integers, Ada-style?
   </li>
+    <li>Multiversal equality rather than universal equality.</li>
+    <li>
+        Reject changes that break backwards compatibility if the major version
+        isn't bumped, similar to Elm.
+    </li>
+    <li>
+        Replace auto-generated methods with a more consistent
+        <code>derives</code>/<code>deriving</code> approach, a la Rust and Haskell.
+    </li>
 </ul>
 
 <h2 id="implementation-details">Implementation Details</h2>
 
 <p>
 For more documentation on the actual implementation of Sylan, read the Rust
-docmentation comments of the code. A good starting point is the documentation of
-<a href="https://github.com/LouisJackman/sylan/blob/master/src/main.rs">the main
-top-level source file</a>.
+    documentation comments of the code. A good starting point is the documentation
+    of <a href="https://github.com/LouisJackman/sylan/blob/master/src/main.rs">the
+    main top-level source file</a>.
 </p>
 
 </main>
