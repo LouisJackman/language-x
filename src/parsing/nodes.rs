@@ -298,8 +298,9 @@ impl Hash for ContextualBinding {
 type Expressions = Vec<Expression>;
 
 /// Declarations within a code block are expected to be fully resolved before
-/// executing its expressions. This is to allow techniques like mutual recursion
-/// and self-referential methods without forward declarations.
+/// executing its expressions, which is why they're items rather than
+/// expressions. This is to allow techniques like mutual recursion and
+/// self-referential functions and methods without forward declarations.
 ///
 /// Note that the declarations aren't accessible until their declarations have
 /// been executed, but don't cause compilation problems if accessed within a
@@ -428,9 +429,6 @@ pub type PackageLookup = Vec<Identifier>;
 
 /// Sylan allows overridding existing operators but not defining new ones,
 /// otherwise an operator would be an `Identifier` instead of in an enum.
-///
-/// `=` for assignment is not an AST node in Sylan but is instead a required
-/// token while parsing a `Binding` node.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum UnaryOperator {
     BitwiseNot,
@@ -443,13 +441,11 @@ pub enum UnaryOperator {
 
 /// Sylan allows overridding existing operators but not defining new ones,
 /// otherwise an operator would be an `Identifier` instead of in an enum.
-///
-/// `=` for assignment is not an AST node in Sylan but is instead a required
-/// token while parsing a `Binding` node.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BinaryOperator {
     Add,
     And,
+    Assign,
     BitwiseAnd,
     BitwiseOr,
     Compose,
