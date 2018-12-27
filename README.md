@@ -783,7 +783,7 @@ case of native compilation.
   release of the language, i.e. 1.x.
 * Three things are versioned: the source, the tokens, and the AST.
 * A source version pins its tokens version; a tokens version pins its AST
-  version. So the versioning between the three isn't neccessarily in lockstep,
+  version. So the versioning between the three isn't necessarily in lockstep,
   but it is fixed.
 
 ### Methods and Functions
@@ -796,7 +796,7 @@ case of native compilation.
 * `Class::method` is a shorthand for `(o, ...args) -> o.method(...args)`, where
   the type of `o` is `Class`.
 * As methods and functions are both higher-order, invoked the same way, and have
-  the same type when passed around, there is no real loss of composibility from
+  the same type when passed around, there is no real loss of composability from
   being different constructs. They can be composed together easily: `var
   printDouble = Number::double # ToString::toString # println`.
 
@@ -879,8 +879,8 @@ case of native compilation.
   `AutoCloseable` interface.
 * The `try` keyword can prefix any `AutoCloseable` value, in which case it is
   guaranteed to close at the end of the scope even if the current task fails.
-* All `try``d values are guaranteed to have a chance to run their close method,
-  even if one of them fails before all are complete.
+* All `AutoCloseable` prefixed with `try` are guaranteed to have a chance to run
+  their close method, even if one of them fails before all are complete.
 * They are closed in the order they were set up, reversed.
 
 ### The Runtime
@@ -918,7 +918,7 @@ case of native compilation.
   the result into another executable or by creating a dynamically linked library
   when building the Sylan program and then referring to it dynamically from
   other executables.
-* As Sylan does not support ad hoc overloading, all demangling is
+* As Sylan does not support ad hoc overloading, symbol demangling is
   straightforward. One underscore denotes a package change while two indicate a
   method belonging to a type. E.g.: `sylan.util.collections.HashMap#put` becomes
   `sylan_util_collections_HashMap__put`.
@@ -943,6 +943,7 @@ case of native compilation.
   bumped, similar to Elm.
 * Replace auto-generated methods with a more consistent `derives`/`deriving`
   approach, a la Rust and Haskell.
+* Finish operator overloading proposal.
 
 ## Implementation Details
 

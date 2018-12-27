@@ -3,13 +3,14 @@
 //! The parser turns a token stream into an abstract syntax tree that can be
 //! better reasoned about semantically, ready for submission to further
 //! simplification steps and then a backend for execution or creation of an
-//! executable.
+//! executable. There is no CST step between tokens and the AST for the reason
+//! described in Sylan's top-level documentation.
 //!
 //! All AST nodes are either items or expressions. Items are top-level
 //! declarations that describe the whole program structure. Expressions
 //! describe actual computations. Expressions can be contained within items,
 //! but items cannot be contained within expressions with the exception of
-//! variable bindings.
+//! variable bindings in lambda bodies.
 //!
 //! All expressions must be inside function or method blocks, which are items.
 //! The exception is the `main` package in the `main` module which allows
@@ -17,10 +18,11 @@
 //!
 //! Statements don't really exist in Sylan. The closest equivalent is an
 //! expression that returns Sylan's unit type `void` or an `ignorable`
-//! expression that throws away a method's or function's non-`void` return
-//! value. That said, the only item allowed inside expressions (e.g. within the
-//! body of a lambda in the middle of an outer expression), variable bindings
-//! with `var`, pretty much look and feel like statements from other languages.
+//! expression that throws away an `ignoreable`  method's or function's
+//! non-`void` return value. That said, the only item allowed inside expressions
+//! (e.g. within the body of a lambda in the middle of an outer expression),
+//! variable bindings with `var`, pretty much look and feel like statements from
+//! other languages.
 //!
 //! Expressions just resolve inner expressions outwards until done; a function
 //! or method block can have multiple expressions which Sylan, being a strict,

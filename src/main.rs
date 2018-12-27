@@ -63,7 +63,11 @@
 //! ```
 //!
 //! Source, tokens, and the AST are the usual for programming language implementations. See the
-//! `lexing` and `parsing` modules for more information.
+//! `lexing` and `parsing` modules for more information. There is no CST (Concrete Syntax Tree)
+//! step as the tokens have enough information, such as tracking surrounding whitespace, to be
+//! pulled apart and reassembled without changing anything unrelated at the source level. The
+//! parser already strips out gramatically useful but semantically useless information straight
+//! from the token stream, making a CST of little use.
 //!
 //! "Simplification" creates Kernel Sylan from the AST, which is a strict subset of Sylan that
 //! strips away conveniences and just exposes the core Sylan semantics. This is the stage from which
