@@ -62,7 +62,7 @@ pub struct Position {
 }
 
 impl Position {
-    fn absolute_character_position(&self) -> usize {
+    fn character_position(&self) -> usize {
         self.absolute_character_index + 1
     }
 
@@ -104,10 +104,10 @@ impl Default for Position {
 
 #[cfg(test)]
 mod tests {
-
-    use super::*;
     use common::peekable_buffer::PeekableBuffer;
     use source::in_memory::Source;
+
+    use super::*;
 
     fn test_source(s: &str) -> Source {
         let source_chars = s.chars().collect::<Vec<char>>();
@@ -143,12 +143,36 @@ mod tests {
         );
         assert_eq!(source.position, Position::default());
 
+        // Test Unix newline tracking.
         source.discard_many(test_line.len() + 1);
         assert_eq!(
-            source.position.absolute_character_position(),
-            test_line.len() + 2
+            source.position.absolute_character_index,
+            test_line.len() + 1
         );
         assert_eq!(source.position.line, 2);
         assert_eq!(source.position.character_position_in_line, 1);
+
+        // Test Windows newline tracking.
+        source.discard_many(test_line.len() + 2);
+        assert_eq!(
+            source.position.absolute_character_index,
+            (test_line.len() * 2) + 3
+        );
+        assert_eq!(source.position.line, 3);
+        assert_eq!(source.position.character_position_in_line, 1);
+
+        // Test MacOS classic newline tracking.
+        source.discard_many(test_line.len() + 1);
+        assert_eq!(
+            source.position.absolute_character_index,
+            (test_line.len() * 3) + 4
+        );
+        assert_eq!(source.position.line, 4);
+        assert_eq!(source.position.character_position_in_line, 1);
+
+        assert_eq!(
+            source.position.absolute_character_index + 1,
+            source.position.character_position()
+        );
     }
 }
