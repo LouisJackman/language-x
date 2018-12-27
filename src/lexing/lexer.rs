@@ -10,7 +10,7 @@ use common::peekable_buffer::PeekableBuffer;
 use common::version::Version;
 use lexing::char_escapes;
 use lexing::keywords;
-use lexing::source::Source;
+use lexing::source::{Position, Source};
 use lexing::tokens::Token;
 
 // TODO: implement multiline strings.
@@ -26,9 +26,9 @@ const LEXER_THREAD_NAME: &str = "Sylan Lexer";
 /// on either side. Tracking this allows tooling to pull apart code, refactor
 /// it, and then put it back together without breaking whitespace formatting in
 /// the existing source.
-#[derive(Clone, Eq, PartialEq, Debug, Default)]
+#[derive(Clone, Eq, Debug, Default, PartialEq)]
 pub struct LexedToken {
-    pub position: usize,
+    pub position: Position,
     pub trivia: Option<String>,
     pub token: Token,
 }
@@ -42,7 +42,7 @@ pub enum ErrorDescription {
 
 #[derive(Debug)]
 pub struct Error {
-    position: usize,
+    position: Position,
     description: ErrorDescription,
 }
 
@@ -585,7 +585,7 @@ impl Lexer {
                         '"' => Ok(self.lex_string()),
                         '`' => Ok(self.lex_interpolated_string()),
                         '\'' => self.lex_char(),
-                        '#' if self.source.position == 0 => self.lex_shebang(),
+                        '#' if self.source.at_start() => self.lex_shebang(),
                         _ => {
                             if c.is_alphabetic() || (c == '_') {
                                 let mut rest = String::new();
