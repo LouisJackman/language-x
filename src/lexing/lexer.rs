@@ -10,8 +10,9 @@ use common::peekable_buffer::PeekableBuffer;
 use common::version::Version;
 use lexing::char_escapes;
 use lexing::keywords;
-use lexing::source::{Position, Source};
 use lexing::tokens::Token;
+use source::in_memory::Source;
+use source::Position;
 
 // TODO: implement multiline strings.
 // TODO: lex shebang and version string before starting the main lexing loop.
@@ -179,25 +180,21 @@ impl Lexer {
 
     fn lex_single_line_comment(&mut self, buffer: &mut String) {
         self.source.discard_many(2);
-        loop {
-            if let Some(c) = self.source.read() {
-                if c == '\n' {
-                    break;
-                } else if (c == '\r') && self.source.next_is('\n') {
-                    self.source.discard();
-                    break;
-                } else {
-                    buffer.push(c);
-                }
-            } else {
+        while let Some(c) = self.source.read() {
+            if c == '\n' {
                 break;
+            } else if (c == '\r') && self.source.next_is('\n') {
+                self.source.discard();
+                break;
+            } else {
+                buffer.push(c);
             }
         }
     }
 
     fn lex_trivia(&mut self) -> Result<Option<String>, Error> {
         let is_empty = {
-            let c = self.source.peek().map(|x| *x);
+            let c = self.source.peek().cloned();
 
             if c == Some('/') {
                 let is_multiline_comment =
@@ -213,7 +210,7 @@ impl Lexer {
         } else {
             let mut trivia = String::new();
             loop {
-                let next_char = self.source.peek().map(|x| *x);
+                let next_char = self.source.peek().cloned();
 
                 // SyDocs, starting with "/**", are not trivia but meaningful
                 // tokens that are stored in the AST. They are skipped in this
@@ -251,14 +248,14 @@ impl Lexer {
                 })
             })
             .map(Ok)
-            .unwrap_or(self.fail("invalid version number"))
+            .unwrap_or_else(|| self.fail("invalid version number"))
     }
 
     fn lex_number(&mut self) -> TokenResult {
         self.lex_absolute_number()
             .map(|(real, fractional)| Token::Number(real, fractional))
             .map(Ok)
-            .unwrap_or(self.fail("invalid number"))
+            .unwrap_or_else(|| self.fail("invalid number"))
     }
 
     fn lex_rest_of_word(&mut self, buffer: &mut String) {
@@ -332,7 +329,7 @@ impl Lexer {
         if let Some('!') = self.source.read() {
             let mut content = String::new();
             loop {
-                let next_char = self.source.peek().map(|x| *x);
+                let next_char = self.source.peek().cloned();
                 if (next_char == Some('\r')) && self.source.nth_is(1, '\n') {
                     self.source.discard_many(2);
                     break;
@@ -361,7 +358,7 @@ impl Lexer {
 
         let mut content = String::new();
         loop {
-            let next_char = self.source.peek().map(|x| *x);
+            let next_char = self.source.peek().cloned();
 
             if (Some('*') == next_char) && self.source.nth_is(1, '/') {
                 self.source.discard_many(2);
@@ -404,7 +401,7 @@ impl Lexer {
 
                 let mut decimal_place_consumed = false;
                 loop {
-                    match self.source.peek().map(|x| *x) {
+                    match self.source.peek().cloned() {
                         Some('.') if !decimal_place_consumed => {
                             decimal_place_consumed = true;
                             self.source.discard();
@@ -491,7 +488,7 @@ impl Lexer {
     }
 
     fn lex_with_leading_left_angle_bracket(&mut self) -> Token {
-        match self.source.peek().map(|x| *x) {
+        match self.source.peek().cloned() {
             Some('-') => {
                 self.source.discard();
                 Token::Bind
@@ -527,7 +524,7 @@ impl Lexer {
     }
 
     fn lex_with_leading_right_angle_bracket(&mut self) -> Token {
-        match self.source.peek().map(|x| *x) {
+        match self.source.peek().cloned() {
             Some('>') => {
                 self.source.discard();
                 Token::DoubleRightAngleBracket
@@ -541,7 +538,7 @@ impl Lexer {
     }
 
     fn lex_with_leading_vertical_bar(&mut self) -> Token {
-        match self.source.peek().map(|x| *x) {
+        match self.source.peek().cloned() {
             Some('|') => {
                 self.source.discard();
                 Token::Or
@@ -658,10 +655,10 @@ mod tests {
         Lexer::from(Source::from(source_chars))
     }
 
-    fn assert_next(lexer: &mut Lexer, token: Token) {
+    fn assert_next(lexer: &mut Lexer, token: &Token) {
         match lexer.lex_next() {
             Ok(LexedToken { token: t, .. }) => {
-                assert_eq!(t, token);
+                assert_eq!(t, *token);
             }
             Err(e) => panic!(e),
         }
@@ -670,47 +667,47 @@ mod tests {
     #[test]
     fn empty() {
         let mut lexer = test_lexer("    \t  \n      ");
-        assert_next(&mut lexer, Token::Eof);
+        assert_next(&mut lexer, &Token::Eof);
     }
 
     #[test]
     fn identifier() {
         let mut lexer = test_lexer("    \t  \n      abc");
-        assert_next(&mut lexer, Token::Identifier(Identifier::from("abc")));
+        assert_next(&mut lexer, &Token::Identifier(Identifier::from("abc")));
     }
 
     #[test]
     fn keywords() {
         let mut lexer = test_lexer("    class\t  \n  abc var do");
-        assert_next(&mut lexer, Token::Class);
-        assert_next(&mut lexer, Token::Identifier(Identifier::from("abc")));
-        assert_next(&mut lexer, Token::Var);
-        assert_next(&mut lexer, Token::Do);
+        assert_next(&mut lexer, &Token::Class);
+        assert_next(&mut lexer, &Token::Identifier(Identifier::from("abc")));
+        assert_next(&mut lexer, &Token::Var);
+        assert_next(&mut lexer, &Token::Do);
     }
 
     #[test]
     fn numbers() {
         let mut lexer = test_lexer("    23  \t     \t\t\n   23   +32 0.32    \t123123123.32");
-        assert_next(&mut lexer, Token::Number(23, 0));
-        assert_next(&mut lexer, Token::Number(23, 0));
-        assert_next(&mut lexer, Token::Number(32, 0));
-        assert_next(&mut lexer, Token::Number(0, 32));
-        assert_next(&mut lexer, Token::Number(123_123_123, 32));
+        assert_next(&mut lexer, &Token::Number(23, 0));
+        assert_next(&mut lexer, &Token::Number(23, 0));
+        assert_next(&mut lexer, &Token::Number(32, 0));
+        assert_next(&mut lexer, &Token::Number(0, 32));
+        assert_next(&mut lexer, &Token::Number(123_123_123, 32));
     }
 
     #[test]
     fn chars() {
         let mut lexer = test_lexer("  'a'   \t \n\n\n 'd'    '/'");
-        assert_next(&mut lexer, Token::Char('a'));
-        assert_next(&mut lexer, Token::Char('d'));
-        assert_next(&mut lexer, Token::Char('/'));
+        assert_next(&mut lexer, &Token::Char('a'));
+        assert_next(&mut lexer, &Token::Char('d'));
+        assert_next(&mut lexer, &Token::Char('/'));
     }
 
     #[test]
     fn strings() {
         let mut lexer = test_lexer("  \"abcdef\"   \t \n\n\n\"'123'\"");
-        assert_next(&mut lexer, Token::String(SylanString::from("abcdef")));
-        assert_next(&mut lexer, Token::String(SylanString::from("'123'")));
+        assert_next(&mut lexer, &Token::String(SylanString::from("abcdef")));
+        assert_next(&mut lexer, &Token::String(SylanString::from("'123'")));
     }
 
     #[test]
@@ -720,47 +717,47 @@ mod tests {
         let mut lexer = test_lexer("   `123`   `abc`");
         assert_next(
             &mut lexer,
-            Token::InterpolatedString(InterpolatedString::from("123")),
+            &Token::InterpolatedString(InterpolatedString::from("123")),
         );
         assert_next(
             &mut lexer,
-            Token::InterpolatedString(InterpolatedString::from("abc")),
+            &Token::InterpolatedString(InterpolatedString::from("abc")),
         );
     }
 
     #[test]
     fn operators() {
         let mut lexer = test_lexer("   <= \t  \n ~ ! ^   >> != |> # :: ");
-        assert_next(&mut lexer, Token::LessThanOrEquals);
-        assert_next(&mut lexer, Token::BitwiseNot);
-        assert_next(&mut lexer, Token::Not);
-        assert_next(&mut lexer, Token::BitwiseXor);
-        assert_next(&mut lexer, Token::DoubleRightAngleBracket);
-        assert_next(&mut lexer, Token::NotEquals);
-        assert_next(&mut lexer, Token::Pipe);
-        assert_next(&mut lexer, Token::Compose);
-        assert_next(&mut lexer, Token::MethodHandle);
+        assert_next(&mut lexer, &Token::LessThanOrEquals);
+        assert_next(&mut lexer, &Token::BitwiseNot);
+        assert_next(&mut lexer, &Token::Not);
+        assert_next(&mut lexer, &Token::BitwiseXor);
+        assert_next(&mut lexer, &Token::DoubleRightAngleBracket);
+        assert_next(&mut lexer, &Token::NotEquals);
+        assert_next(&mut lexer, &Token::Pipe);
+        assert_next(&mut lexer, &Token::Compose);
+        assert_next(&mut lexer, &Token::MethodHandle);
     }
 
     #[test]
     fn single_line_comments() {
         let mut lexer = test_lexer("      //    //  abc   ");
-        assert_next(&mut lexer, Token::Eof);
+        assert_next(&mut lexer, &Token::Eof);
     }
 
     #[test]
     fn multi_line_comments() {
         let mut lexer = test_lexer("  /*   /* 123 */      */ ");
-        assert_next(&mut lexer, Token::Eof);
+        assert_next(&mut lexer, &Token::Eof);
     }
 
     #[test]
     fn booleans() {
         let mut lexer = test_lexer("  true false   \n\t   /*   */ false true");
-        assert_next(&mut lexer, Token::Boolean(true));
-        assert_next(&mut lexer, Token::Boolean(false));
-        assert_next(&mut lexer, Token::Boolean(false));
-        assert_next(&mut lexer, Token::Boolean(true));
+        assert_next(&mut lexer, &Token::Boolean(true));
+        assert_next(&mut lexer, &Token::Boolean(false));
+        assert_next(&mut lexer, &Token::Boolean(false));
+        assert_next(&mut lexer, &Token::Boolean(true));
     }
 
     #[test]
@@ -768,7 +765,7 @@ mod tests {
         let mut lexer = test_lexer("v10.23");
         assert_next(
             &mut lexer,
-            Token::Version(Version {
+            &Token::Version(Version {
                 major: 10,
                 minor: 23,
                 patch: 0,
@@ -780,38 +777,38 @@ mod tests {
     fn rest() {
         let mut lexer = test_lexer(" . .. ... .. .");
 
-        assert_next(&mut lexer, Token::Dot);
-        assert_next(&mut lexer, Token::Dot);
-        assert_next(&mut lexer, Token::Dot);
+        assert_next(&mut lexer, &Token::Dot);
+        assert_next(&mut lexer, &Token::Dot);
+        assert_next(&mut lexer, &Token::Dot);
 
-        assert_next(&mut lexer, Token::Rest);
+        assert_next(&mut lexer, &Token::Rest);
 
-        assert_next(&mut lexer, Token::Dot);
-        assert_next(&mut lexer, Token::Dot);
-        assert_next(&mut lexer, Token::Dot);
+        assert_next(&mut lexer, &Token::Dot);
+        assert_next(&mut lexer, &Token::Dot);
+        assert_next(&mut lexer, &Token::Dot);
     }
 
     #[test]
     fn shebang() {
         let mut lexer = test_lexer("#!/usr/bin/env sylan");
         let shebang = Token::Shebang(Shebang::from("/usr/bin/env sylan"));
-        assert_next(&mut lexer, shebang);
+        assert_next(&mut lexer, &shebang);
 
         let mut lexer2 = test_lexer("#!/usr/bin sylan\r\ntrue false");
         let shebang2 = Token::Shebang(Shebang::from("/usr/bin sylan"));
-        assert_next(&mut lexer2, shebang2);
-        assert_next(&mut lexer2, Token::Boolean(true));
+        assert_next(&mut lexer2, &shebang2);
+        assert_next(&mut lexer2, &Token::Boolean(true));
 
         let mut lexer3 = test_lexer("#!/usr/local/bin/env sylan\n123 321");
         let shebang3 = Token::Shebang(Shebang::from("/usr/local/bin/env sylan"));
-        assert_next(&mut lexer3, shebang3);
-        assert_next(&mut lexer3, Token::Number(123, 0));
+        assert_next(&mut lexer3, &shebang3);
+        assert_next(&mut lexer3, &Token::Number(123, 0));
     }
 
     #[test]
     fn sydoc() {
         let mut lexer = test_lexer("/* comment */ // \n /** A SyDoc /* comment. */ */");
         let sydoc = Token::SyDoc(SyDoc::from(" A SyDoc /* comment. */ "));
-        assert_next(&mut lexer, sydoc);
+        assert_next(&mut lexer, &sydoc);
     }
 }

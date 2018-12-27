@@ -9,9 +9,9 @@
 //! `main.rs` stitches the whole system together by building a dependency and execution order chain
 //! between the modules:
 //! ```
-//!                                                        ,-> interpreter -> runtime
-//! lexing -> parsing -> simplification -> IL -> backend -<
-//!                                                        `-> runtime -> compiler
+//!                                                                  ,-> interpreter -> runtime
+//! source -> lexing -> parsing -> simplification -> IL -> backend -<
+//!                                                                  `-> runtime -> compiler
 //! ```
 //!
 //! The interpreter invokes the runtime whereas the runtime is baked into the compiled artefact,
@@ -96,13 +96,14 @@ use std::fs::File;
 use std::io::Read;
 
 use lexing::lexer::Lexer;
-use lexing::source::Source;
 use lexing::Tokens;
 use parsing::Parser;
+use source::in_memory::Source;
 
 mod common;
 mod lexing;
 mod parsing;
+mod source;
 
 #[global_allocator]
 static GLOBAL: System = System;

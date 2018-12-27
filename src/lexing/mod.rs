@@ -24,7 +24,6 @@ mod char_escapes;
 mod keywords;
 
 pub mod lexer;
-pub mod source;
 pub mod tokens;
 
 const MAX_TOKEN_LOOKAHEAD: usize = 5;
@@ -173,8 +172,8 @@ mod tests {
     use std::fmt::Debug;
 
     use common::multiphase::Identifier;
-    use lexing::source::Source;
     use lexing::tokens::Token;
+    use source::in_memory::Source;
 
     use super::*;
 
@@ -198,18 +197,18 @@ mod tests {
         result
     }
 
-    fn assert_next<A>(f: impl Fn(&mut Tokens) -> A, x: A)
+    fn assert_next<A>(f: impl Fn(&mut Tokens) -> A, x: &A)
     where
         A: Eq + Debug,
     {
-        test(|tokens| assert_eq!(f(tokens), x))
+        test(|tokens| assert_eq!(f(tokens), *x))
     }
 
     #[test]
     fn peek() {
         assert_next(
             |tokens| tokens.peek().unwrap().token.clone(),
-            Token::Identifier(Identifier::from("List")),
+            &Token::Identifier(Identifier::from("List")),
         )
     }
 
@@ -224,7 +223,7 @@ mod tests {
                     .map(|x| x.token.clone())
                     .collect::<Vec<Token>>()
             },
-            vec![
+            &vec![
                 Token::Identifier(Identifier::from("List")),
                 Token::OpenParentheses,
                 Token::Number(1, 0),
@@ -240,7 +239,7 @@ mod tests {
                 tokens.discard_many(5);
                 tokens.peek_nth(5).unwrap().token.clone()
             },
-            Token::Identifier(Identifier::from("forEach")),
+            &Token::Identifier(Identifier::from("forEach")),
         )
     }
 
@@ -253,7 +252,7 @@ mod tests {
                 tokens.peek().unwrap();
                 tokens.read().unwrap().token
             },
-            Token::Number(1, 0),
+            &Token::Number(1, 0),
         )
     }
 
@@ -267,7 +266,7 @@ mod tests {
                     .map(|lexed| lexed.token.clone())
                     .collect::<Vec<Token>>()
             },
-            vec![
+            &vec![
                 Token::Dot,
                 Token::Identifier(Identifier::from("forEach")),
                 Token::OpenParentheses,
@@ -285,7 +284,7 @@ mod tests {
                 tokens.discard();
                 tokens.read().unwrap().token
             },
-            Token::Number(2, 0),
+            &Token::Number(2, 0),
         )
     }
 
@@ -296,7 +295,7 @@ mod tests {
                 tokens.discard_many(3);
                 tokens.read().unwrap().token
             },
-            Token::SubItemSeparator,
+            &Token::SubItemSeparator,
         )
     }
 
@@ -314,7 +313,7 @@ mod tests {
         );
         assert_next(
             |tokens| tokens.peek().unwrap().clone().trivia.unwrap(),
-            trivia_to_match,
+            &trivia_to_match,
         );
     }
 }

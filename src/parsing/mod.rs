@@ -445,7 +445,7 @@ impl Parser {
         unimplemented!()
     }
 
-    fn reinterpret_expression_as_pattern(&mut self, _expression: Expression) -> Result<Pattern> {
+    fn reinterpret_expression_as_pattern(&mut self, _expression: &Expression) -> Result<Pattern> {
         unimplemented!()
     }
 
@@ -645,25 +645,22 @@ impl Parser {
         if self.next_is(&Token::LambdaArrow) {
             let parameter_patterns = expressions
                 .into_iter()
-                .map(|expression| self.reinterpret_expression_as_pattern(expression))
+                .map(|expression| self.reinterpret_expression_as_pattern(&expression))
                 .collect::<Vec<Result<Pattern>>>();
 
-            let failed = parameter_patterns
-                .iter()
-                .find(|result| !result.is_ok())
-                .is_some();
+            let failed = parameter_patterns.iter().any(|result| !result.is_ok());
 
             if failed {
                 let failed_conversion = parameter_patterns
                     .into_iter()
-                    .map(|pattern| result::Result::unwrap_err(pattern))
+                    .map(result::Result::unwrap_err)
                     .next()
                     .unwrap();
                 Err(failed_conversion)
             } else {
                 let successfully_converted = parameter_patterns
                     .into_iter()
-                    .map(|pattern| result::Result::unwrap(pattern))
+                    .map(result::Result::unwrap)
                     .collect::<Vec<Pattern>>();
 
                 Ok(nodes::Expression::Lambda(
@@ -705,7 +702,7 @@ impl Parser {
     }
 
     fn parse_expression(&mut self) -> Result<nodes::Expression> {
-        let token = self.tokens.peek().map(|x| x.clone());
+        let token = self.tokens.peek().cloned();
         match token {
             Some(lexed) => {
                 let token = lexed.token;
