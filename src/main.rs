@@ -136,7 +136,10 @@ fn main() -> Result<(), String> {
     let source_string = load_source(args())?;
     let source = Source::from(source_string.chars().collect::<Vec<char>>());
     let lexer = Lexer::from(source);
-    let tokens = Tokens::from(lexer).unwrap();
+
+    let tokens = Tokens::from(lexer)
+        .map_err(|e| format!("failed to create tokens from the lexer: {}", e))?;
+
     let parser = Parser::from(tokens);
     demo(parser)
 }

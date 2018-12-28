@@ -18,8 +18,6 @@ use source::Position;
 // TODO: lex shebang and version string before starting the main lexing loop.
 // TODO: implement escapes not just for chars but also strings comments, and
 //       SyDocs.
-// TODO: put newline handling in one place to ensure both UNIX and Windows
-//       styles covered everywhere.
 
 const LEXER_THREAD_NAME: &str = "Sylan Lexer";
 
@@ -39,6 +37,9 @@ pub enum ErrorDescription {
     Described(String),
     Expected(char),
     Unexpected(char),
+    PrematureEof,
+    ChannelFailure(String),
+    MalformedNumber(String),
 }
 
 #[derive(Debug)]
@@ -108,7 +109,7 @@ impl From<Source> for Lexer {
 
 impl Lexer {
     /// Fail at lexing, describing the reason why.
-    fn fail(&self, description: impl Into<String>) -> TokenResult {
+    fn fail<T>(&self, description: impl Into<String>) -> Result<T, Error> {
         Err(Error {
             description: ErrorDescription::Described(description.into()),
             position: self.source.position,
@@ -117,7 +118,7 @@ impl Lexer {
 
     /// Fail at lexing, stating that the `expected` character was expected but
     /// did not appear.
-    fn expect(&self, expected: char) -> TokenResult {
+    fn expect<T>(&self, expected: char) -> Result<T, Error> {
         Err(Error {
             description: ErrorDescription::Expected(expected),
             position: self.source.position,
@@ -126,11 +127,26 @@ impl Lexer {
 
     /// Fail at lexing, stating that the `unexpected` character was unexpected
     /// and therefore cannot be handled.
-    fn unexpected(&self, unexpected: char) -> TokenResult {
+    fn unexpected<T>(&self, unexpected: char) -> Result<T, Error> {
         Err(Error {
             description: ErrorDescription::Unexpected(unexpected),
             position: self.source.position,
         })
+    }
+
+    /// Fail at lexing because an EOF was encountered unexpectedly.
+    fn premature_eof(&self) -> Error {
+        Error {
+            description: ErrorDescription::PrematureEof,
+            position: self.source.position,
+        }
+    }
+
+    fn error(&self, description: ErrorDescription) -> Error {
+        Error {
+            description,
+            position: self.source.position,
+        }
     }
 
     // The following methods are sub-lexers that are reentrant and handle the
@@ -167,12 +183,7 @@ impl Lexer {
         }
 
         if 1 <= nesting_level {
-            Some(Error {
-                description: ErrorDescription::Described(String::from(
-                    "premature EOF in multiline comment",
-                )),
-                position: self.source.position,
-            })
+            Some(self.premature_eof())
         } else {
             None
         }
@@ -248,14 +259,14 @@ impl Lexer {
                 })
             })
             .map(Ok)
-            .unwrap_or_else(|| self.fail("invalid version number"))
+            .unwrap_or_else(|_| self.fail("invalid version number"))
     }
 
     fn lex_number(&mut self) -> TokenResult {
         self.lex_absolute_number()
             .map(|(real, fractional)| Token::Number(real, fractional))
             .map(Ok)
-            .unwrap_or_else(|| self.fail("invalid number"))
+            .unwrap_or_else(|_| self.fail("invalid number"))
     }
 
     fn lex_rest_of_word(&mut self, buffer: &mut String) {
@@ -311,7 +322,7 @@ impl Lexer {
                             .map_or(self.fail(format!("invalid escape: {}", escaped)), |&c| {
                                 Ok(Token::Char(c))
                             }),
-                        None => self.fail("escaped character ended prematurely"),
+                        None => Err(self.premature_eof()),
                     }
                 } else {
                     Ok(Token::Char(c))
@@ -319,7 +330,7 @@ impl Lexer {
                 self.source.discard();
                 result
             }
-            None => self.fail("character ended prematurely"),
+            None => Err(self.premature_eof()),
         }
     }
 
@@ -392,7 +403,7 @@ impl Lexer {
         }
     }
 
-    fn lex_absolute_number(&mut self) -> Option<Number> {
+    fn lex_absolute_number(&mut self) -> Result<Number, Error> {
         match self.source.read() {
             Some(c) if c.is_digit(10) || (c == '-') || (c == '+') => {
                 let mut real_to_parse = String::new();
@@ -421,15 +432,27 @@ impl Lexer {
                     fractional_to_parse.push('0')
                 }
 
-                let real = real_to_parse
+                real_to_parse
                     .parse()
-                    .expect("lexed real number component failed to parse");
-                let fractional = fractional_to_parse
-                    .parse()
-                    .expect("lexed fractional number component failed to parse");
-                Some((real, fractional))
+                    .map_err(|err| {
+                        self.error(ErrorDescription::MalformedNumber(format!(
+                            "lexed real number component failed to parse: {}",
+                            real_to_parse,
+                        )))
+                    })
+                    .and_then(|real| {
+                        fractional_to_parse
+                            .parse()
+                            .map_err(|err| {
+                                self.error(ErrorDescription::MalformedNumber(format!(
+                                    "lexed fractional number component failed to parse: {}",
+                                    real_to_parse,
+                                )))
+                            })
+                            .map(|fractional| (real, fractional))
+                    })
             }
-            _ => None,
+            _ => Err(self.premature_eof()),
         }
     }
 
@@ -628,7 +651,13 @@ impl Lexer {
             match self.lex_next() {
                 Ok(token) => {
                     let is_eof = token.token == Token::Eof;
-                    tx.send(token).unwrap();
+                    tx.send(token.clone()).map_err(|err| Error {
+                        position: self.source.position,
+                        description: ErrorDescription::ChannelFailure(format!(
+                            "the token channel failed to send token {:?}: {}",
+                            token, err
+                        )),
+                    })?;
                     if is_eof {
                         break Ok(());
                     }
