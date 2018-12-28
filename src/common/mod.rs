@@ -11,3 +11,10 @@ pub mod excursion_buffer;
 pub mod multiphase;
 pub mod peekable_buffer;
 pub mod version;
+
+pub fn string_matches_char_slice(string: &str, other: &[char]) -> bool {
+    // TODO: there _must_ be a better way to compare a str against a char slice without heap
+    // allocating a whole new vector every time.
+    let string_chars = string.chars().collect::<Vec<char>>();
+    string_chars[..] == *other
+}

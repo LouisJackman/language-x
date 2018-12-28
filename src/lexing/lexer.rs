@@ -7,6 +7,7 @@ use std::thread::{self, JoinHandle};
 use common::excursion_buffer::ExcursionBuffer;
 use common::multiphase::{self, SylanString};
 use common::peekable_buffer::PeekableBuffer;
+use common::string_matches_char_slice;
 use common::version::Version;
 use lexing::char_escapes;
 use lexing::keywords;
@@ -16,8 +17,6 @@ use source::Position;
 
 // TODO: implement multiline strings.
 // TODO: lex shebang and version string before starting the main lexing loop.
-// TODO: implement escapes not just for chars but also strings comments, and
-//       SyDocs.
 
 const LEXER_THREAD_NAME: &str = "Sylan Lexer";
 
@@ -87,6 +86,10 @@ impl ExcursionBuffer for LexerTask {
     fn start_excursion(&mut self) -> Self {
         unimplemented!()
     }
+}
+
+fn is_start_of_string(c: char) -> bool {
+    (c == '\'') || (c == '"') || (c == '`')
 }
 
 /// A lexer that is used by a `LexerTask` to produce a stream of tokens. Each lexer has a source
@@ -281,53 +284,81 @@ impl Lexer {
         }
     }
 
-    fn lex_string(&mut self) -> Token {
-        self.source.discard();
-
-        let mut string = String::new();
-        loop {
-            match self.source.read() {
-                Some('"') => break,
-                Some(c) => string.push(c),
-                None => break,
-            }
-        }
-        Token::String(SylanString::from(string))
-    }
-
-    fn lex_interpolated_string(&mut self) -> Token {
-        self.source.discard();
-
-        let mut string = String::new();
-        loop {
-            match self.source.read() {
-                Some('`') => break,
-                Some(c) => string.push(c),
-                None => break,
-            }
-        }
-        Token::InterpolatedString(multiphase::InterpolatedString::from(string))
-    }
-
-    fn lex_char(&mut self) -> TokenResult {
+    fn lex_escape_char_in_string_or_char(&mut self) -> Result<char, Error> {
         self.source.discard();
 
         match self.source.read() {
-            Some(c) => {
-                let result = if c == '\\' {
-                    match self.source.read() {
-                        Some(escaped) => self
-                            .char_escapes
-                            .get(&escaped)
-                            .map_or(self.fail(format!("invalid escape: {}", escaped)), |&c| {
-                                Ok(Token::Char(c))
-                            }),
-                        None => Err(self.premature_eof()),
+            Some(escaped) => self
+                .char_escapes
+                .get(&escaped)
+                .map_or(self.fail(format!("invalid escape: {}", escaped)), |&c| {
+                    Ok(c)
+                }),
+            None => Err(self.premature_eof()),
+        }
+    }
+
+    fn lex_string_content(&mut self, delimiter: &str, escaping: bool) -> Result<String, Error> {
+        let first_delimiter_char = delimiter
+            .chars()
+            .next()
+            .expect("`delimiter` must be at least one character long");
+
+        let mut string = String::new();
+        loop {
+            match self.source.peek() {
+                Some(&c) if c == first_delimiter_char => {
+                    self.source.discard();
+                    let chars = self.source.peek_many(delimiter.len() - 1);
+                    if chars
+                        .map(|c| string_matches_char_slice(&delimiter[1..], c))
+                        .is_some()
+                    {
+                        break Ok(string);
                     }
+                }
+                Some(&c) => {
+                    let maybe_escaped = if (c == '\\') && escaping {
+                        self.lex_escape_char_in_string_or_char()?
+                    } else {
+                        self.source.discard();
+                        c
+                    };
+                    string.push(maybe_escaped)
+                }
+                None => break Err(self.premature_eof()),
+            }
+        }
+    }
+
+    fn lex_string(&mut self, escaping: bool) -> TokenResult {
+        self.source.discard();
+        let string = self.lex_string_content("\"", escaping)?;
+        Ok(Token::String(SylanString::from(string)))
+    }
+
+    fn lex_interpolated_string(&mut self, escaping: bool) -> TokenResult {
+        self.source.discard();
+        let string = self.lex_string_content("`", escaping)?;
+        let interpolated = multiphase::InterpolatedString::from(string);
+        Ok(Token::InterpolatedString(interpolated))
+    }
+
+    fn lex_char(&mut self, escaping: bool) -> TokenResult {
+        self.source.discard();
+
+        match self.source.peek() {
+            Some(&c) => {
+                let result = if (c == '\\') && escaping {
+                    self.lex_escape_char_in_string_or_char().map(Token::Char)
                 } else {
+                    self.source.discard();
                     Ok(Token::Char(c))
                 };
+
+                // Discard the closing '.
                 self.source.discard();
+
                 result
             }
             None => Err(self.premature_eof()),
@@ -602,22 +633,39 @@ impl Lexer {
                     self.lex_sydoc()
                 } else {
                     match c {
-                        '"' => Ok(self.lex_string()),
-                        '`' => Ok(self.lex_interpolated_string()),
-                        '\'' => self.lex_char(),
+                        '"' => self.lex_string(true),
+                        '`' => self.lex_interpolated_string(true),
+                        '\'' => self.lex_char(true),
                         '#' if self.source.at_start() => self.lex_shebang(),
+
                         _ => {
-                            if c.is_alphabetic() {
-                                let mut rest = String::new();
-                                self.lex_rest_of_word(&mut rest);
-                                Ok(self.lex_boolean_or_keyword_or_identifier(rest))
-                            } else if c.is_digit(10)
-                                || (self.source.match_nth(1, |c| c.is_digit(10))
-                                    && ((c == '+') || (c == '-')))
-                            {
-                                self.lex_number()
-                            } else {
-                                self.lex_operator()
+                            let next = self.source.peek_nth(1).cloned();
+                            let string_start = next.filter(|c| is_start_of_string(*c));
+
+                            match string_start {
+                                Some(delimiter) if c == 'r' => {
+                                    self.source.discard();
+                                    match delimiter {
+                                        '"' => self.lex_string(false),
+                                        '\'' => self.lex_char(false),
+                                        '`' => self.lex_interpolated_string(false),
+                                        _ => unreachable!(),
+                                    }
+                                }
+                                _ => {
+                                    if c.is_alphabetic() {
+                                        let mut rest = String::new();
+                                        self.lex_rest_of_word(&mut rest);
+                                        Ok(self.lex_boolean_or_keyword_or_identifier(rest))
+                                    } else if c.is_digit(10)
+                                        || (self.source.match_nth(1, |c| c.is_digit(10))
+                                            && ((c == '+') || (c == '-')))
+                                    {
+                                        self.lex_number()
+                                    } else {
+                                        self.lex_operator()
+                                    }
+                                }
                             }
                         }
                     }
@@ -734,8 +782,15 @@ mod tests {
 
     #[test]
     fn strings() {
-        let mut lexer = test_lexer("  \"abcdef\"   \t \n\n\n\"'123'\"");
-        assert_next(&mut lexer, &Token::String(SylanString::from("abcdef")));
+        let mut lexer = test_lexer("  \"abc\\ndef\"   \t \n\n\n\"'123'\"");
+        assert_next(&mut lexer, &Token::String(SylanString::from("abc\ndef")));
+        assert_next(&mut lexer, &Token::String(SylanString::from("'123'")));
+    }
+
+    #[test]
+    fn raw_strings() {
+        let mut lexer = test_lexer("  r\"abc\\ndef\"   \t \n\n\nr\"'123'\"");
+        assert_next(&mut lexer, &Token::String(SylanString::from("abc\\ndef")));
         assert_next(&mut lexer, &Token::String(SylanString::from("'123'")));
     }
 
@@ -743,14 +798,29 @@ mod tests {
     fn interpolated_strings() {
         // TODO: test actual interpolation once the parser is complete.
 
-        let mut lexer = test_lexer("   `123`   `abc`");
+        let mut lexer = test_lexer("   `123`   `abc\\t`");
         assert_next(
             &mut lexer,
             &Token::InterpolatedString(InterpolatedString::from("123")),
         );
         assert_next(
             &mut lexer,
-            &Token::InterpolatedString(InterpolatedString::from("abc")),
+            &Token::InterpolatedString(InterpolatedString::from("abc\t")),
+        );
+    }
+
+    #[test]
+    fn raw_interpolated_strings() {
+        // TODO: test actual interpolation once the parser is complete.
+
+        let mut lexer = test_lexer("   r`123`   r`abc\\t`");
+        assert_next(
+            &mut lexer,
+            &Token::InterpolatedString(InterpolatedString::from("123")),
+        );
+        assert_next(
+            &mut lexer,
+            &Token::InterpolatedString(InterpolatedString::from("abc\\t")),
         );
     }
 

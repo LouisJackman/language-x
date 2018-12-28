@@ -499,10 +499,18 @@ c.send(counter.Message.Get())
     }
 )
 
-print("""
+println("""
 Multiline
 strings
 """)
+
+println(r"Raw string in which escapes characters are now read literally: \n\r")
+
+var n = 4
+
+println(```
+Multiline interpolated strings: {n}
+```)
 
 var x = {
     println("Returning 5 to be bound as x...")
