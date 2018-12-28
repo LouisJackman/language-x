@@ -181,7 +181,7 @@ impl Lexer {
     fn lex_single_line_comment(&mut self, buffer: &mut String) {
         self.source.discard_many(2);
         while let Some(c) = self.source.read() {
-            if c == '\n' {
+            if (c == '\n') || ((c == '\r') && !self.source.next_is('\n')) {
                 break;
             } else if (c == '\r') && self.source.next_is('\n') {
                 self.source.discard();
@@ -335,7 +335,7 @@ impl Lexer {
                     break;
                 } else {
                     match next_char {
-                        Some('\n') => {
+                        Some('\n') | Some('\r') => {
                             self.source.discard();
                             break;
                         }
@@ -672,13 +672,13 @@ mod tests {
 
     #[test]
     fn identifier() {
-        let mut lexer = test_lexer("    \t  \n      abc");
+        let mut lexer = test_lexer("    \t  \r      abc");
         assert_next(&mut lexer, &Token::Identifier(Identifier::from("abc")));
     }
 
     #[test]
     fn keywords() {
-        let mut lexer = test_lexer("    class\t  \n  abc var do");
+        let mut lexer = test_lexer("    class\t  \r\n  abc var do");
         assert_next(&mut lexer, &Token::Class);
         assert_next(&mut lexer, &Token::Identifier(Identifier::from("abc")));
         assert_next(&mut lexer, &Token::Var);
@@ -697,7 +697,7 @@ mod tests {
 
     #[test]
     fn chars() {
-        let mut lexer = test_lexer("  'a'   \t \n\n\n 'd'    '/'");
+        let mut lexer = test_lexer("  'a'   \t \n\r\n 'd'    '/'");
         assert_next(&mut lexer, &Token::Char('a'));
         assert_next(&mut lexer, &Token::Char('d'));
         assert_next(&mut lexer, &Token::Char('/'));
@@ -727,7 +727,7 @@ mod tests {
 
     #[test]
     fn operators() {
-        let mut lexer = test_lexer("   <= \t  \n ~ ! ^   >> != |> # :: ");
+        let mut lexer = test_lexer("   <= \t  \r\n ~ ! ^   >> != |> # :: ");
         assert_next(&mut lexer, &Token::LessThanOrEquals);
         assert_next(&mut lexer, &Token::BitwiseNot);
         assert_next(&mut lexer, &Token::Not);
