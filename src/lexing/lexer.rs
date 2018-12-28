@@ -261,7 +261,7 @@ impl Lexer {
     fn lex_rest_of_word(&mut self, buffer: &mut String) {
         loop {
             match self.source.peek() {
-                Some(&c) if c.is_alphabetic() || c.is_digit(10) || (c == '_') => {
+                Some(&c) if c.is_alphabetic() || c.is_digit(10) => {
                     self.source.discard();
                     buffer.push(c);
                 }
@@ -584,7 +584,7 @@ impl Lexer {
                         '\'' => self.lex_char(),
                         '#' if self.source.at_start() => self.lex_shebang(),
                         _ => {
-                            if c.is_alphabetic() || (c == '_') {
+                            if c.is_alphabetic() {
                                 let mut rest = String::new();
                                 self.lex_rest_of_word(&mut rest);
                                 Ok(self.lex_boolean_or_keyword_or_identifier(rest))
