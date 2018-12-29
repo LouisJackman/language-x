@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::io;
-use std::sync::mpsc::{channel, Receiver, RecvError};
+use std::sync::mpsc::{channel, Receiver, RecvError, SendError};
 use std::thread::{self, JoinHandle};
 
 use common::excursion_buffer::ExcursionBuffer;
@@ -14,9 +14,6 @@ use lexing::keywords;
 use lexing::tokens::Token;
 use source::in_memory::Source;
 use source::Position;
-
-// TODO: implement multiline strings.
-// TODO: lex shebang and version string before starting the main lexing loop.
 
 const LEXER_THREAD_NAME: &str = "Sylan Lexer";
 
@@ -164,6 +161,16 @@ impl Lexer {
         Error {
             description,
             position: self.source.position,
+        }
+    }
+
+    fn send_error<T>(&self, token: &LexedToken, err: &SendError<T>) -> Error {
+        Error {
+            position: self.source.position,
+            description: ErrorDescription::ChannelFailure(format!(
+                "the token channel failed to send token {:?}: {}",
+                token, err
+            )),
         }
     }
 
@@ -677,9 +684,7 @@ impl Lexer {
         match self.source.peek() {
             None => Ok(Token::Eof),
             Some(&c) => {
-                if (c == 'v') && self.source.match_nth(1, |c| c.is_digit(10)) {
-                    self.lex_version()
-                } else if (c == '/') && self.source.nth_is(1, '*') && self.source.nth_is(2, '*') {
+                if (c == '/') && self.source.nth_is(1, '*') && self.source.nth_is(2, '*') {
                     self.lex_sydoc()
                 } else {
                     match c {
@@ -710,7 +715,6 @@ impl Lexer {
                             }
                         }
                         '\'' => self.lex_char(),
-                        '#' if self.source.at_start() => self.lex_shebang(),
 
                         _ => {
                             let next = self.source.peek_nth(1).cloned();
@@ -773,6 +777,43 @@ impl Lexer {
         }
     }
 
+    pub fn lex_version_or_next_non_trivia(&mut self) -> Option<LexedTokenResult> {
+        match self.lex_trivia() {
+            Ok(trivia) => {
+                if let Some(&c) = self.source.peek() {
+                    let token = if (c == 'v') && self.source.match_nth(1, |c| c.is_digit(10)) {
+                        self.lex_version()
+                    } else {
+                        self.lex_non_trivia()
+                    };
+                    Some(token.map(|t| LexedToken {
+                        token: t,
+                        position: self.source.position,
+                        trivia,
+                    }))
+                } else {
+                    None
+                }
+            }
+            Err(err) => Some(Err(err)),
+        }
+    }
+
+    pub fn lex_shebang_at_start_of_source(&mut self) -> Option<LexedTokenResult> {
+        if let Some('#') = self.source.peek() {
+            match self.lex_shebang() {
+                Ok(shebang) => Some(Ok(LexedToken {
+                    token: shebang.clone(),
+                    position: self.source.position,
+                    trivia: None,
+                })),
+                Err(err) => Some(Err(err)),
+            }
+        } else {
+            None
+        }
+    }
+
     /// Start lexing from the top-level of the source, returning a lexing task running concurrently
     /// in another thread and feeding tokens through a channel as it goes.
     pub fn lex(mut self) -> io::Result<LexerTask> {
@@ -780,16 +821,23 @@ impl Lexer {
         let thread = thread::Builder::new().name(LEXER_THREAD_NAME.to_string());
 
         let handle = thread.spawn(move || loop {
+            if let Some(shebang_result) = self.lex_shebang_at_start_of_source() {
+                let shebang = shebang_result?;
+                tx.send(shebang.clone())
+                    .map_err(|err| self.send_error(&shebang, &err))?;
+            }
+
+            if let Some(version_result) = self.lex_version_or_next_non_trivia() {
+                let version = version_result?;
+                tx.send(version.clone())
+                    .map_err(|err| self.send_error(&version, &err))?;
+            }
+
             match self.lex_next() {
                 Ok(token) => {
                     let is_eof = token.token == Token::Eof;
-                    tx.send(token.clone()).map_err(|err| Error {
-                        position: self.source.position,
-                        description: ErrorDescription::ChannelFailure(format!(
-                            "the token channel failed to send token {:?}: {}",
-                            token, err
-                        )),
-                    })?;
+                    tx.send(token.clone())
+                        .map_err(|err| self.send_error(&token, &err))?;
                     if is_eof {
                         break Ok(());
                     }
@@ -822,6 +870,26 @@ mod tests {
                 assert_eq!(t, *token);
             }
             Err(e) => panic!(e),
+        }
+    }
+
+    fn assert_shebang(lexer: &mut Lexer, token: &Token) {
+        match lexer.lex_shebang_at_start_of_source() {
+            Some(Ok(LexedToken { token: t, .. })) => {
+                assert_eq!(t, *token);
+            }
+            Some(Err(e)) => panic!(e),
+            None => panic!("missing {:?}", token),
+        }
+    }
+
+    fn assert_version_or_next_non_trivial(lexer: &mut Lexer, token: &Token) {
+        match lexer.lex_version_or_next_non_trivia() {
+            Some(Ok(LexedToken { token: t, .. })) => {
+                assert_eq!(t, *token);
+            }
+            Some(Err(e)) => panic!(e),
+            None => panic!("missing {:?}", token),
         }
     }
 
@@ -931,7 +999,7 @@ mod tests {
     #[test]
     fn version() {
         let mut lexer = test_lexer("v10.23");
-        assert_next(
+        assert_version_or_next_non_trivial(
             &mut lexer,
             &Token::Version(Version {
                 major: 10,
@@ -960,16 +1028,16 @@ mod tests {
     fn shebang() {
         let mut lexer = test_lexer("#!/usr/bin/env sylan");
         let shebang = Token::Shebang(Shebang::from("/usr/bin/env sylan"));
-        assert_next(&mut lexer, &shebang);
+        assert_shebang(&mut lexer, &shebang);
 
         let mut lexer2 = test_lexer("#!/usr/bin sylan\r\ntrue false");
         let shebang2 = Token::Shebang(Shebang::from("/usr/bin sylan"));
-        assert_next(&mut lexer2, &shebang2);
+        assert_shebang(&mut lexer2, &shebang2);
         assert_next(&mut lexer2, &Token::Boolean(true));
 
         let mut lexer3 = test_lexer("#!/usr/local/bin/env sylan\n123 321");
         let shebang3 = Token::Shebang(Shebang::from("/usr/local/bin/env sylan"));
-        assert_next(&mut lexer3, &shebang3);
+        assert_shebang(&mut lexer3, &shebang3);
         assert_next(&mut lexer3, &Token::Number(123, 0));
     }
 
