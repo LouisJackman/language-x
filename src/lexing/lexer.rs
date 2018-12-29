@@ -873,23 +873,19 @@ mod tests {
         }
     }
 
-    fn assert_shebang(lexer: &mut Lexer, token: &Token) {
-        match lexer.lex_shebang_at_start_of_source() {
-            Some(Ok(LexedToken { token: t, .. })) => {
-                assert_eq!(t, *token);
-            }
-            Some(Err(e)) => panic!(e),
-            None => panic!("missing {:?}", token),
+    fn start_is_shebang(lexer: &mut Lexer, token: &Token) -> bool {
+        if let Some(Ok(LexedToken { token: t, .. })) = lexer.lex_shebang_at_start_of_source() {
+            t == *token
+        } else {
+            false
         }
     }
 
-    fn assert_version_or_next_non_trivial(lexer: &mut Lexer, token: &Token) {
-        match lexer.lex_version_or_next_non_trivia() {
-            Some(Ok(LexedToken { token: t, .. })) => {
-                assert_eq!(t, *token);
-            }
-            Some(Err(e)) => panic!(e),
-            None => panic!("missing {:?}", token),
+    fn check_version_or_next_non_trivial(lexer: &mut Lexer, token: &Token) -> bool {
+        if let Some(Ok(LexedToken { token: t, .. })) = lexer.lex_version_or_next_non_trivia() {
+            t == *token
+        } else {
+            false
         }
     }
 
@@ -999,14 +995,24 @@ mod tests {
     #[test]
     fn version() {
         let mut lexer = test_lexer("v10.23");
-        assert_version_or_next_non_trivial(
+        assert!(check_version_or_next_non_trivial(
             &mut lexer,
             &Token::Version(Version {
                 major: 10,
                 minor: 23,
                 patch: 0,
             }),
-        );
+        ));
+
+        let mut failing_lexer_1 = test_lexer("10.23");
+        assert!(!check_version_or_next_non_trivial(
+            &mut lexer,
+            &Token::Version(Version {
+                major: 10,
+                minor: 23,
+                patch: 0,
+            }),
+        ));
     }
 
     #[test]
@@ -1028,17 +1034,21 @@ mod tests {
     fn shebang() {
         let mut lexer = test_lexer("#!/usr/bin/env sylan");
         let shebang = Token::Shebang(Shebang::from("/usr/bin/env sylan"));
-        assert_shebang(&mut lexer, &shebang);
+        assert!(start_is_shebang(&mut lexer, &shebang));
 
         let mut lexer2 = test_lexer("#!/usr/bin sylan\r\ntrue false");
         let shebang2 = Token::Shebang(Shebang::from("/usr/bin sylan"));
-        assert_shebang(&mut lexer2, &shebang2);
+        assert!(start_is_shebang(&mut lexer2, &shebang2));
         assert_next(&mut lexer2, &Token::Boolean(true));
 
         let mut lexer3 = test_lexer("#!/usr/local/bin/env sylan\n123 321");
         let shebang3 = Token::Shebang(Shebang::from("/usr/local/bin/env sylan"));
-        assert_shebang(&mut lexer3, &shebang3);
+        assert!(start_is_shebang(&mut lexer3, &shebang3));
         assert_next(&mut lexer3, &Token::Number(123, 0));
+
+        let mut failing_lexer = test_lexer("/usr/local/bin/env sylan\n123 321");
+        let shebang3 = Token::Shebang(Shebang::from("/usr/local/bin/env sylan"));
+        assert!(!start_is_shebang(&mut failing_lexer, &shebang3));
     }
 
     #[test]
