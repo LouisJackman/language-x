@@ -499,9 +499,10 @@ c.send(counter.Message.Get())
     }
 )
 
-println("""
-Multiline
-strings
+print("""
+3 or more quotes can be used to create a custom string delimiter.
+This allows escaping almost any embedded content with few problems.
+This works with interpolated and raw strings too.
 """)
 
 println(r"Raw string in which escapes characters are now read literally: \n\r")

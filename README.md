@@ -561,10 +561,20 @@ executables with no required runtimes.
     )
     
     print("""
-    Multiline
-    strings
+    3 or more quotes can be used to create a custom string delimiter.
+    This allows escaping almost any embedded content with few problems.
+    This works with interpolated and raw strings too.
     """)
-    
+
+    println(r"Raw string in which escapes characters are now read literally: \n\r")
+
+    var n = 4
+
+    println(```
+    Multiline interpolated strings: {n}
+    ```)
+
+
     var x = {
         println("Returning 5 to be bound as x...")
         5
