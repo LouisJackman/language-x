@@ -384,7 +384,7 @@ impl Lexer {
                     let closing_delimiter_encountered = self
                         .source
                         .peek_many(delimiter_count - 1)
-                        .map(|chars| chars.iter().all(|&c| c == delimiter))
+                        .filter(|chars| chars.iter().all(|&c| c == delimiter))
                         .is_some();
 
                     if closing_delimiter_encountered {
@@ -399,11 +399,10 @@ impl Lexer {
                             start_new_fragment = false;
                         }
                         string_fragments.last_mut().unwrap().push(c);
-                        self.source.discard();
                     }
                 }
                 Some(&c) if c == '{' => {
-                    let escaped = self.source.peek_nth(1).filter(|&c| *c == '{').is_some();
+                    let escaped = self.source.nth_is(1, '{');
 
                     if escaped {
                         self.source.discard();
@@ -954,10 +953,7 @@ mod tests {
             Ok(LexedToken { token: t, .. }) => {
                 assert_eq!(t, *token);
             }
-            Err(e) => {
-                println!("{:?}", e);
-                panic!(e)
-            }
+            Err(e) => panic!(e),
         }
     }
 
@@ -1032,12 +1028,13 @@ mod tests {
 
     #[test]
     fn interpolated_strings() {
-        let mut lexer = test_lexer("   `1{x}23`   ````ab{{notInterpolated}}c\\t{foobar}````");
+        let mut lexer =
+            test_lexer("   `1{x}{{23`   ````ab{{notInterpolated}}c``\\t{foobar}``` ````");
 
         assert_next(
             &mut lexer,
             &Token::InterpolatedString(InterpolatedString {
-                string_fragments: vec!["1".to_owned(), "23".to_owned()],
+                string_fragments: vec!["1".to_owned(), "{{23".to_owned()],
                 interpolations: vec![Identifier::from("x")],
             }),
         );
@@ -1045,7 +1042,7 @@ mod tests {
         assert_next(
             &mut lexer,
             &Token::InterpolatedString(InterpolatedString {
-                string_fragments: vec!["ab{{notInterpolated}}c\t".to_owned()],
+                string_fragments: vec!["ab{{notInterpolated}}c``\t".to_owned(), "``` ".to_owned()],
                 interpolations: vec![Identifier::from("foobar")],
             }),
         );
