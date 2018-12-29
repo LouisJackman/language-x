@@ -18,3 +18,16 @@ pub fn string_matches_char_slice(string: &str, other: &[char]) -> bool {
     let string_chars = string.chars().collect::<Vec<char>>();
     string_chars[..] == *other
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_string_matches_char_slice() {
+        let chars = &['a', 'b', 'c'];
+        assert!(string_matches_char_slice("abc", chars));
+        assert!(!string_matches_char_slice("123", chars));
+    }
+}

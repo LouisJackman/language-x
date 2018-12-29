@@ -105,7 +105,6 @@ impl Default for Position {
 #[cfg(test)]
 mod tests {
     use common::peekable_buffer::PeekableBuffer;
-    use common::string_matches_char_slice;
     use source::in_memory::Source;
 
     use super::*;
@@ -113,13 +112,6 @@ mod tests {
     fn test_source(s: &str) -> Source {
         let source_chars = s.chars().collect::<Vec<char>>();
         Source::from(source_chars)
-    }
-
-    #[test]
-    fn char_read_many_matches() {
-        let chars = &['a', 'b', 'c'];
-        assert!(string_matches_char_slice("abc", chars));
-        assert!(!string_matches_char_slice("123", chars));
     }
 
     #[test]

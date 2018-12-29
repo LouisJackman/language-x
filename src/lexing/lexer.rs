@@ -344,12 +344,12 @@ impl Lexer {
         Ok(Token::InterpolatedString(interpolated))
     }
 
-    fn lex_char(&mut self, escaping: bool) -> TokenResult {
+    fn lex_char(&mut self) -> TokenResult {
         self.source.discard();
 
         match self.source.peek() {
             Some(&c) => {
-                let result = if (c == '\\') && escaping {
+                let result = if (c == '\\') {
                     self.lex_escape_char_in_string_or_char().map(Token::Char)
                 } else {
                     self.source.discard();
@@ -635,7 +635,7 @@ impl Lexer {
                     match c {
                         '"' => self.lex_string(true),
                         '`' => self.lex_interpolated_string(true),
-                        '\'' => self.lex_char(true),
+                        '\'' => self.lex_char(),
                         '#' if self.source.at_start() => self.lex_shebang(),
 
                         _ => {
@@ -647,7 +647,6 @@ impl Lexer {
                                     self.source.discard();
                                     match delimiter {
                                         '"' => self.lex_string(false),
-                                        '\'' => self.lex_char(false),
                                         '`' => self.lex_interpolated_string(false),
                                         _ => unreachable!(),
                                     }
