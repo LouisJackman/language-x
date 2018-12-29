@@ -5,7 +5,7 @@ use std::sync::mpsc::{channel, Receiver, RecvError, SendError};
 use std::thread::{self, JoinHandle};
 
 use common::excursion_buffer::ExcursionBuffer;
-use common::multiphase::{self, SylanString};
+use common::multiphase::{self, InterpolatedString, SylanString};
 use common::peekable_buffer::PeekableBuffer;
 use common::string_matches_char_slice;
 use common::version::Version;
@@ -306,6 +306,12 @@ impl Lexer {
         }
     }
 
+    fn lex_identifier(&mut self) -> multiphase::Identifier {
+        let mut word = String::new();
+        self.lex_rest_of_word(&mut word);
+        multiphase::Identifier::from(word)
+    }
+
     fn lex_escape_char_in_string_or_char(&mut self) -> Result<char, Error> {
         self.source.discard();
 
@@ -341,6 +347,9 @@ impl Lexer {
                     if closing_delimiter_encountered {
                         self.source.discard_many(delimiter_count - 1);
                         break Ok(string);
+                    } else {
+                        string.push(c);
+                        self.source.discard();
                     }
                 }
                 Some(&c) => {
@@ -357,6 +366,83 @@ impl Lexer {
         }
     }
 
+    fn lex_interpolated_string_content(
+        &mut self,
+        delimiter: char,
+        delimiter_count: usize,
+        escaping: bool,
+    ) -> Result<InterpolatedString, Error> {
+        let mut string_fragments = vec!["".to_owned()];
+        let mut interpolations = Vec::new();
+        let mut start_new_fragment = false;
+
+        loop {
+            match self.source.peek() {
+                Some(&c) if c == delimiter => {
+                    self.source.discard();
+
+                    let closing_delimiter_encountered = self
+                        .source
+                        .peek_many(delimiter_count - 1)
+                        .map(|chars| chars.iter().all(|&c| c == delimiter))
+                        .is_some();
+
+                    if closing_delimiter_encountered {
+                        self.source.discard_many(delimiter_count - 1);
+                        break Ok(InterpolatedString {
+                            string_fragments,
+                            interpolations,
+                        });
+                    } else {
+                        if start_new_fragment {
+                            string_fragments.push("".to_owned());
+                            start_new_fragment = false;
+                        }
+                        string_fragments.last_mut().unwrap().push(c);
+                        self.source.discard();
+                    }
+                }
+                Some(&c) if c == '{' => {
+                    let escaped = self.source.peek_nth(1).filter(|&c| *c == '{').is_some();
+
+                    if escaped {
+                        self.source.discard();
+                        self.source.discard();
+
+                        if start_new_fragment {
+                            string_fragments.push("".to_owned());
+                            start_new_fragment = false;
+                        }
+                        let last_fragment = string_fragments.last_mut().unwrap();
+                        last_fragment.push('{');
+                        last_fragment.push('{');
+                    } else {
+                        self.source.discard();
+
+                        let identifier = self.lex_identifier();
+                        self.expect_and_discard('}')?;
+                        interpolations.push(identifier);
+                        start_new_fragment = true;
+                    }
+                }
+                Some(&c) => {
+                    let maybe_escaped = if (c == '\\') && escaping {
+                        self.lex_escape_char_in_string_or_char()?
+                    } else {
+                        self.source.discard();
+                        c
+                    };
+                    if start_new_fragment {
+                        string_fragments.push("".to_owned());
+                        start_new_fragment = false;
+                    }
+                    string_fragments.last_mut().unwrap().push(maybe_escaped);
+                }
+                None => break Err(self.premature_eof()),
+            }
+        }
+    }
+
     fn lex_string(&mut self, escaping: bool) -> TokenResult {
         self.source.discard();
         let string = self.lex_string_content('"', 1, escaping)?;
@@ -365,9 +451,8 @@ impl Lexer {
 
     fn lex_interpolated_string(&mut self) -> TokenResult {
         self.source.discard();
-        let string = self.lex_string_content('`', 1, true)?;
-        let interpolated = multiphase::InterpolatedString::from(string);
-        Ok(Token::InterpolatedString(interpolated))
+        let string = self.lex_interpolated_string_content('`', 1, true)?;
+        Ok(Token::InterpolatedString(string))
     }
 
     fn lex_string_with_custom_delimiter(&mut self, escaping: bool) -> TokenResult {
@@ -396,9 +481,9 @@ impl Lexer {
             additional_delimiter_count += 1;
         }
 
-        let string = self.lex_string_content('`', additional_delimiter_count + 3, true)?;
-        let interpolated = multiphase::InterpolatedString::from(string);
-        Ok(Token::InterpolatedString(interpolated))
+        let string =
+            self.lex_interpolated_string_content('`', additional_delimiter_count + 3, true)?;
+        Ok(Token::InterpolatedString(string))
     }
 
     fn lex_char(&mut self) -> TokenResult {
@@ -869,7 +954,10 @@ mod tests {
             Ok(LexedToken { token: t, .. }) => {
                 assert_eq!(t, *token);
             }
-            Err(e) => panic!(e),
+            Err(e) => {
+                println!("{:?}", e);
+                panic!(e)
+            }
         }
     }
 
@@ -944,16 +1032,22 @@ mod tests {
 
     #[test]
     fn interpolated_strings() {
-        // TODO: test actual interpolation once the parser is complete.
+        let mut lexer = test_lexer("   `1{x}23`   ````ab{{notInterpolated}}c\\t{foobar}````");
 
-        let mut lexer = test_lexer("   `123`   ````abc\\t````");
         assert_next(
             &mut lexer,
-            &Token::InterpolatedString(InterpolatedString::from("123")),
+            &Token::InterpolatedString(InterpolatedString {
+                string_fragments: vec!["1".to_owned(), "23".to_owned()],
+                interpolations: vec![Identifier::from("x")],
+            }),
         );
+
         assert_next(
             &mut lexer,
-            &Token::InterpolatedString(InterpolatedString::from("abc\t")),
+            &Token::InterpolatedString(InterpolatedString {
+                string_fragments: vec!["ab{{notInterpolated}}c\t".to_owned()],
+                interpolations: vec![Identifier::from("foobar")],
+            }),
         );
     }
 

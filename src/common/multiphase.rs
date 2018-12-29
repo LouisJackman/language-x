@@ -33,21 +33,6 @@ multiphase_string_type![Identifier, Shebang, SylanString, SyDoc];
 /// to.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct InterpolatedString {
-    pub string_fragments: Arc<Vec<String>>,
-    pub interpolations: Arc<Vec<Identifier>>,
-}
-
-impl From<String> for InterpolatedString {
-    fn from(string: String) -> Self {
-        Self {
-            string_fragments: Arc::new(vec![string]),
-            interpolations: Arc::new(vec![]),
-        }
-    }
-}
-
-impl From<&'static str> for InterpolatedString {
-    fn from(string: &'static str) -> Self {
-        Self::from(string.to_owned())
-    }
+    pub string_fragments: Vec<String>,
+    pub interpolations: Vec<Identifier>,
 }
