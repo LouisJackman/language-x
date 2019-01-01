@@ -59,15 +59,16 @@ executables with no required runtimes.
 
 ## Example
 
+
     #!/usr/bin/env sylan
-    
+
     /*
      * If no package is specified, "main" is assumed. A `module-info.sy` file is not
      * required for the top level program as there is an inferred `main` module that
      * contains top-level programs.
      */
     package main
-    
+
     /*
      * Most of those imports are already in the prelude and thus already imported:
      * `sylan.lang`. They are explicitly imported here to give an idea of the standard
@@ -79,64 +80,71 @@ executables with no required runtimes.
     import sylan.util.concurrency.Task
     import sylan.util.datetime.ZonedDateTime
     import sylan.util.optional.{Empty, Some}
-    
+
     void demoIteration() {
         /**
          * SyDocs can be written for code documentation. Unlike JavaDoc but similar
          * to Python, they go inside the item they describe rather than before it.
          */
-    
-        List(1, 2, 3).forEach(n ->
-    
+
+        // Lambdas are declared with braces and an arrow.
+        var highlight = { s -> `>> {s} <<` }
+
+        1.to(5)
+            .map(Number::double # ToString::toString # highlight)
+            .forEach(println)
+
+        // If a lambda is the only argument to a function or method, the parentheses can
+        // be dropped.
+        List(1, 2, 3).forEach { n ->
+
             /*
              * Backquoted strings allow interpolation. Only single symbols can be
              * interpolated; interpolating arbitrary expressions was purposely
              * omitted due to its ability to create cryptic one-liners.
              */
             println(`{n}`)
-        )
-    
-        var highlight = s -> `>> {s} <<`
-    
-        1.to(5)
-            .map(Number::double # ToString::toString # highlight)
-            .forEach(println)
-    
-        var quadruple = n -> n.double().double()
-    
+        }
+
+        // The arrow can be dropped for no-argument lambdas.
+        // Furthermore, single-parameter lambdas can use the `it` keyword instead.
+        var quadruple = { it.double().double() }
+
         123456789
             |> quadruple
             |> Object::toString
             |> highlight
             |> println
-    
+
         var map = HashMap(
             "abc": 123,
             "def": 321,
             "ghi": 987,
         )
-        map.forEach((key, value) ->
+        map.forEach { key, value ->
             println(`{key}: {value}`)
-        )
-    
+        }
+
         /*
          * Sylan does not allow scope shadowing. As functions are just
          * variables of a "function type", `factorial` would clash with the
          * top-level `factorial` function defined later on, hence the disambiguating
          * name `innerFactorial`.
+         *
+         * `for` is a cross between Java's enhanced-for loop and Scheme's named-let.
          */
-        var innerFactorial = for var n = 20, var result = 1 {
+        var innerFactorial = for n = 20, result = 1 {
             if n <= 0 {
                 result
             } else {
                 continue n - 1, n * result
             }
         }
-    
-        OUTER: for var n = 10 {
+
+        OUTER: for n = 10 {
             if 0 < n {
                 for {
-    
+
                     // A `for` with no clauses is an infinite loop, except for the
                     // use of a continue label here that lets it jump to an outer
                     // loop.
@@ -144,11 +152,10 @@ executables with no required runtimes.
                 }
             }
         }
-    
+
         println(`factorial: {innerFactorial}`)
     }
-    
-    
+
     /*
      * All variables (including functions), packages, classes, getters, fields,
      * and methods are private unless explicitly opened up with the `public`
@@ -172,7 +179,7 @@ executables with no required runtimes.
                 factorial(n * (n - 1))
         }
     }
-    
+
     ignorable internal int printFactorial(int n) {
         /*
          * Sylan does not allow callers to throw away non-`void` function or methods
@@ -183,10 +190,10 @@ executables with no required runtimes.
          * be assumed to have side effects, with the exception of constant-time
          * operation NOPs or the like.
          */
-    
+
         var result = factorial(n)
         println(result)
-    
+
         /*
          * Sylan is an expression-oriented language, so everything returns a value
          * including loops and `if`s. Therefore, the last value is returned by
@@ -195,65 +202,66 @@ executables with no required runtimes.
          */
         result
     }
-    
+
     private void twice<N>(N n, N f(N)) where
         N : Number
     {
         f(n) + f(n)
     }
-    
+
     String double<N>(N n) where
         N : Add & ToString
     {
         (n + n).toString()
     }
-    
+
     Optional<int> demoContexts() {
-    
+
         /*
          * Haskell programmers will recognise this as a monadic do notation, which
          * Sylan calls "contexts". Non-Haskell programmers will be glad to know that
          * this feature can make tangled code such as optionality-checking chains
          * and validation code much cleaner.
          */
-        do {
+        with {
             var a <- Some(5)
             doSomething()
             var b <- Empty()
             willNotBeRun()
         }
     }
-    
+
     package counter {
-    
+
         enum Message {
             Increment,
             Reset(int),
             Get,
         }
-    
+
         public void start(Task sender, int n = 0) {
             select Message {
-                .Increment:
+                .Increment ->
                     start(sender, n + 1)
-                .Reset(n):
+                .Reset(n) ->
                     start(sender, n)
-                .Get:
+                .Get {
                     sender.send(n)
                     start(sender, n)
-                timeout 10.seconds:
+                }
+                timeout 10.seconds ->
                     throw Exception("timed out!")
             }
         }
     }
-    
+
     interface Concatenate<T, Result = T> {
         public Result concatenate(T y)
     }
-    
+
     interface Equals<T = Self> {
         public boolean equals(T other)
-    
+
         /*
          * Sylan's interface methods can have bodies like Java 8's defender methods.
          * Unlike Java 8, private methods with bodies are also allowed with the
@@ -268,7 +276,7 @@ executables with no required runtimes.
             !equals(other)
         }
     }
-    
+
     class Name {
         /**
          * Getters, hashing, equality checking, and the constructor all just exist
@@ -278,11 +286,11 @@ executables with no required runtimes.
          * `AutoCloseable` fields. This can also be overridden if the default
          * implementation makes no sense.
          */
-    
+
         internal String firstName
         internal String lastName
     }
-    
+
     class Account implements ToString, Concatenate<Account> {
         /**
          * Classes can implement interfaces but cannot extend other classes.
@@ -290,7 +298,7 @@ executables with no required runtimes.
          * generally causes more problems that it's worth and type embedding plus a
          * more powerful interface system makes up for the difference.
          */
-    
+
         /*
          * Embedding a field hoists all of its _accessible_ methods and getters into
          * the class itself. Embedded methods take the lowest priority: methods in
@@ -315,14 +323,14 @@ executables with no required runtimes.
          * embeds can change behaviour.
          */
         embed Name name
-    
+
         int ageInYears
-    
+
         ZonedDateTime _expiry = ZonedDateTime.now() + 1.year
-    
+
         public Account(String firstName, String lastName) {
             println("instantiating an Account...")
-    
+
             /*
              * Constructors are the only place in Sylan where assignments are
              * allowed outside the context of a binding.
@@ -331,22 +339,22 @@ executables with no required runtimes.
             name.lastName = lastName
             ageInYears = 35
         }
-    
+
         public override String toString() {
             `{firstName} {lastName} is {ageInYears} years old`
         }
-    
+
         public override Account concatenate(Account a) {
             var firstName = firstName.concat(a.firstName)
             var lastName = lastName.concat(a.lastName)
-    
+
             Account(
                 .firstName,
                 .lastName,
                 ageInYears = ageInYears + a.ageInYears,
             )
         }
-    
+
         /*
          * Getters are defined like methods but look like fields. Setters don't
          * exist because Sylan is an immutable language.
@@ -354,12 +362,12 @@ executables with no required runtimes.
         public String get name {
             `{firstName} {lastName}`
         }
-    
+
         public boolean get locked {
             expiry < ZonedDateTime.now
         }
     }
-    
+
     /*
      * Type extensions allow modules to add their own features to an existing class
      * when imported. Note that this implements `Concatenate` again just with
@@ -368,42 +376,42 @@ executables with no required runtimes.
      * replacement for method overloading.
      */
     extend class Account implements Concatenate<Account, Result = String> {
-    
+
         public override String concatenate(This that) {
             `{firstName} {that.firstName}`
         }
     }
-    
+
     void demoPatternMatching() {
         var account1 = Account(firstName = "Tom", lastName = "Smith")
         var matchingLastName = "Smith"
-    
+
         if var Account(firstName, lastName = .matchingLastName) as account
                 = account1 {
             println(`Matching first name: {firstName}`)
             println(`Matching account: {account}`)
         }
-    
+
         switch account1 {
-    
+
             Account(locked = true), Account(firstName = "unlucky") ->
                 println("LOCKED!")
-    
+
             Account(expiry) if expiry < ZonedDateTime.now ->
                 println("ALSO LOCKED")
-    
+
             default {
                 println("NOT LOCKED: ")
                 println(account1)
             }
-    
+
             /*
              * Switches are expressions, support multiple cases, can do pattern
              * matching, and have support for conditional "guards".
              */
         }
     }
-    
+
     /*
      * Aliasing of various constructs to allow easy code repair during large-scale
      * refactoring. Any item in any module can be aliased, which can ease module
@@ -413,47 +421,48 @@ executables with no required runtimes.
     alias Person = Account
     alias Showable = ToString
     alias factorial2 = factorial
-    
+
     int maxBound = 5
-    
+
     void demoClosures() {
         var x = 5
-    
+
         var account1 = Account(
             firstName = "Tom",
             lastName = "Smith",
             ageInYears = 15,
         )
-    
+
         var firstName = "Tom"
         var lastName = "Smith"
         var age = 25
         var account2 = Account(.firstName, .lastName, ageInYears = age)
-    
-        var f = a ->
+
+        var f = { a ->
             println(a.toString())
-    
+        }
+
         f(account1)
         f(account2(firstName = "Emma"))
-    
-        var g = a -> {
+
+        var g = { a ->
             println("returning an account")
             a
         }
-    
+
         var z = g(account1)
-    
-        var n = twice(3, x -> x * 2)
+
+        var n = twice(3, { x -> x * 2 })
         println(`n == {n}`)
     }
-    
+
     class NumericLiteralsClass implements ToString {
-    
+
         // Non-overflowable numbers.
         int a = 5
         uint b = 5u
         decimal c = 10.0
-    
+
         // Overflowable, machine-width numbers.
         byte d = 5u8
         uint16 e = 11u16
@@ -465,25 +474,25 @@ executables with no required runtimes.
         long k = 7s64
         float l = 12f
         double m = 8f64
-    
+
         public override String toString() {
             `{a}{b}{c}{d}{e}{f}{g}{h}{i}{j}{k}{l}{m}`
         }
     }
-    
+
     class AutoCloseableDemo implements AutoCloseable {
-    
+
         public AutoCloseableDemo() {
             println("Opened")
         }
-    
+
         public override void close() {
             println("Closed")
         }
     }
-    
+
     void demoAutoCloseables() {
-    
+
         /*
          * Sylan, like Erlang and Go, strongly discourages catching exceptional
          * problems on a routine basis - if something is truly "exceptional" then
@@ -497,11 +506,11 @@ executables with no required runtimes.
          *
          * However, there still needs to be a strategy regarding closing resources
          * in tasks that have had unexpected failures. Sylan offers `AutoClosable`
-         * types and the `try` keyword for this, which are a sort of middle ground
-         * between Java's `AutoCloseable` and try-with-resources feature and Go's
-         * `defer` keyword.
+         * types and the `using` keyword for this, which are a sort of middle ground
+         * between C#'s `IDisposable` and its `using` keyword, and Go's `defer`
+         * keyword.
          *
-         * If an `AutoCloseable` type is prefixed with the `try` keyword, its
+         * If an `AutoCloseable` type is prefixed with the `using` keyword, its
          * `close` method is invoked at the end of the scope _even if the
          * code in the scope completely fails unexpectedly_. The closing is done in
          * the reverse order that they are set up. If any `defer`d `close` methods
@@ -509,57 +518,57 @@ executables with no required runtimes.
          * and all errors are accumulated into one and rethrown once they're all
          * finished.
          */
-    
+
         println("Entering scope")
-        {
-            var closeable = try AutoCloseableDemo()
+        do {
+            var closeable = using AutoCloseableDemo()
             println("Using closeable")
         }
         println("Leaving scope")
-    
+
         // Prints "Entering scope", "Opened", "Using closeable", "Closed", and finally "Leaving scope".
     }
-    
+
     void demo() {
         demoIteration()
-    
+
         printFactorial(42)
         var x = twice(4, double)
         println(`{x}`)
-    
+
         demoContexts()
         demoPatternMatching()
         demoClosures()
-    
+
         println(NumericLiteralsDemo().toString())
-    
+
         demoAutoCloseable()
     }
-    
+
     /*
      * Top-level code is allowed, but only in the main package within the main
      * module. Code in other packages must be in functions or methods.
      */
-    
+
     var optionalString = Some("test string")
     if var Some(s) = optionalString {
         println(s)
     }
-    
-    var c = Task(-> counter.start(currentTask))
-    5.times(-> c.send(counter.Message.Increment()))
-    
+
+    var c = Task { counter.start(currentTask) }
+    5.times { c.send(counter.Message.Increment()) }
+
     c.send(counter.Message.Get())
     c.send(counter.Message.Increment())
     c.send(counter.Message.Get())
-    
+
     // Should print 5 and then 6.
-    2.times(->
+    2.times {
         select int n {
             println(`{n}`)
         }
-    )
-    
+    }
+
     print("""
     3 or more quotes can be used to create a custom string delimiter.
     This allows escaping almost any embedded content with few problems.
@@ -574,21 +583,20 @@ executables with no required runtimes.
     Multiline interpolated strings: {n}
     ```)
 
-
-    var x = {
+    var x = do {
         println("Returning 5 to be bound as x...")
         5
     }
     println(`{x}`)
-    
+
     /*
       A multiline comment.
-    
+
       /*
         A nested multiline comment.
       */
     */
-    
+
     demo()
 
 ## Overview

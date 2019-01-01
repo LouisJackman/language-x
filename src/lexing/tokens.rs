@@ -45,6 +45,7 @@ pub enum Token {
     GreaterThan,
     GreaterThanOrEquals,
     If,
+    It,
     Ignorable,
     Ignore,
     Implements,
@@ -88,8 +89,10 @@ pub enum Token {
     Throw,
     Timeout,
     Try,
+    Using,
     Var,
     Virtual,
+    With,
     Where,
 }
 

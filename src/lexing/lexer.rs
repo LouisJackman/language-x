@@ -341,7 +341,7 @@ impl Lexer {
                     let closing_delimiter_encountered = self
                         .source
                         .peek_many(delimiter_count - 1)
-                        .map(|chars| chars.iter().all(|&c| c == delimiter))
+                        .filter(|chars| chars.iter().all(|&c| c == delimiter))
                         .is_some();
 
                     if closing_delimiter_encountered {
