@@ -713,6 +713,16 @@ case of native compilation.
   with expressions.
 * Expressions cannot contain items, with one exception: let bindings within
   lambdas expressions.
+* Grouped expressions with parentheses are not allowed at the top-level of an
+  expression, only as subexpressions within larger expressions. This allows
+  Sylan to parse separate expressions unambiguously without error prone
+  constructs like JavaScript's automatic semicolon insertion. This fixes the
+  problem of a grouped expression being ambiguously either an invocation of a
+  function on the previous line or a new grouped expression.
+* Unary operators are the only whitespace sensitive token in Sylan, being
+  interpreted as binary with trailing whitespace and unary otherwise. This was
+  inspired by the approach taken by Ruby to solve the same problem, a language
+  that doesn't have problems with ambiguous statement termination in practice.
 
 ### Types
 
@@ -940,7 +950,8 @@ case of native compilation.
 * As Sylan does not support ad hoc overloading, symbol demangling is
   straightforward. One underscore denotes a package change while two indicate a
   method belonging to a type. E.g.: `sylan.util.collections.HashMap#put` becomes
-  `sylan_util_collections_HashMap__put`.
+  `sylan_util_collections_HashMap__put`. How type parameters work with symbol
+  mangling still needs to be worked out.
 * Lightweight tasks will be awkward with POSIX/WinNT threads for native
   interoperability; see Erlang and Go's issues here. Not sure of a better
   alternative if we're using userland stacks and scheduling. Entering and
