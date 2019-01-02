@@ -667,7 +667,7 @@ case of native compilation.
 * Encourage compile-time metaprogramming over runtime annotation and reflection;
   design it to scale in the large without becoming cryptic.
 * Be mostly expression-based and with decent pattern matching.
-* Guarantee tail-call elimination.
+* Guarantee tail-call elimination with shadow stacks to aid debugging.
 
 ## Details
 
@@ -915,7 +915,8 @@ case of native compilation.
 ### The Runtime
 
 * It will probably be heavily BEAM-inspired.
-* Must do tail call elimination.
+* Must do tail call elimination with a "shadow stack" to aid debugging, inspired
+  by Safari's JavaScript runtime's implementation of ES6 tail call elimination.
 * No mutable data except the execution of tasks over time.
 * Lightweight processes. Immutability means changes can only be sent via
   messages or tracked via services external to the Sylan program.
