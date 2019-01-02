@@ -24,10 +24,10 @@
 //! variable bindings with `var`, pretty much look and feel like statements from
 //! other languages.
 //!
-//! Expressions just resolve inner expressions outwards until done; a function
-//! or method block can have multiple expressions which Sylan, being a strict,
-//! non-pure language, can just execute sequentially at runtime without needing
-//! monads or uniqueness types to enforce the order.
+//! Expressions just resolve inner expressions outwards until done; a function,
+//! lambda, or method block can have multiple expressions which Sylan, being a
+//! strict, non-pure language, can just execute sequentially at runtime without
+//! needing monads or uniqueness types to enforce the order.
 //!
 //! A simplification step is performed before giving the AST to the backend as
 //! a jump is needed from Sylan's pragmatic, large syntax to the much smaller,
@@ -47,15 +47,15 @@ use common::multiphase::{self, Identifier};
 use common::peekable_buffer::PeekableBuffer;
 use common::version::Version;
 use lexing::lexer::{self, LexedToken};
-use lexing::tokens::Token;
 use lexing::Tokens;
-use parsing::nodes::Expression::{self, UnaryOperator};
+use lexing::tokens::Token;
 use parsing::nodes::{
     Accessibility, Binding, Case, Code, CompositePattern, ContextualBinding, ContextualCode,
     ContextualScope, DeclarationItem, FilePackage, For, If, Import, Lambda, LambdaSignature,
     MainPackage, Package, Pattern, PatternField, PatternItem, Scope, Select, Switch, Throw,
     Timeout, TypeDeclaration, ValueParameter,
 };
+use parsing::nodes::Expression::{self, UnaryOperator};
 
 mod nodes;
 

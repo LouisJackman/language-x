@@ -94,7 +94,7 @@ executables with no required runtimes.
             .map(Number::double # ToString::toString # highlight)
             .forEach(println)
 
-        // If a lambda is the only argument to a function or method, the parentheses can
+        // If a lambda is the only argument to an invocable, the parentheses can
         // be dropped.
         List(1, 2, 3).forEach { n ->
 
@@ -198,7 +198,7 @@ executables with no required runtimes.
          * Sylan is an expression-oriented language, so everything returns a value
          * including loops and `if`s. Therefore, the last value is returned by
          * default. The lack of explicit `return`s mean there is always a single
-         * exit point from a function or method: the last expression.
+         * exit point from a function, lambda, or method: the last expression.
          */
         result
     }
@@ -709,16 +709,16 @@ case of native compilation.
 
 * Items declare rigid, static program structure.
 * Expressions express computations and are obviously Turing complete.
-* Items can contain expressions, i.e. a method item containing a method body
-  with expressions.
+* Items can contain expressions, i.e. a method item heading a method body that
+  contains expressions.
 * Expressions cannot contain items, with one exception: let bindings within
   lambdas expressions.
 * Grouped expressions with parentheses are not allowed at the top-level of an
   expression, only as subexpressions within larger expressions. This allows
   Sylan to parse separate expressions unambiguously without error prone
   constructs like JavaScript's automatic semicolon insertion. This fixes the
-  problem of a grouped expression being ambiguously either an invocation of a
-  function on the previous line or a new grouped expression.
+  problem of a grouped expression being ambiguously either an invocation of an
+  invocable on the previous line or a new grouped expression.
 * Unary operators are the only whitespace sensitive token in Sylan, being
   interpreted as binary with trailing whitespace and unary otherwise. This was
   inspired by the approach taken by Ruby to solve the same problem, a language
@@ -730,14 +730,14 @@ case of native compilation.
 * No difference between them from the user's perspective except for some of them
   having literals baked into the language  and built-ins being predefined by the
   compiler and runtime. No Java-like primitive vs object distinction.
-* Constructors are special; this is done to allow function-style instantiations
+* Constructors are special; this is done to allow invocable-style instantiations
   while avoiding things like statics, needing to detach constructors from class
   definitions, or having a more complicated initialisation syntax.
-* `void` is an actual type, like `()` in Haskell.  Defining a method as
-  returning `void` is a special-case that discards the result of final non-void
-  expression and returns the void value instead. Every function returning a
-  value, rather than having "procedures" without return values, avoids
-  special-cases when composing functions in various ways.
+* `void` is an actual type, like `()` in Haskell.  Defining a function or method
+  as returning `void` is a special-case that discards the result of final
+  non-void expression and returns the void value instead. Every function,
+  method, and lambda returning a value, rather than having "procedures" without
+  return values, avoids special-cases when composing invocables in various ways.
 * Generics like C#, as in no type erasure.
 * Support higher-kinded types, but keep an eye on projects like Dotty to see
   what type-soundness issues they encounter. Perhaps implement a more restricted
@@ -756,7 +756,7 @@ case of native compilation.
   like `hashcode` or `equals` in user-defined constructors and methods. It does
   not deal with concrete class inheritance.
 * Interfaces can provide default method implementations, which can be overridden
-  in implementing classes if they are `virtual`.  `override` on a method in a
+  in implementing classes if they are `virtual`. `override` on a method in a
   implementing class documents that it must override rather than just shadow.
   Method shadowing by default, while problematic in some areas, allows
   interfaces to add new virtual default methods over time without breaking
@@ -792,14 +792,14 @@ case of native compilation.
   immediately-invoked lambdas or lambdas with parameters being passed as a
   parameter typed as a lambda that takes compatible but more precise types.
 * Once we allow that, there's no reason not to allow LHS type inference to flow
-  from the RHS as long as it only flows to declarations within a function or
-  method body and does not escape it.
+  from the RHS as long as it only flows to declarations within a function,
+  lambda, or method body and does not escape it.
 * Sylan is more opinionated than most language on how to use type annotations:
-  all items should be 100% explicitly typed whereas all declarations scoped to a
-  method or function should be 100% implicitly typed. The language will not
-  expose edge cases where type annotations are ever actually necessary in method
-  or function bodies (like the "`:: Float` to disambiguate `Show`" problem of
-  Haskell). This is why numbers have explicit type suffixes.
+  all items should be 100% explicitly typed whereas all declarations scoped
+  inside a method or function should be 100% implicitly typed. The language will
+  not expose edge cases where type annotations are ever actually necessary in
+  method or function bodies (like the "`:: Float` to disambiguate `Show`"
+  problem of Haskell). This is why numbers have explicit type suffixes.
 * This ensures APIs and program structure is rigid and explicitly typed while
   expressions are concise, without boilerplate, and utterly consistent rather
   than making type annotations a matter of taste.
@@ -820,6 +820,8 @@ case of native compilation.
 * Purposely different from one another; there isn't a UFC mechanism that unifies
   them.
 * Both are fully higher-order. Methods carry around their instances with them.
+  Lambdas are just functions not bound to a symbol, so they otherwise work in
+  the same way.
 * Methods, when passed around as values, are just seen as functions that have an
   instance bundled in their closure.
 * `Class::method` is a shorthand for `(o, ...args) -> o.method(...args)`, where
@@ -857,9 +859,11 @@ case of native compilation.
 
 ### Invocations
 
-* Methods, functions, classes, and objects can be invoked with `()`.
-* Invoking a method or a function does as one would expect; invoking a class
-  constructs an instance; invoking an object allows non-destructive updates.
+* Methods, lambdas, functions, classes, and objects can be invoked with `()`.
+* Any of those are referred to "invocables" when used like that.
+* Invoking a method, lambda, or a function does as one would expect; invoking a
+  class constructs an instance; invoking an object allows non-destructive
+  updates.
 * Arguments can have default values.
 * Any argument can be invoked as either positional or keyword; it's up to the
   caller.
@@ -872,7 +876,7 @@ case of native compilation.
   argument from a binding of the same name, e.g.  `Account(.firstName)` is
   `Account(firstName = firstName)`.
 * Passing `_` for one or more arguments partially applies the invocation,
-  returning a new function with the non-underscore arguments evaluated and
+  returning a new function value with the non-underscore arguments evaluated and
   partially applied to the result. This allows, for example, partially-applying
   a non-destructive object update, partially applying a function, or
   partially-applying the instantiation of a class.

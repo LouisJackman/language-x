@@ -184,8 +184,8 @@ pub enum MethodItem {
 /// to either a class an interface.
 ///
 /// Otherwise they are higher-order constructs that can be passed around like
-/// normal functions. Like Python and unlike JS, their reference to their type
-/// and instance are bound to the method itself.
+/// normal functions and lambdas. Like Python and unlike JS, their reference
+/// to their type and instance are bound to the method itself.
 pub struct Method {
     pub name: Identifier,
     pub item: MethodItem,
@@ -297,9 +297,9 @@ impl Hash for ContextualBinding {
 /// Expressions are seperate from bindings.
 type Expressions = Vec<Expression>;
 
-/// Declarations within a code block are expected to be fully resolved before
-/// executing its expressions, which is why they're items rather than
-/// expressions. This is to allow techniques like mutual recursion and
+/// Bindings within a code block are resolved before executing its
+/// expressions, which is why they're items rather than expressions.
+/// This is to allow techniques like mutual recursion and
 /// self-referential functions and methods without forward declarations.
 ///
 /// Note that the declarations aren't accessible until their declarations have
@@ -334,10 +334,7 @@ pub struct ContextualCode {
 /// packages, they can refer to parent scopes. They can declare variables with
 /// bindings but cannot declare new types or subpackages like packages can.
 ///
-/// All functions, methods, and getters have an attached scope. Scopes can also
-/// be standalone, in which case they are immediately invoked and then destroyed
-/// afterwards. In this case they function similarly to the immediately-invoked
-/// functions or do-blocks of other languages.
+/// All functions, methods, lambdas, and getters have an attached scope.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Scope {
     pub code: Code,
