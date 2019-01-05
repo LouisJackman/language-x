@@ -13,6 +13,8 @@
 
 package sylan.lang
 
+import sylan.util.collections.list as list
+
 /*
  * Don't copy the lower-case type names here. That's solely done for _prelude_
  * types to be familiar to Java and C# keywords. Types should start with capital
@@ -70,28 +72,17 @@ public interface Number {
     }
 
     public List<N> to(N n) where N : Number {
-        import sylan.util.collections.list.generate
-        import sylan.util.collections.list.Generation.{Next, Finish}
-
-        generate(
+        list.generate(
             startWith = 1,
             {
                 if n < it {
-                    Finish()
+                    list.generation.Finish()
                 } else {
-                    Next(it, it + 1)
+                    list.generation.Next(it, it + 1)
                 }
             }
         )
     }
-}
-
-class String {
-    //
-}
-
-class decimal {
-    //
 }
 
 // Built-in types, which look a bit like Java primitives except that they are
@@ -109,6 +100,18 @@ extern class int32;
 extern class long;
 extern class float;
 extern class double;
+
+interface ToString {
+    public String toString()
+}
+
+class String {
+    //
+}
+
+class decimal {
+    //
+}
 
 T do<T>(T block()) {
     /**
