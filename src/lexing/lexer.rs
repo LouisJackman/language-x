@@ -638,27 +638,32 @@ impl Lexer {
         }
     }
 
-    fn lex_symbol(&mut self) -> TokenResult {
+    fn lex_symbolic(&mut self) -> TokenResult {
         if let Some(c) = self.source.read() {
             match c {
+
+                // Unary operators.
                 '-' => Ok(self.lex_with_leading_minus()),
+                '!' => Ok(self.lex_with_leading_exclamation_mark()),
+                '~' => Ok(Token::BitwiseNot),
+
+                // Binary operators.
+                '>' => Ok(self.lex_with_leading_right_angle_bracket()),
+                ':' => Ok(self.lex_with_leading_colon()),
+                '.' => Ok(self.lex_with_leading_dot()),
                 '<' => Ok(self.lex_with_leading_left_angle_bracket()),
                 '=' => Ok(self.lex_with_leading_equals()),
                 '|' => Ok(self.lex_with_leading_vertical_bar()),
                 '&' => Ok(self.lex_with_leading_ampersand()),
-                '!' => Ok(self.lex_with_leading_exclamation_mark()),
-                '>' => Ok(self.lex_with_leading_right_angle_bracket()),
-                ':' => Ok(self.lex_with_leading_colon()),
-                '.' => Ok(self.lex_with_leading_dot()),
-
                 ',' => Ok(Token::SubItemSeparator),
                 '#' => Ok(Token::Compose),
-                '~' => Ok(Token::BitwiseNot),
                 '^' => Ok(Token::BitwiseXor),
                 '+' => Ok(Token::Add),
                 '*' => Ok(Token::Multiply),
                 '/' => Ok(Token::Divide),
                 '%' => Ok(Token::Modulo),
+
+                // Grouping tokens.
                 '{' => Ok(Token::OpenBrace),
                 '}' => Ok(Token::CloseBrace),
                 '(' => Ok(Token::OpenParentheses),
@@ -835,7 +840,7 @@ impl Lexer {
                                     {
                                         self.lex_number()
                                     } else {
-                                        self.lex_symbol()
+                                        self.lex_symbolic()
                                     }
                                 }
                             }
