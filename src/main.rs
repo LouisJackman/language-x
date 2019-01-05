@@ -9,9 +9,9 @@
 //! `main.rs` stitches the whole system together by building a dependency and execution order chain
 //! between the modules:
 //! ```
-//!                                                                  ,-> interpreter -> runtime
-//! source -> lexing -> parsing -> simplification -> IL -> backend -<
-//!                                                                  `-> runtime -> compiler
+//!                                                          ,-> interpreter -> runtime
+//! source -> lexing -> parsing -> simplification -> IL -> -<
+//!                                                          `-> compiler -> runtime
 //! ```
 //!
 //! The interpreter invokes the runtime whereas the runtime is baked into the compiled artefact,
@@ -31,15 +31,7 @@
 //!
 //! Parser:
 //! * The parser thread.
-//! * An additional parsing excursion thread.
 //! * Receives tokens from a channel.
-//! * Each parser can create a single excursion, creating a new parser with its own thread.
-//!   - That new parser itself can create a new excursion ad infinium, although this capability
-//!     should not be utilised in order to keep the parser simple.
-//!   - Therefore only one parsing excursion thread exists alongside the main parsing thread in
-//!     practice.
-//!   - Parsers relay received tokens over their channel to excursion child parsers, also via a
-//!     channel for each.
 //! * As the entire AST is built before moving on, this is not done in a dedicated thread.
 //!   - TODO: Perhaps a lazy functional zipper data structure could be used by the AST to allow
 //!     lazily building the AST in the background, allowing the parser to be in its own thread?
