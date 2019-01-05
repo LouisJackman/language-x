@@ -577,7 +577,7 @@ impl Lexer {
 
     fn lex_absolute_number(&mut self) -> Result<Number, Error> {
         match self.source.read() {
-            Some(c) if c.is_digit(10) || (c == '-') || (c == '+') => {
+            Some(c) if c.is_digit(10) => {
                 let mut real_to_parse = String::new();
                 real_to_parse.push(c);
                 let mut fractional_to_parse = String::new();
@@ -643,7 +643,6 @@ impl Lexer {
             match c {
 
                 // Unary operators.
-                '-' => Ok(self.lex_with_leading_minus()),
                 '!' => Ok(self.lex_with_leading_exclamation_mark()),
                 '~' => Ok(Token::BitwiseNot),
 
@@ -662,6 +661,8 @@ impl Lexer {
                 '*' => Ok(Token::Multiply),
                 '/' => Ok(Token::Divide),
                 '%' => Ok(Token::Modulo),
+                // There is no unary `-`; instead, a prelude type `Number`'s `negated` method.
+                '-' => Ok(self.lex_with_leading_minus()),
 
                 // Grouping tokens.
                 '{' => Ok(Token::OpenBrace),
@@ -834,10 +835,7 @@ impl Lexer {
                                         let mut rest = String::new();
                                         self.lex_rest_of_word(&mut rest);
                                         Ok(self.lex_boolean_or_keyword_or_identifier(rest))
-                                    } else if c.is_digit(10)
-                                        || (self.source.match_nth(1, |c| c.is_digit(10))
-                                            && ((c == '+') || (c == '-')))
-                                    {
+                                    } else if c.is_digit(10) {
                                         self.lex_number()
                                     } else {
                                         self.lex_symbolic()
@@ -1001,9 +999,9 @@ mod tests {
 
     #[test]
     fn numbers() {
-        let mut lexer = test_lexer("    23  \t  -34   \t\t\n   23   +32 0.32    \t123123123.32");
+        let mut lexer = test_lexer("    23  \t  34   \t\t\n   23   +32 0.32    \t123123123.32");
         assert_next(&mut lexer, &Token::Number(23, 0));
-        assert_next(&mut lexer, &Token::Number(-34, 0));
+        assert_next(&mut lexer, &Token::Number(34, 0));
         assert_next(&mut lexer, &Token::Number(23, 0));
         assert_next(&mut lexer, &Token::Number(32, 0));
         assert_next(&mut lexer, &Token::Number(0, 32));

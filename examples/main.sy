@@ -29,7 +29,7 @@ void demoIteration() {
     var highlight = { s -> `>> {s} <<` }
 
     1.to(5)
-        .map(Number::double # ToString::toString # highlight)
+        .map(Number::doubled # ToString::toString # highlight)
         .forEach(println)
 
     // If a lambda is the only argument to a function or method, the parentheses can
@@ -46,7 +46,7 @@ void demoIteration() {
 
     // The arrow can be dropped for no-argument lambdas.
     // Furthermore, single-parameter lambdas can use the `it` keyword instead.
-    var quadruple = { it.double().double() }
+    var quadruple = { it.doubled.doubled }
 
     123456789
         |> quadruple
@@ -147,7 +147,7 @@ private void twice<N>(N n, N f(N)) where
     f(n) + f(n)
 }
 
-String double<N>(N n) where
+String doubled<N>(N n) where
     N : Add & ToString
 {
     (n + n).toString()
@@ -471,7 +471,7 @@ void demo() {
     demoIteration()
 
     printFactorial(42)
-    var x = twice(4, double)
+    var x = twice(4, doubled)
     println(`{x}`)
 
     demoContexts()

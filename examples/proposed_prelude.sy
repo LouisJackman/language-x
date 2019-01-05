@@ -1,0 +1,154 @@
+/**
+ * This is the proposed prelude file, which serves as an example of what Sylan
+ * should look like and also shows what utilities are available everywhere.
+ *
+ * This is similar in spirit to Java's `java.lang` package or Haskell's
+ * standard prelude. Eventually it should also expose built-ins via
+ * declarations without bodies, once the mechanics of that have been worked out.
+ *
+ * For now, we just `extend` existing built-in and types and mark them as
+ * extern, which is essentially a placeholder until how built-in types are
+ * fully worked out.
+ */
+
+package sylan.lang
+
+/*
+ * Don't copy the lower-case type names here. That's solely done for _prelude_
+ * types to be familiar to Java and C# keywords. Types should start with capital
+ * letters in every other case.
+ */
+
+public class void {
+    /**
+     * The unit-type, a.k.a. `void`. It can be instantiated, but contains
+     * nothing.
+     */
+}
+
+public enum boolean {
+    true,
+    false,
+}
+
+public alias true = boolean.true
+public alias true = boolean.false
+
+public interface Number {
+
+    public get N negated where N : Number {
+        /**
+         * Negate a number; replaces the unary minus operator present in other
+         * languages.
+         *
+         * ```
+         * assert(4.negated == (0 - 4))
+         * ```
+         */
+
+        if 0 <= this {
+            this - this.doubled
+        } else {
+            this
+        }
+    }
+
+    public get N doubled<N> where N : Number {
+        this * 2
+    }
+
+    public get N tripled<N> where N : Number {
+        this * 3
+    }
+
+    public get N quadrupled<N> where N : Number {
+        this * 4
+    }
+
+    public get N quintupled<N> where N : Number {
+        this * 5
+    }
+
+    public List<N> to(N n) where N : Number {
+        import sylan.util.collections.list.generate
+        import sylan.util.collections.list.Generation.{Next, Finish}
+
+        generate(
+            startWith = 1,
+            {
+                if n < it {
+                    Finish()
+                } else {
+                    Next(it, it + 1)
+                }
+            }
+        )
+    }
+}
+
+class String {
+    //
+}
+
+class decimal {
+    //
+}
+
+// Built-in types, which look a bit like Java primitives except that they are
+// real OO-style types. These can't be defined in Sylan itself due to their
+// precise definition in raw memory.
+extern class int;
+extern class uint;
+extern class byte;
+extern class uint16;
+extern class uint32;
+extern class uint64;
+extern class int8;
+extern class short;
+extern class int32;
+extern class long;
+extern class float;
+extern class double;
+
+T do<T>(T block()) {
+    /**
+     * Run the provided `block` lambda. It works similarly to
+     * immediately-invoked functions or "do blocks" in some other languages.
+     *
+     * ```
+     * var x = do {
+     *     println("Hello, world!")
+     *     42
+     * }
+     * assert(x == 42)
+     * ```
+     */
+
+    block()
+}
+
+class AssertionError implements Exception {
+
+    public override get message {
+        "assertion failed"
+    }
+}
+
+// TODO: this should really be a macro, but Sylan doesn't yet have a solid plan
+// for macros.
+void assert(boolean predicate) {
+    /**
+     * Assert that predicate is true, otherwise throw an `AssertionError`.
+     */
+
+    if !predicate {
+        throw AssertionError()
+    }
+}
+
+extern void print(String message)
+
+void println(String message) {
+    print(message)
+    print("\n")
+}
