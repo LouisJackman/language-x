@@ -638,7 +638,7 @@ impl Lexer {
         }
     }
 
-    fn lex_operator(&mut self) -> TokenResult {
+    fn lex_symbol(&mut self) -> TokenResult {
         if let Some(c) = self.source.read() {
             match c {
                 '-' => Ok(self.lex_with_leading_minus()),
@@ -835,7 +835,7 @@ impl Lexer {
                                     {
                                         self.lex_number()
                                     } else {
-                                        self.lex_operator()
+                                        self.lex_symbol()
                                     }
                                 }
                             }
