@@ -996,8 +996,9 @@ mod tests {
 
     #[test]
     fn numbers() {
-        let mut lexer = test_lexer("    23  \t     \t\t\n   23   +32 0.32    \t123123123.32");
+        let mut lexer = test_lexer("    23  \t  -34   \t\t\n   23   +32 0.32    \t123123123.32");
         assert_next(&mut lexer, &Token::Number(23, 0));
+        assert_next(&mut lexer, &Token::Number(-34, 0));
         assert_next(&mut lexer, &Token::Number(23, 0));
         assert_next(&mut lexer, &Token::Number(32, 0));
         assert_next(&mut lexer, &Token::Number(0, 32));
@@ -1006,8 +1007,9 @@ mod tests {
 
     #[test]
     fn chars() {
-        let mut lexer = test_lexer("  'a'   \t \n\r\n 'd'    '/'");
+        let mut lexer = test_lexer("  'a' '\\r'  \t \n\r\n 'd'    '/'");
         assert_next(&mut lexer, &Token::Char('a'));
+        assert_next(&mut lexer, &Token::Char('\r'));
         assert_next(&mut lexer, &Token::Char('d'));
         assert_next(&mut lexer, &Token::Char('/'));
     }
@@ -1050,11 +1052,12 @@ mod tests {
 
     #[test]
     fn operators() {
-        let mut lexer = test_lexer("   <= \t  \r\n ~ ! ^   >> != |> # :: ");
+        let mut lexer = test_lexer("   <= \t  \r\n ~ ! ^ -  >> != |> # :: ");
         assert_next(&mut lexer, &Token::LessThanOrEquals);
         assert_next(&mut lexer, &Token::BitwiseNot);
         assert_next(&mut lexer, &Token::Not);
         assert_next(&mut lexer, &Token::BitwiseXor);
+        assert_next(&mut lexer, &Token::Subtract);
         assert_next(&mut lexer, &Token::DoubleRightAngleBracket);
         assert_next(&mut lexer, &Token::NotEquals);
         assert_next(&mut lexer, &Token::Pipe);
