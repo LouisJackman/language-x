@@ -49,8 +49,11 @@ executables with no required runtimes.
 
 ## Done so Far
 
+- [x] Create Sylan "sourcing".
 - [x] Lex.
 - [ ] Parse.
+- [ ] Simplify into "Kernel Sylan".
+- [ ] Emit "Sylan IL".
 - [ ] Implement the runtime.
 - [ ] Interpret without any checks.
 - [ ] Add checks such as types.
