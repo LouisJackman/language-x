@@ -641,7 +641,6 @@ impl Lexer {
     fn lex_symbolic(&mut self) -> TokenResult {
         if let Some(c) = self.source.read() {
             match c {
-
                 // Unary operator or numeric literal prefix. Note that `-` is
                 // either part of a number literal or a binary operator but is
                 // _not_ a unary operator. This allows the lexer to avoid
@@ -843,7 +842,7 @@ impl Lexer {
                                         Ok(self.lex_boolean_or_keyword_or_identifier(rest))
                                     } else if c.is_digit(10)
                                         || (self.source.match_nth(1, |c| c.is_digit(10))
-                                        && ((c == '+') || (c == '-')))
+                                            && ((c == '+') || (c == '-')))
                                     {
                                         self.lex_number()
                                     } else {
