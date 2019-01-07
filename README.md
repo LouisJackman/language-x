@@ -243,7 +243,7 @@ executables with no required runtimes.
         }
 
         public void start(Task sender, int n = 0) {
-            select Message {
+            switch select Message {
                 .Increment ->
                     start(sender, n + 1)
                 .Reset(n) ->
@@ -567,9 +567,8 @@ executables with no required runtimes.
 
     // Should print 5 and then 6.
     2.times {
-        select int n {
-            println(`{n}`)
-        }
+        var n = select int
+        println(`{n}`)
     }
 
     print("""

@@ -47,15 +47,15 @@ use common::multiphase::{self, Identifier};
 use common::peekable_buffer::PeekableBuffer;
 use common::version::Version;
 use lexing::lexer::{self, LexedToken};
-use lexing::tokens::Token;
 use lexing::Tokens;
-use parsing::nodes::Expression::{self, UnaryOperator};
+use lexing::tokens::Token;
 use parsing::nodes::{
     Accessibility, Binding, Case, Code, CompositePattern, ContextualBinding, ContextualCode,
     ContextualScope, DeclarationItem, FilePackage, For, If, Import, Lambda, LambdaSignature,
     MainPackage, Package, Pattern, PatternField, PatternItem, Scope, Select, Switch, Throw,
     Timeout, TypeDeclaration, ValueParameter,
 };
+use parsing::nodes::Expression::{self, UnaryOperator};
 
 mod nodes;
 
@@ -198,28 +198,12 @@ impl Parser {
             .map(|expression| UnaryOperator(operator, Box::new(expression)))
     }
 
-    fn parse_unary_add(&mut self) -> Result<nodes::Expression> {
-        self.parse_unary_operator(nodes::UnaryOperator::Positive)
-    }
-
     fn parse_bitwise_not(&mut self) -> Result<nodes::Expression> {
         self.parse_unary_operator(nodes::UnaryOperator::BitwiseNot)
     }
 
-    fn parse_bitwise_xor(&mut self) -> Result<nodes::Expression> {
-        self.parse_unary_operator(nodes::UnaryOperator::BitwiseXor)
-    }
-
-    fn parse_method_handle(&mut self) -> Result<nodes::Expression> {
-        self.parse_unary_operator(nodes::UnaryOperator::MethodHandle)
-    }
-
     fn parse_not(&mut self) -> Result<nodes::Expression> {
         self.parse_unary_operator(nodes::UnaryOperator::Not)
-    }
-
-    fn parse_negate(&mut self) -> Result<nodes::Expression> {
-        self.parse_unary_operator(nodes::UnaryOperator::Negate)
     }
 
     fn parse_package_lookup(&mut self) -> Result<nodes::PackageLookup> {
@@ -242,11 +226,12 @@ impl Parser {
         unimplemented!()
     }
 
-    fn parse_do(&mut self) -> Result<nodes::ContextualScope> {
+    fn parse_with(&mut self) -> Result<nodes::ContextualScope> {
         let mut bindings = HashSet::new();
         let mut contextual_bindings = HashSet::new();
         let mut expressions = vec![];
 
+        self.tokens.discard();
         self.expect_and_discard(Token::OpenBrace)?;
         loop {
             if self.next_is(&Token::Var) {
@@ -276,7 +261,7 @@ impl Parser {
         })
     }
 
-    fn parse_extends(&mut self) -> Result<nodes::TypeDeclaration> {
+    fn parse_extend(&mut self) -> Result<nodes::TypeDeclaration> {
         self.tokens.discard();
         let specification = self.parse_type_specification()?;
         Ok(TypeDeclaration::Extension(specification))
@@ -615,13 +600,6 @@ impl Parser {
         Ok(Throw(Box::new(expression)))
     }
 
-    /// An expression starting with an opening parentheses is ambiguous, referring to either a
-    /// grouped expression or a lambda expression parameter list. It would require unlimited
-    /// lookahead to disambiguate before committing, so Sylan instead commits immediately to
-    /// parsing expressions, narrowing it down to an expression group if a token appears outside of
-    /// the subset allowed in pattern matching.
-    ///
-    /// TODO: update this comment to reflect the actual final design of this.
     fn parse_open_parentheses(&mut self) -> Result<nodes::Expression> {
         self.tokens.discard();
         let mut expressions = vec![];
@@ -711,18 +689,16 @@ impl Parser {
                     .unwrap_or_else(|| match token {
                         // Non-atomic tokens each delegate to a dedicated method.
                         Token::Identifier(identifier) => self.parse_leading_identifier(identifier),
-                        Token::Add => self.parse_unary_add(),
                         Token::BitwiseNot => self.parse_bitwise_not(),
                         Token::BitwiseXor => self.parse_bitwise_xor(),
-                        Token::Do => self.parse_do().map(nodes::Expression::ContextualScope),
+                        Token::WIth => self.parse_with().map(nodes::Expression::ContextualScope),
                         Token::For => self.parse_for(None),
                         Token::If => self.parse_if().map(nodes::Expression::If),
-                        Token::LambdaArrow => {
+                        Token::OpenBrace => {
                             self.parse_lambda(vec![]).map(nodes::Expression::Lambda)
                         }
                         Token::MethodHandle => self.parse_method_handle(),
                         Token::Not => self.parse_not(),
-                        Token::OpenBrace => self.parse_scope().map(nodes::Expression::Scope),
                         Token::OpenParentheses => self.parse_open_parentheses(),
                         Token::Select => self.parse_select().map(nodes::Expression::Select),
                         Token::Subtract => self.parse_negate(),

@@ -15,7 +15,6 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("class", Token::Class),
         ("continue", Token::Continue),
         ("default", Token::Default),
-        ("do", Token::Do),
         ("else", Token::Else),
         ("embed", Token::Embed),
         ("extend", Token::Extend),
@@ -45,6 +44,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("var", Token::Var),
         ("with", Token::With),
         ("where", Token::Where),
+        ("while", Token::While),
         //
         // Reserved but not used.
         //
@@ -57,6 +57,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("co", Token::ReservedKeyword),
         ("checked", Token::ReservedKeyword),
         ("derives", Token::ReservedKeyword),
+        ("diverging", Token::ReservedKeyword),
         ("disasm", Token::ReservedKeyword),
         ("dyn", Token::ReservedKeyword),
         ("dynamic", Token::ReservedKeyword),
@@ -77,6 +78,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("operator", Token::ReservedKeyword),
         ("pack", Token::ReservedKeyword),
         ("pin", Token::ReservedKeyword),
+        ("platform", Token::ReservedKeyword),
         ("pure", Token::ReservedKeyword),
         ("pragma", Token::ReservedKeyword),
         ("quasiquote", Token::ReservedKeyword),
@@ -87,6 +89,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("seq", Token::ReservedKeyword),
         ("struct", Token::ReservedKeyword),
         ("sync", Token::ReservedKeyword),
+        ("throws", Token::ReservedKeyword),
         ("total", Token::ReservedKeyword),
         ("transient", Token::ReservedKeyword),
         ("unchecked", Token::ReservedKeyword),

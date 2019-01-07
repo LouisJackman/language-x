@@ -31,7 +31,6 @@ pub enum Token {
     Continue,
     Default,
     Divide,
-    Do,
     Dot,
     Else,
     Eof,
@@ -94,6 +93,7 @@ pub enum Token {
     Virtual,
     With,
     Where,
+    While,
 }
 
 /// EOF is a special type of token because it simplifies logic over handling it

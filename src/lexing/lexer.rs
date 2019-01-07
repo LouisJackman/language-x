@@ -641,14 +641,6 @@ impl Lexer {
     fn lex_symbolic(&mut self) -> TokenResult {
         if let Some(c) = self.source.read() {
             match c {
-                // Unary operator or numeric literal prefix. Note that `-` is
-                // either part of a number literal or a binary operator but is
-                // _not_ a unary operator. This allows the lexer to avoid
-                // distinguishing unary and binary `-` solely by whitespace.
-                // For negating a variable, use the `Number#negated` getter
-                // instead.
-                '-' => Ok(self.lex_with_leading_minus()),
-
                 // Unary operators.
                 '!' => Ok(self.lex_with_leading_exclamation_mark()),
                 '~' => Ok(Token::BitwiseNot),
@@ -668,6 +660,18 @@ impl Lexer {
                 '*' => Ok(Token::Multiply),
                 '/' => Ok(Token::Divide),
                 '%' => Ok(Token::Modulo),
+
+                // Binary operators that are also numeric prefixes; if the
+                // lexer has got here, it is assumed that their use as
+                // numeric prefixes has already been ruled out.
+                //
+                // Note that `-` or `+` are either parts of a number literal or
+                // binary operators but are _not_ unary operators. This allows
+                // the lexer to avoid distinguishing unary and binary `-` and
+                // `+ `solely by whitespace. For negating a variable, use the
+                // `Number#negated` getter instead.
+                '-' => Ok(self.lex_with_leading_minus()),
+                '+' => Ok(Token::Add),
 
                 // Grouping tokens.
                 '{' => Ok(Token::OpenBrace),
