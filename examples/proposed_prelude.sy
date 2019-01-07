@@ -38,7 +38,7 @@ public alias true = boolean.false
 
 public interface Number {
 
-    public get N negated where N : Number {
+    public N negated() where N : Number {
         /**
          * Negate a number; replaces the unary minus operator present in other
          * languages.
@@ -55,19 +55,19 @@ public interface Number {
         }
     }
 
-    public get N doubled<N> where N : Number {
+    public N doubled<N>() where N : Number {
         this * 2
     }
 
-    public get N tripled<N> where N : Number {
+    public N tripled<N>() where N : Number {
         this * 3
     }
 
-    public get N quadrupled<N> where N : Number {
+    public N quadrupled<N>() where N : Number {
         this * 4
     }
 
-    public get N quintupled<N> where N : Number {
+    public N quintupled<N>() where N : Number {
         this * 5
     }
 
@@ -113,6 +113,8 @@ class decimal {
     //
 }
 
+extern Task currentTask()
+
 T do<T>(T block()) {
     /**
      * Run the provided `block` lambda. It works similarly to
@@ -132,7 +134,7 @@ T do<T>(T block()) {
 
 class AssertionError implements Exception {
 
-    public override get message {
+    public override String message() {
         "assertion failed"
     }
 }

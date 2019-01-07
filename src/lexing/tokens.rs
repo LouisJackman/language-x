@@ -40,7 +40,6 @@ pub enum Token {
     Extends,
     Exports,
     For,
-    Get,
     GreaterThan,
     GreaterThanOrEquals,
     If,

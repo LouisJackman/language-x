@@ -669,7 +669,7 @@ impl Lexer {
                 // binary operators but are _not_ unary operators. This allows
                 // the lexer to avoid distinguishing unary and binary `-` and
                 // `+ `solely by whitespace. For negating a variable, use the
-                // `Number#negated` getter instead.
+                // `Number#negated` method instead.
                 '-' => Ok(self.lex_with_leading_minus()),
                 '+' => Ok(Token::Add),
 

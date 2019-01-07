@@ -114,7 +114,7 @@ void demoIteration() {
 }
 
 /*
- * All variables (including functions), packages, classes, getters, fields,
+ * All variables (including functions), packages, classes, fields,
  * and methods are private unless explicitly opened up with the `public`
  * keyword. If the developer wants to expose them openly but only to
  * its own module, they can use the `internal` keyword.
@@ -236,7 +236,7 @@ interface Equals<T = Self> {
 
 class Name {
     /**
-     * Getters, hashing, equality checking, and the constructor all just exist
+     * Hashing, equality checking, and the constructor all just exist
      * automatically. They can still be manually overridden if necessary though.
      * `close` is also automatically implemented for classes that implement
      * `AutoCloseable`, the default implementation just closing all
@@ -257,17 +257,12 @@ class Account implements ToString, Concatenate<Account> {
      */
 
     /*
-     * Embedding a field hoists all of its _accessible_ methods and getters into
+     * Embedding a field hoists all of its _accessible_ methods into
      * the class itself. Embedded methods take the lowest priority: methods in
      * the class itself and default methods in implementing interfaces both take
      * priority over embedded methods, although other embedded methods will
      * still call the embedder's method if calling it by name.
-     *
-     * As getters are also embedded, it can look awfully close to multiple
-     * inheritance of state, but is not due to the lack of mutability and the
-     * fact that only one getter of each given name and type can emerge from the
-     * prioritisation.
-     *
+
      * Embedded classes can implement methods for implementing interfaces on the
      * embedder's behalf, following the rules above.
      *
@@ -313,14 +308,18 @@ class Account implements ToString, Concatenate<Account> {
     }
 
     /*
-     * Getters are defined like methods but look like fields. Setters don't
-     * exist because Sylan is an immutable language.
+     * Methods without any arguments can be called without parentheses,
+     * effectively making them readonly properties or getters with syntactical
+     * sugar. An important difference between Java getters and Sylan "getters"
+     * is that Sylan's can shadow fields transparently, allowing fields to be
+     * "upgraded" to getters transparently without breaking API compatibility.
      */
-    public String get name {
+
+    public String name() {
         `{firstName} {lastName}`
     }
 
-    public boolean get locked {
+    public boolean locked() {
         expiry < ZonedDateTime.now
     }
 }

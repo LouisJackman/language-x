@@ -116,7 +116,6 @@ pub struct Declaration {
 pub struct Class {
     pub implements: LinkedList<Type>,
     pub methods: HashSet<ConcreteMethod>,
-    pub getters: HashSet<Getter>,
     pub items: HashSet<Declaration>,
 }
 
@@ -126,7 +125,6 @@ pub struct Class {
 /// in implementing classes.
 pub struct Interface {
     pub extends: LinkedList<Type>,
-    pub getters: HashSet<Getter>,
     pub methods: HashSet<Method>,
 }
 
@@ -189,25 +187,6 @@ pub enum MethodItem {
 pub struct Method {
     pub name: Identifier,
     pub item: MethodItem,
-}
-
-pub struct ConcreteGetter {
-    pub body: Scope,
-    pub overrides: bool,
-}
-
-pub enum GetterItem {
-    Concrete(ConcreteGetter),
-    Abstract,
-}
-
-/// Getters are essentially just methods without the ability to specify type or
-/// value parameters. They have a single type, similar to a field. They are
-/// invoked without the call syntax with parentheses.
-pub struct Getter {
-    pub getter_type: Type,
-    pub name: Identifier,
-    pub item: GetterItem,
 }
 
 /// Value parameters are for values at runtime and have identifiers and
@@ -334,7 +313,7 @@ pub struct ContextualCode {
 /// packages, they can refer to parent scopes. They can declare variables with
 /// bindings but cannot declare new types or subpackages like packages can.
 ///
-/// All functions, methods, lambdas, and getters have an attached scope.
+/// All functions, methods, and lambdas have an attached scope.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Scope {
     pub code: Code,
