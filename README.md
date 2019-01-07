@@ -128,6 +128,26 @@ executables with no required runtimes.
             println(`{key}: {value}`)
         }
 
+        do {
+            var mutatingService = using Task {
+                for n = 0 {
+                    var sender = select Task
+                    if n < 5 {
+                        sender.send(Some(n))
+                        continue n + 1
+                    } else {
+                        sender.send(Empty)
+                        continue n
+                    }
+                }
+            }
+
+            10.times { counterService.send(currentTask) }
+            while var Some(n) = select int {
+                println(`{n}`)
+            }
+        }
+
         /*
          * Sylan does not allow scope shadowing. As functions are just
          * variables of a "function type", `factorial` would clash with the
@@ -148,9 +168,8 @@ executables with no required runtimes.
             if 0 < n {
                 for {
 
-                    // A `for` with no clauses is an infinite loop, except for the
-                    // use of a continue label here that lets it jump to an outer
-                    // loop.
+                    // `continue` normally reiterates the current `for`, but an
+                    // explicit label allows going to an outer one instead.
                     OUTER: continue n - 1
                 }
             }
