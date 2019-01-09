@@ -72,16 +72,13 @@ public interface Number {
     }
 
     public List<N> to(N n) where N : Number {
-        list.generate(
-            startWith = 1,
-            {
-                if n < it {
-                    list.generation.Finish()
-                } else {
-                    list.generation.Next(it, it + 1)
-                }
+        list.generate(initial = 1) {
+            if n < it {
+                list.generation.Finish
+            } else {
+                list.generation.Next(it, it + 1)
             }
-        )
+        }
     }
 }
 
@@ -129,7 +126,7 @@ T do<T>(T block()) {
      * ```
      */
 
-    block()
+    block
 }
 
 class AssertionError implements Exception {
@@ -157,3 +154,9 @@ void println(String message) {
     print(message)
     print("\n")
 }
+
+T id<T>(T value) {
+    value
+}
+
+alias fn = id

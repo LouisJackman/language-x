@@ -62,7 +62,6 @@ executables with no required runtimes.
 
 ## Example
 
-
     #!/usr/bin/env sylan
 
     /*
@@ -90,15 +89,13 @@ executables with no required runtimes.
          * to Python, they go inside the item they describe rather than before it.
          */
 
-        // Lambdas are declared with braces and an arrow.
-        var highlight = { s -> `>> {s} <<` }
+        // Lambdas are declared by passing a block to the `fn` prelude function`.
+        var highlight = fn { s -> `>> {s} <<` }
 
         1.to(5)
-            .map(Number::double # ToString::toString # highlight)
-            .forEach(println)
+            .map(Number::doubled # ToString::toString # ::highlight)
+            .forEach(::println)
 
-        // If a lambda is the only argument to an invocable, the parentheses can
-        // be dropped.
         List(1, 2, 3).forEach { n ->
 
             /*
@@ -109,15 +106,15 @@ executables with no required runtimes.
             println(`{n}`)
         }
 
-        // The arrow can be dropped for no-argument lambdas.
+        // The arrow can be dropped for no-argument blocks.
         // Furthermore, single-parameter lambdas can use the `it` keyword instead.
-        var quadruple = { it.double().double() }
+        var quadruple = fn { it.doubled.doubled }
 
         123456789
-            |> quadruple
+            |> ::quadruple
             |> Object::toString
-            |> highlight
-            |> println
+            |> ::highlight
+            |> ::println
 
         var map = HashMap(
             "abc": 123,
@@ -129,7 +126,7 @@ executables with no required runtimes.
         }
 
         do {
-            var mutatingService = using Task {
+            var counterService = using Task {
                 for n = 0 {
                     var sender = select Task
                     if n < 5 {
@@ -142,7 +139,9 @@ executables with no required runtimes.
                 }
             }
 
-            10.times { counterService.send(currentTask) }
+            5.times {
+                counterService.send(currentTask)
+            }
             while var Some(n) = select int {
                 println(`{n}`)
             }
@@ -220,7 +219,7 @@ executables with no required runtimes.
          * Sylan is an expression-oriented language, so everything returns a value
          * including loops and `if`s. Therefore, the last value is returned by
          * default. The lack of explicit `return`s mean there is always a single
-         * exit point from a function, lambda, or method: the last expression.
+         * exit point from a function or method: the last expression.
          */
         result
     }
@@ -231,7 +230,7 @@ executables with no required runtimes.
         f(n) + f(n)
     }
 
-    String double<N>(N n) where
+    String doubled<N>(N n) where
         N : Add & ToString
     {
         (n + n).toString()
@@ -247,9 +246,14 @@ executables with no required runtimes.
          */
         with {
             var a <- Some(5)
-            doSomething()
-            var b <- Empty()
-            willNotBeRun()
+            println("Doing something.")
+
+            // All invocables can drop parentheses if calling with no arguments.
+            // This is actually how getters work behind the scenes and why Sylan
+            // needn't allow public fields as a feature.
+            var b <- Empty
+
+            println("Will not be run.")
         }
     }
 
@@ -301,7 +305,7 @@ executables with no required runtimes.
 
     class Name {
         /**
-         * Getters, hashing, equality checking, and the constructor all just exist
+         * Hashing, equality checking, and the constructor all just exist
          * automatically. They can still be manually overridden if necessary though.
          * `close` is also automatically implemented for classes that implement
          * `AutoCloseable`, the default implementation just closing all
@@ -327,7 +331,7 @@ executables with no required runtimes.
          * the class itself and default methods in implementing interfaces both take
          * priority over embedded methods, although other embedded methods will
          * still call the embedder's method if calling it by name.
-         *
+
          * Embedded classes can implement methods for implementing interfaces on the
          * embedder's behalf, following the rules above.
          *
@@ -373,9 +377,13 @@ executables with no required runtimes.
         }
 
         /*
-         * Getters are defined like methods but look like fields. Setters don't
-         * exist because Sylan is an immutable language.
+         * Methods without any arguments can be called without parentheses,
+         * effectively making them readonly properties or getters with syntactical
+         * sugar. An important difference between Java getters and Sylan "getters"
+         * is that Sylan's can shadow fields transparently, allowing fields to be
+         * "upgraded" to getters transparently without breaking API compatibility.
          */
+
         public String name() {
             `{firstName} {lastName}`
         }
@@ -435,9 +443,9 @@ executables with no required runtimes.
      * versioning where new major module versions are effectively different modules.
      */
     alias counter2 = counter
-    alias Person = Account
+    alias Person = ::Account
     alias Showable = ToString
-    alias factorial2 = factorial
+    alias factorial2 = ::factorial
 
     int maxBound = 5
 
@@ -455,21 +463,23 @@ executables with no required runtimes.
         var age = 25
         var account2 = Account(.firstName, .lastName, ageInYears = age)
 
-        var f = { a ->
-            println(a.toString())
-        }
+        var f = fn { println(it.toString) }
 
         f(account1)
         f(account2(firstName = "Emma"))
 
-        var g = { a ->
-            println("returning an account")
-            a
+        var g = fn {
+            println("returning a value")
+            it
         }
 
         var z = g(account1)
 
-        var n = twice(3, { x -> x * 2 })
+        // Lambdas passed as the last argument can be passed in braces outside of
+        // the calling parentheses. This is the exact same mechanism the `fn`
+        // function call uses to create lambdas; in fact, it's just an alias to the
+        // identity function `id`.
+        var n = twice(3) { it * 2 }
         println(`n == {n}`)
     }
 
@@ -538,7 +548,7 @@ executables with no required runtimes.
 
         println("Entering scope")
         do {
-            var closeable = using AutoCloseableDemo()
+            var closeable = using AutoCloseableDemo
             println("Using closeable")
         }
         println("Leaving scope")
@@ -547,24 +557,35 @@ executables with no required runtimes.
     }
 
     void demo() {
-        demoIteration()
+        // As mentioned above, all invocables can omit parentheses if they have
+        // zero parameters. This is primarily for getters, but should also be used
+        // for Pascal-procedure-style invocations just for consistency; _all_
+        // zero-argument must not use parentheses. That includes constructors,
+        // methods, lambdas, and functions.
+
+        demoIteration
 
         printFactorial(42)
-        var x = twice(4, double)
+        var x = twice(4, doubled)
         println(`{x}`)
 
-        demoContexts()
-        demoPatternMatching()
-        demoClosures()
+        demoContexts
+        demoPatternMatching
+        demoClosures
 
-        println(NumericLiteralsDemo().toString())
+        println(NumericLiteralsDemo.toString)
 
-        demoAutoCloseable()
+        demoAutoCloseable
     }
 
     /*
      * Top-level code is allowed, but only in the main package within the main
      * module. Code in other packages must be in functions or methods.
+     *
+     * Top-level declarations must usually be explicitly typed, but type inference
+     * with `var` is allowed for the main package, in which case they are just
+     * type-inferred local variables for the top-level program which are private
+     * to the `main` package.
      */
 
     var optionalString = Some("test string")
@@ -573,11 +594,11 @@ executables with no required runtimes.
     }
 
     var c = Task { counter.start(currentTask) }
-    5.times { c.send(counter.Message.Increment()) }
+    5.times { c.send(counter.Message.Increment) }
 
-    c.send(counter.Message.Get())
-    c.send(counter.Message.Increment())
-    c.send(counter.Message.Get())
+    c.send(counter.Message.Get)
+    c.send(counter.Message.Increment)
+    c.send(counter.Message.Get)
 
     // Should print 5 and then 6.
     2.times {
@@ -613,7 +634,7 @@ executables with no required runtimes.
       */
     */
 
-    demo()
+    demo
 
 ## Overview
 
