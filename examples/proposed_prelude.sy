@@ -55,6 +55,11 @@ public interface Number {
         }
     }
 
+    // Bitshift operators were moved out of built-in operators and into extern
+    // methods to avoid the parsing ambiguity from `<<` and `>>`.
+    public extern N shr() where N : Number
+    public extern N shl() where N : Number
+
     public N doubled<N>() where N : Number {
         this * 2
     }
@@ -85,32 +90,32 @@ public interface Number {
 // Built-in types, which look a bit like Java primitives except that they are
 // real OO-style types. These can't be defined in Sylan itself due to their
 // precise definition in raw memory.
-extern class int;
-extern class uint;
-extern class byte;
-extern class uint16;
-extern class uint32;
-extern class uint64;
-extern class int8;
-extern class short;
-extern class int32;
-extern class long;
-extern class float;
-extern class double;
+public extern class int;
+public extern class uint;
+public extern class byte;
+public extern class uint16;
+public extern class uint32;
+public extern class uint64;
+public extern class int8;
+public extern class short;
+public extern class int32;
+public extern class long;
+public extern class float;
+public extern class double;
 
-interface ToString {
+public interface ToString {
     public String toString()
 }
 
-class String {
+public class String {
     //
 }
 
-class decimal {
+public class decimal {
     //
 }
 
-extern Task currentTask()
+public extern Task currentTask()
 
 class AssertionError implements Exception {
 
@@ -121,7 +126,7 @@ class AssertionError implements Exception {
 
 // TODO: this should really be a macro, but Sylan doesn't yet have a solid plan
 // for macros.
-void assert(boolean predicate) {
+public void assert(boolean predicate) {
     /**
      * Assert that predicate is true, otherwise throw an `AssertionError`.
      */
@@ -131,15 +136,15 @@ void assert(boolean predicate) {
     }
 }
 
-extern void print(String message)
+public extern void print(String message)
 
-void println(String message) {
+public void println(String message) {
     print(message)
     print("\n")
 }
 
-T id<T>(T value) {
+public T id<T>(T value) {
     value
 }
 
-alias fn = ::id
+public alias fn = ::id
