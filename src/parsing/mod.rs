@@ -47,15 +47,15 @@ use common::multiphase::{self, Identifier};
 use common::peekable_buffer::PeekableBuffer;
 use common::version::Version;
 use lexing::lexer::{self, LexedToken};
-use lexing::Tokens;
 use lexing::tokens::Token;
+use lexing::Tokens;
+use parsing::nodes::Expression::{self, UnaryOperator};
 use parsing::nodes::{
     Accessibility, Binding, Case, Code, CompositePattern, ContextualBinding, ContextualCode,
     ContextualScope, DeclarationItem, FilePackage, For, If, Import, Lambda, LambdaSignature,
     MainPackage, Package, Pattern, PatternField, PatternItem, Scope, Select, Switch, Throw,
     Timeout, TypeDeclaration, ValueParameter,
 };
-use parsing::nodes::Expression::{self, UnaryOperator};
 
 mod nodes;
 
@@ -594,6 +594,10 @@ impl Parser {
         }
     }
 
+    fn parse_invocable_handle(&mut self) -> Result<nodes::Expression> {
+        unimplemented!()
+    }
+
     fn parse_throw(&mut self) -> Result<nodes::Throw> {
         self.tokens.discard();
         let expression = self.parse_expression()?;
@@ -690,18 +694,16 @@ impl Parser {
                         // Non-atomic tokens each delegate to a dedicated method.
                         Token::Identifier(identifier) => self.parse_leading_identifier(identifier),
                         Token::BitwiseNot => self.parse_bitwise_not(),
-                        Token::BitwiseXor => self.parse_bitwise_xor(),
-                        Token::WIth => self.parse_with().map(nodes::Expression::ContextualScope),
+                        Token::With => self.parse_with().map(nodes::Expression::ContextualScope),
                         Token::For => self.parse_for(None),
                         Token::If => self.parse_if().map(nodes::Expression::If),
                         Token::OpenBrace => {
                             self.parse_lambda(vec![]).map(nodes::Expression::Lambda)
                         }
-                        Token::MethodHandle => self.parse_method_handle(),
+                        Token::MethodHandle => self.parse_invocable_handle(),
                         Token::Not => self.parse_not(),
                         Token::OpenParentheses => self.parse_open_parentheses(),
                         Token::Select => self.parse_select().map(nodes::Expression::Select),
-                        Token::Subtract => self.parse_negate(),
                         Token::Switch => self.parse_switch().map(nodes::Expression::Switch),
                         Token::Throw => self.parse_throw().map(nodes::Expression::Throw),
 
@@ -778,8 +780,8 @@ impl Parser {
                             self.parse_class();
                             unimplemented!()
                         }
-                        Token::Extends => {
-                            self.parse_extends();
+                        Token::Extend => {
+                            self.parse_extend();
                             unimplemented!()
                         }
                         Token::Import => {
@@ -828,8 +830,8 @@ impl Parser {
                             let _class = self.parse_class();
                             unimplemented!()
                         }
-                        Token::Extends => {
-                            self.parse_extends();
+                        Token::Extend => {
+                            self.parse_extend();
                             unimplemented!()
                         }
                         Token::Import => {

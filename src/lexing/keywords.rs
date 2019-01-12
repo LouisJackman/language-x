@@ -10,7 +10,7 @@ use lexing::tokens::Token;
 pub fn new() -> HashMap<&'static str, Token> {
     let mut map = HashMap::new();
     map.extend(vec![
-        ("_", Token::Ignore),
+        ("_", Token::PlaceholderIdentifier),
         ("as", Token::As),
         ("class", Token::Class),
         ("continue", Token::Continue),
@@ -67,7 +67,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("forall", Token::ReservedKeyword),
         ("gc", Token::ReservedKeyword),
         ("gen", Token::ReservedKeyword),
-        ("get", Token::Get),
+        ("get", Token::ReservedKeyword),
         ("in", Token::ReservedKeyword),
         ("link", Token::ReservedKeyword),
         ("llvm", Token::ReservedKeyword),

@@ -46,7 +46,7 @@ pub enum Token {
     If,
     It,
     Ignorable,
-    Ignore,
+    PlaceholderIdentifier,
     Implements,
     Import,
     Interface,

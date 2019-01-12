@@ -661,7 +661,7 @@ impl Lexer {
                 '/' => Ok(Token::Divide),
                 '%' => Ok(Token::Modulo),
 
-                // Binary operators that are also numeric prefixes; if the
+                // Binary operators that are also numeric prefixes. If the
                 // lexer has got here, it is assumed that their use as
                 // numeric prefixes has already been ruled out.
                 //
@@ -779,6 +779,11 @@ impl Lexer {
         }
     }
 
+    fn lex_placeholder_identifier(&mut self) -> TokenResult {
+        self.source.discard();
+        Ok(Token::PlaceholderIdentifier)
+    }
+
     fn lex_non_trivia(&mut self) -> TokenResult {
         match self.source.peek() {
             None => Ok(Token::Eof),
@@ -840,7 +845,9 @@ impl Lexer {
                                     }
                                 }
                                 _ => {
-                                    if c.is_alphabetic() {
+                                    if (c == '_') && next.filter(|&x| x == '_').is_none() {
+                                        self.lex_placeholder_identifier()
+                                    } else if c.is_alphabetic() {
                                         let mut rest = String::new();
                                         self.lex_rest_of_word(&mut rest);
                                         Ok(self.lex_boolean_or_keyword_or_identifier(rest))
@@ -998,6 +1005,12 @@ mod tests {
     fn identifier() {
         let mut lexer = test_lexer("    \t  \r      abc");
         assert_next(&mut lexer, &Token::Identifier(Identifier::from("abc")));
+    }
+
+    #[test]
+    fn placeholder_identifier() {
+        let mut lexer = test_lexer("   \t _ \r      abc");
+        assert_next(&mut lexer, &Token::PlaceholderIdentifier);
     }
 
     #[test]
