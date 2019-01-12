@@ -700,7 +700,7 @@ impl Parser {
                         Token::OpenBrace => {
                             self.parse_lambda(vec![]).map(nodes::Expression::Lambda)
                         }
-                        Token::MethodHandle => self.parse_invocable_handle(),
+                        Token::InvocableHandle => self.parse_invocable_handle(),
                         Token::Not => self.parse_not(),
                         Token::OpenParentheses => self.parse_open_parentheses(),
                         Token::Select => self.parse_select().map(nodes::Expression::Select),

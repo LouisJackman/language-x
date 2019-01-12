@@ -764,7 +764,7 @@ impl Lexer {
     fn lex_with_leading_colon(&mut self) -> Token {
         if self.source.next_is(':') {
             self.source.discard();
-            Token::MethodHandle
+            Token::InvocableHandle
         } else {
             Token::Colon
         }
@@ -1087,7 +1087,7 @@ mod tests {
         assert_next(&mut lexer, &Token::NotEquals);
         assert_next(&mut lexer, &Token::Pipe);
         assert_next(&mut lexer, &Token::Compose);
-        assert_next(&mut lexer, &Token::MethodHandle);
+        assert_next(&mut lexer, &Token::InvocableHandle);
     }
 
     #[test]
