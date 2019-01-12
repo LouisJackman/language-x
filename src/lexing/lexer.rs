@@ -703,15 +703,11 @@ impl Lexer {
                 self.source.discard();
                 Token::Bind
             }
-            Some('<') => {
-                self.source.discard();
-                Token::ShiftLeft
-            }
             Some('=') => {
                 self.source.discard();
                 Token::LessThanOrEquals
             }
-            _ => Token::LessThan,
+            _ => Token::LeftAngleBracket,
         }
     }
 
@@ -734,16 +730,11 @@ impl Lexer {
     }
 
     fn lex_with_leading_right_angle_bracket(&mut self) -> Token {
-        match self.source.peek().cloned() {
-            Some('>') => {
-                self.source.discard();
-                Token::DoubleRightAngleBracket
-            }
-            Some('=') => {
-                self.source.discard();
-                Token::GreaterThanOrEquals
-            }
-            _ => Token::GreaterThan,
+        if let Some('=') = self.source.peek().cloned() {
+            self.source.discard();
+            Token::GreaterThanOrEquals
+        } else {
+            Token::RightAngleBracket
         }
     }
 
@@ -1003,23 +994,27 @@ mod tests {
 
     #[test]
     fn identifier() {
-        let mut lexer = test_lexer("    \t  \r      abc");
+        let mut lexer = test_lexer("  foobar324  \t  \r      abc");
+        assert_next(
+            &mut lexer,
+            &Token::Identifier(Identifier::from("foobar324")),
+        );
         assert_next(&mut lexer, &Token::Identifier(Identifier::from("abc")));
     }
 
     #[test]
     fn placeholder_identifier() {
-        let mut lexer = test_lexer("   \t _ \r      abc");
+        let mut lexer = test_lexer("   \t _ \r      ");
         assert_next(&mut lexer, &Token::PlaceholderIdentifier);
     }
 
     #[test]
     fn keywords() {
-        let mut lexer = test_lexer("    class\t  \r\n  abc var do");
+        let mut lexer = test_lexer("    class\t  \r\n  abc var with");
         assert_next(&mut lexer, &Token::Class);
         assert_next(&mut lexer, &Token::Identifier(Identifier::from("abc")));
         assert_next(&mut lexer, &Token::Var);
-        assert_next(&mut lexer, &Token::Do);
+        assert_next(&mut lexer, &Token::With);
     }
 
     #[test]
@@ -1080,13 +1075,15 @@ mod tests {
 
     #[test]
     fn operators() {
-        let mut lexer = test_lexer("   <= \t  \r\n ~ ! ^ -  >> != |> # :: ");
+        let mut lexer = test_lexer("   <= \t  \r\n ~ ! ^ - <  >> != |> # :: ");
         assert_next(&mut lexer, &Token::LessThanOrEquals);
         assert_next(&mut lexer, &Token::BitwiseNot);
         assert_next(&mut lexer, &Token::Not);
         assert_next(&mut lexer, &Token::BitwiseXor);
         assert_next(&mut lexer, &Token::Subtract);
-        assert_next(&mut lexer, &Token::DoubleRightAngleBracket);
+        assert_next(&mut lexer, &Token::LeftAngleBracket);
+        assert_next(&mut lexer, &Token::RightAngleBracket);
+        assert_next(&mut lexer, &Token::RightAngleBracket);
         assert_next(&mut lexer, &Token::NotEquals);
         assert_next(&mut lexer, &Token::Pipe);
         assert_next(&mut lexer, &Token::Compose);

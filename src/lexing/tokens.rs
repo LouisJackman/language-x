@@ -31,7 +31,6 @@ pub enum Token {
     Continue,
     Default,
     Divide,
-    Do,
     Dot,
     Else,
     Eof,
@@ -46,13 +45,12 @@ pub enum Token {
     If,
     It,
     Ignorable,
-    PlaceholderIdentifier,
     Implements,
     Import,
     Interface,
     Internal,
     LambdaArrow,
-    LessThan,
+    LeftAngleBracket,
     LessThanOrEquals,
     MethodHandle,
     Module,
@@ -67,6 +65,7 @@ pub enum Token {
     Override,
     Package,
     Pipe,
+    PlaceholderIdentifier,
 
     /// Does nothing but let us reserve keywords for future use.
     ReservedKeyword,
@@ -75,12 +74,7 @@ pub enum Token {
     Requires,
     Rest,
     Select,
-    ShiftLeft,
-
-    /// Could be either a right-shift operator or two closing type parameter
-    /// brackets. Disambiguate in the parser.
-    DoubleRightAngleBracket,
-
+    RightAngleBracket,
     SubItemSeparator,
     Subtract,
     Super,

@@ -20,7 +20,6 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("extend", Token::Extend),
         ("extends", Token::Extends),
         ("exports", Token::Exports),
-        ("do", Token::Do),
         ("for", Token::For),
         ("if", Token::If),
         ("it", Token::ReservedKeyword),
@@ -59,6 +58,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("derives", Token::ReservedKeyword),
         ("diverging", Token::ReservedKeyword),
         ("disasm", Token::ReservedKeyword),
+        ("do", Token::ReservedKeyword),
         ("dyn", Token::ReservedKeyword),
         ("dynamic", Token::ReservedKeyword),
         ("extern", Token::ReservedKeyword),
@@ -99,7 +99,6 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("unllvm", Token::ReservedKeyword),
         ("yield", Token::ReservedKeyword),
         ("value", Token::ReservedKeyword),
-        ("with", Token::ReservedKeyword),
     ]);
     map
 }
