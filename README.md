@@ -64,18 +64,14 @@ executables with no required runtimes.
 
     #!/usr/bin/env sylan
 
-    /*
-     * If no package is specified, "main" is assumed. A `module-info.sy` file is not
-     * required for the top level program as there is an inferred `main` module that
-     * contains top-level programs.
-     */
+    // If no package is specified, "main" is assumed. A `module-info.sy` file is not
+    // required for the top level program as there is an inferred `main` module that
+    // contains top-level programs.
     package main
 
-    /*
-     * Most of those imports are already in the prelude and thus already imported:
-     * `sylan.lang`. They are explicitly imported here to give an idea of the standard
-     * package structure.
-     */
+    // Most of those imports are already in the prelude and thus already imported:
+    // `sylan.lang`. They are explicitly imported here to give an idea of the standard
+    // package structure.
     import sylan.io.println
     import sylan.util.toString.ToString
     import sylan.util.collections.{HashMap, List}
@@ -83,20 +79,48 @@ executables with no required runtimes.
     import sylan.util.datetime.ZonedDateTime
     import sylan.util.optional.{Empty, Some}
 
+    void fizzBuzz(int n) {
+
+        // Sylan supports blocks, syntax for passing a lambda as a final argument to
+        // an invocable. Note the use of `it` as a shorthand for one-argument
+        // blocks.
+        1.upTo(n).forEach -> {
+            println(
+                switch {
+                    0 == (it % 15) { "FizzBuzz" }
+                    0 == (it % 5) { "Fizz" }
+                    0 == (it % 3) { "Buzz" }
+                    default { it }
+                }
+            )
+        }
+    }
+
+    fizzBuzz(100)
+
     void demoIteration() {
         /**
          * SyDocs can be written for code documentation. Unlike JavaDoc but similar
          * to Python, they go inside the item they describe rather than before it.
          */
 
-        // Lambdas are declared by passing a block to the `fn` prelude function`.
-        var highlight = fn { s -> `>> {s} <<` }
+        // Lambdas are created by passing a block to the `fn` function. This usually
+        // isn't necessary, as most lambdas can be passed using the block syntax
+        // instead.
+        var highlight = fn -> s { `>> {s} <<` }
 
-        1.to(5)
+        // The # operator composes invocables together.
+        1.upTo(5)
             .map(Number::doubled # ToString::toString # ::highlight)
             .forEach(::println)
 
-        List(1, 2, 3).forEach { n ->
+        // Sylan supports field-looking getters and transparently upgrading an
+        // expression to a lazy computation, both of which mandate no parentheses
+        // for no-argument invocables. Use the :: operator without a prefix to pick
+        // up these invocables as first-class values. Use it with a type prefix to
+        // refer to a method of a type.
+
+        List(1, 2, 3).forEach -> n {
 
             /*
              * Backquoted strings allow interpolation. Only single symbols can be
@@ -106,9 +130,7 @@ executables with no required runtimes.
             println(`{n}`)
         }
 
-        // The arrow can be dropped for no-argument blocks.
-        // Furthermore, single-parameter lambdas can use the `it` keyword instead.
-        var quadruple = fn { it.doubled.doubled }
+        var quadruple = fn -> { it.doubled.doubled }
 
         123456789
             |> ::quadruple
@@ -121,12 +143,12 @@ executables with no required runtimes.
             "def": 321,
             "ghi": 987,
         )
-        map.forEach { key, value ->
+        map.forEach -> key, value {
             println(`{key}: {value}`)
         }
 
-        do {
-            var counterService = using Task {
+        do -> {
+            var counterService = using Task -> {
                 for n = 0 {
                     var sender = select Task
                     if n < 5 {
@@ -139,7 +161,7 @@ executables with no required runtimes.
                 }
             }
 
-            5.times {
+            5.times -> {
                 counterService.send(currentTask)
             }
             while var Some(n) = select int {
@@ -155,21 +177,27 @@ executables with no required runtimes.
          *
          * `for` is a cross between Java's enhanced-for loop and Scheme's named-let.
          */
-        var innerFactorial = for n = 20, result = 1 {
+        var innerFactorial = for var n = 20, var result = 1 {
             if n <= 0 {
                 result
             } else {
-                continue n - 1, n * result
+
+                // Continue, like `it`, is a keyword representing an implicit
+                // variable. In this case it stands for the inner-most
+                // unlabelled for loop.
+                continue(n - 1, n * result)
             }
         }
 
-        OUTER: for n = 10 {
+        for outer var n = 10 {
             if 0 < n {
                 for {
 
-                    // `continue` normally reiterates the current `for`, but an
-                    // explicit label allows going to an outer one instead.
-                    OUTER: continue n - 1
+                    // This for loop is labelled as "outer", so that is available
+                    // to call as a function if iteration is desired. That allows
+                    // it to skip the inner `for` here; `continue` is this context
+                    // would cause an infinite loop.
+                    outer(n - 1)
                 }
             }
         }
@@ -188,16 +216,19 @@ executables with no required runtimes.
      */
     internal int factorial(int n) {
         switch n {
-            0, 1 ->
+            0, 1 {
                 1
-            n if n < 0 ->
+            }
+            n if n < 0 {
                 throw Exception("n cannot be less than 0")
-            n ->
+            }
+            n {
                 /*
                  * Guaranteed tail call elimination will ensure a stack overflow
                  * does not occur.
                  */
                 factorial(n * (n - 1))
+            }
         }
     }
 
@@ -267,25 +298,28 @@ executables with no required runtimes.
 
         public void start(Task sender, int n = 0) {
             switch select Message {
-                .Increment ->
+                .Increment {
                     start(sender, n + 1)
-                .Reset(n) ->
+                }
+                .Reset(n) {
                     start(sender, n)
+                }
                 .Get {
                     sender.send(n)
                     start(sender, n)
                 }
-                timeout 10.seconds ->
+                timeout 10.seconds {
                     throw Exception("timed out!")
+                }
             }
         }
     }
 
-    interface Concatenate<T, Result = T> {
-        public Result concatenate(T y)
+    interface Concatenate<T> {
+        public T concatenate(T y)
     }
 
-    interface Equals<T = Self> {
+    interface Equals<T> {
         public boolean equals(T other)
 
         /*
@@ -419,11 +453,13 @@ executables with no required runtimes.
 
         switch account1 {
 
-            Account(locked = true), Account(firstName = "unlucky") ->
+            Account(locked = true), Account(firstName = "unlucky") {
                 println("LOCKED!")
+            }
 
-            Account(expiry) if expiry < ZonedDateTime.now ->
+            Account(expiry) if expiry < ZonedDateTime.now {
                 println("ALSO LOCKED")
+            }
 
             default {
                 println("NOT LOCKED: ")
@@ -463,23 +499,19 @@ executables with no required runtimes.
         var age = 25
         var account2 = Account(.firstName, .lastName, ageInYears = age)
 
-        var f = fn { println(it.toString) }
+        var f = fn -> { println(it.toString) }
 
         f(account1)
         f(account2(firstName = "Emma"))
 
-        var g = fn {
+        var g = fn -> {
             println("returning a value")
             it
         }
 
         var z = g(account1)
 
-        // Lambdas passed as the last argument can be passed in braces outside of
-        // the calling parentheses. This is the exact same mechanism the `fn`
-        // function call uses to create lambdas; in fact, it's just an alias to the
-        // identity function `id`.
-        var n = twice(3) { it * 2 }
+        var n = twice(3) -> { it * 2 }
         println(`n == {n}`)
     }
 
@@ -547,7 +579,7 @@ executables with no required runtimes.
          */
 
         println("Entering scope")
-        do {
+        do -> {
             var closeable = using AutoCloseableDemo
             println("Using closeable")
         }
@@ -559,14 +591,13 @@ executables with no required runtimes.
     void demo() {
         // As mentioned above, all invocables can omit parentheses if they have
         // zero parameters. This is primarily for getters, but should also be used
-        // for Pascal-procedure-style invocations just for consistency; _all_
-        // zero-argument must not use parentheses. That includes constructors,
-        // methods, lambdas, and functions.
+        // for Pascal-procedure-style invocations just for consistency. That
+        // includes constructors, methods, lambdas, and functions.
 
         demoIteration
 
         printFactorial(42)
-        var x = twice(4, doubled)
+        var x = twice(4, ::doubled)
         println(`{x}`)
 
         demoContexts
@@ -593,15 +624,15 @@ executables with no required runtimes.
         println(s)
     }
 
-    var c = Task { counter.start(currentTask) }
-    5.times { c.send(counter.Message.Increment) }
+    var c = Task -> { counter.start(currentTask) }
+    5.times -> { c.send(counter.Message.Increment) }
 
     c.send(counter.Message.Get)
     c.send(counter.Message.Increment)
     c.send(counter.Message.Get)
 
     // Should print 5 and then 6.
-    2.times {
+    2.times -> {
         var n = select int
         println(`{n}`)
     }
@@ -620,7 +651,7 @@ executables with no required runtimes.
     Multiline interpolated strings: {n}
     ```)
 
-    var x = do {
+    var x = do -> {
         println("Returning 5 to be bound as x...")
         5
     }
@@ -634,7 +665,7 @@ executables with no required runtimes.
       */
     */
 
-    demo
+demo
 
 ## Overview
 
@@ -862,7 +893,7 @@ case of native compilation.
   the same way.
 * Methods, when passed around as values, are just seen as functions that have an
   instance bundled in their closure.
-* `Class::method` is a shorthand for `(o, ...args) -> o.method(...args)`, where
+* `Class::method` is a shorthand for `fn -> o, ...args { o.method(...args) }`, where
   the type of `o` is `Class`.
 * As methods and functions are both higher-order, invoked the same way, and have
   the same type when passed around, there is no real loss of composability from

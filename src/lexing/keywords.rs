@@ -20,6 +20,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("extend", Token::Extend),
         ("extends", Token::Extends),
         ("exports", Token::Exports),
+        ("do", Token::Do),
         ("for", Token::For),
         ("if", Token::If),
         ("it", Token::ReservedKeyword),
@@ -41,8 +42,8 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("timeout", Token::Timeout),
         ("using", Token::Using),
         ("var", Token::Var),
-        ("with", Token::With),
         ("where", Token::Where),
+        ("with", Token::With),
         ("while", Token::While),
         //
         // Reserved but not used.
@@ -98,6 +99,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("unllvm", Token::ReservedKeyword),
         ("yield", Token::ReservedKeyword),
         ("value", Token::ReservedKeyword),
+        ("with", Token::ReservedKeyword),
     ]);
     map
 }

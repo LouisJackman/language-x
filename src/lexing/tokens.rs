@@ -31,6 +31,7 @@ pub enum Token {
     Continue,
     Default,
     Divide,
+    Do,
     Dot,
     Else,
     Eof,

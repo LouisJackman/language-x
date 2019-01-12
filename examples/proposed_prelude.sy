@@ -72,7 +72,7 @@ public interface Number {
     }
 
     public List<N> to(N n) where N : Number {
-        list.generate(initial = 1) {
+        list.generate(initial = 1) -> {
             if n < it {
                 list.generation.Finish
             } else {
@@ -112,23 +112,6 @@ class decimal {
 
 extern Task currentTask()
 
-T do<T>(T block()) {
-    /**
-     * Run the provided `block` lambda. It works similarly to
-     * immediately-invoked functions or "do blocks" in some other languages.
-     *
-     * ```
-     * var x = do {
-     *     println("Hello, world!")
-     *     42
-     * }
-     * assert(x == 42)
-     * ```
-     */
-
-    block
-}
-
 class AssertionError implements Exception {
 
     public override String message() {
@@ -144,7 +127,7 @@ void assert(boolean predicate) {
      */
 
     if !predicate {
-        throw AssertionError()
+        throw AssertionError
     }
 }
 
@@ -159,4 +142,4 @@ T id<T>(T value) {
     value
 }
 
-alias fn = id
+alias fn = ::id
