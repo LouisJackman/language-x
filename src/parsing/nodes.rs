@@ -476,7 +476,7 @@ pub struct Continue {
 pub struct Throw(pub Box<Expression>);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PatternField {
+pub struct PatternGetter {
     pub identifier: Identifier,
     pub pattern: Pattern,
 }
@@ -484,7 +484,7 @@ pub struct PatternField {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CompositePattern {
     pub composite_type: Type,
-    pub fields: Vec<PatternField>,
+    pub getters: Vec<PatternGetter>,
     pub ignore_rest: bool,
 }
 

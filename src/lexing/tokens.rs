@@ -65,6 +65,9 @@ pub enum Token {
     Override,
     Package,
     Pipe,
+
+    // A dummy identifier that has different meanings in different contexts. In bindings it allows
+    // discarding values.
     PlaceholderIdentifier,
 
     /// Does nothing but let us reserve keywords for future use.
@@ -79,6 +82,7 @@ pub enum Token {
     Subtract,
     Super,
     Switch,
+    This,
     Throw,
     Timeout,
     Try,

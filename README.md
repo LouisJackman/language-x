@@ -206,7 +206,7 @@ executables with no required runtimes.
     }
 
     /*
-     * All variables (including functions), packages, classes, fields,
+     * All variables (including functions), packages, classes
      * and methods are private unless explicitly opened up with the `public`
      * keyword. If the developer wants to expose them openly but only to
      * its own module, they can use the `internal` keyword.
@@ -365,7 +365,7 @@ executables with no required runtimes.
          * the class itself and default methods in implementing interfaces both take
          * priority over embedded methods, although other embedded methods will
          * still call the embedder's method if calling it by name.
-
+         *
          * Embedded classes can implement methods for implementing interfaces on the
          * embedder's behalf, following the rules above.
          *
@@ -379,34 +379,39 @@ executables with no required runtimes.
          */
         embed Name name
 
-        int ageInYears
+        internal int ageInYears
 
-        ZonedDateTime _expiry = ZonedDateTime.now() + 1.year
+        ZonedDateTime expiry = ZonedDateTime.now() + 1.year
 
         public Account(String firstName, String lastName) {
             println("instantiating an Account...")
 
             /*
              * Constructors are the only place in Sylan where assignments are
-             * allowed outside the context of a binding.
+             * allowed outside the context of a binding. Each field must be set
+             * once, and exactly once.
+             *
+             * Note that this class elsewhere uses the auto-generated getters for
+             * these fields but assignments in constructor must set the underlying
+             * fields via `this` directly.
              */
-            name.firstName = firstName
-            name.lastName = lastName
-            ageInYears = 35
+            this.name.firstName = firstName
+            this.name.lastName = lastName
+            this.ageInYears = 35
         }
 
         public override String toString() {
             `{firstName} {lastName} is {ageInYears} years old`
         }
 
-        public override Account concatenate(Account a) {
-            var firstName = firstName.concat(a.firstName)
-            var lastName = lastName.concat(a.lastName)
+        public override Account concatenate(Account other) {
+            var firstName = firstName.concat(other.firstName)
+            var lastName = lastName.concat(other.lastName)
 
             Account(
                 .firstName,
                 .lastName,
-                ageInYears = ageInYears + a.ageInYears,
+                ageInYears = ageInYears + other.ageInYears,
             )
         }
 
@@ -414,8 +419,18 @@ executables with no required runtimes.
          * Methods without any arguments can be called without parentheses,
          * effectively making them readonly properties or getters with syntactical
          * sugar. An important difference between Java getters and Sylan "getters"
-         * is that Sylan's can shadow fields transparently, allowing fields to be
+         * is that Sylan's can replace fields transparently, allowing fields to be
          * "upgraded" to getters transparently without breaking API compatibility.
+         *
+         * Getters are automatically generated for fields with the same
+         * accessibility.
+         *
+         * Fields must always be accessed via `this`, but as even private fields
+         * autogenerate getter methods of the same accessibility, methods can use
+         * the getter in practice e.g. `name` rather than `this.name`.
+         *
+         * `this` is intended to only be used explicitly in explicit getter
+         * implementations or when assigning in constructors.
          */
 
         public String name() {
@@ -665,7 +680,7 @@ executables with no required runtimes.
       */
     */
 
-demo
+    demo
 
 ## Overview
 
@@ -839,6 +854,12 @@ case of native compilation.
   until Sylan designs how they should interoperate if at all. This will depend
   on how compile-time metaprogramming is implemented and whether Sylan decides
   to implement any form of dependent typing.
+* Fields are always accessed via the `this` keyword, as fields don't belong to
+  the class but instead via a special scope only their own methods can access.
+  Classes ultimately can only expose methods and nothing else. As field
+  declarations always autogenerate getters of the same accessibility, methods
+  can access even private fields without using `this.` as it can use the getter
+  instead, i.e. `name` rather than `this.name`.
 
 ### Type Hierarchies
 
@@ -869,7 +890,6 @@ case of native compilation.
 
 * The `embed` keyword allows classes to embed other classes. This just takes all
   methods of a class and hoists them to the top level of the class itself.
-  Fields must still be accessed via the field itself, however.
 * If multiple embeds embed a method of the same signature, the
   earliest one takes priority. This is to follow the first-takes-priority system
   characteristics of MRO in inheritance, and to avoid backwards-compatibility
@@ -927,7 +947,7 @@ case of native compilation.
 ### Pattern Matching
 
 * Literals are matched as is.
-* Composite types are matched as `Type(field1, field2 = match2, getterName)`.
+* Composite types are matched as `Type(getter1, getter2 = match2, getter3
 * "Getters" (i.e. nullary methods) can be used, which are autogenerated for
   all "public" fields automatically.
 * An identifier by itself is a shorthand for `identifier = identifier`.

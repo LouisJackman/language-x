@@ -58,7 +58,7 @@ use parsing::nodes::Expression::{self, UnaryOperator};
 use parsing::nodes::{
     Accessibility, Binding, Case, Code, CompositePattern, ContextualBinding, DeclarationItem,
     FilePackage, For, If, Import, Lambda, LambdaSignature, MainPackage, Package, Pattern,
-    PatternField, PatternItem, Scope, Select, Switch, Throw, Timeout, TypeDeclaration,
+    PatternGetter, PatternItem, Scope, Select, Switch, Throw, Timeout, TypeDeclaration,
     ValueParameter,
 };
 
@@ -312,7 +312,7 @@ impl Parser {
         unimplemented!()
     }
 
-    fn parse_composite_pattern_field(&mut self, next: &Token) -> Result<Option<PatternField>> {
+    fn parse_composite_pattern_getter(&mut self, next: &Token) -> Result<Option<PatternGetter>> {
         let next_token_is_assign = self.nth_is(1, &Token::Assign);
 
         match &next {
@@ -328,7 +328,7 @@ impl Parser {
                     item: PatternItem::Identifier(identifier.clone()),
                     bound_match: None,
                 };
-                Ok(Some(PatternField {
+                Ok(Some(PatternGetter {
                     identifier: identifier.clone(),
                     pattern,
                 }))
@@ -338,7 +338,7 @@ impl Parser {
                 let identifier = self.parse_identifier()?;
                 self.expect_and_discard(Token::Assign)?;
                 let pattern = self.parse_pattern()?;
-                Ok(Some(PatternField {
+                Ok(Some(PatternGetter {
                     identifier,
                     pattern,
                 }))
@@ -357,7 +357,7 @@ impl Parser {
             let composite_type = self.parse_type_name()?;
             self.expect_and_discard(Token::OpenParentheses)?;
 
-            let mut fields = vec![];
+            let mut getters = vec![];
             let mut ignore_rest = false;
             loop {
                 let next = self
@@ -368,8 +368,8 @@ impl Parser {
 
                 if next == Token::CloseParentheses {
                     break;
-                } else if let Some(field) = self.parse_composite_pattern_field(&next)? {
-                    fields.push(field);
+                } else if let Some(getter) = self.parse_composite_pattern_getter(&next)? {
+                    getters.push(getter);
                 } else {
                     ignore_rest = true;
                 }
@@ -381,7 +381,7 @@ impl Parser {
 
             let composite = CompositePattern {
                 composite_type,
-                fields,
+                getters,
                 ignore_rest,
             };
             Ok(composite)

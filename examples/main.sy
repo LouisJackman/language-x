@@ -142,7 +142,7 @@ void demoIteration() {
 }
 
 /*
- * All variables (including functions), packages, classes, fields,
+ * All variables (including functions), packages, classes
  * and methods are private unless explicitly opened up with the `public`
  * keyword. If the developer wants to expose them openly but only to
  * its own module, they can use the `internal` keyword.
@@ -301,7 +301,7 @@ class Account implements ToString, Concatenate<Account> {
      * the class itself and default methods in implementing interfaces both take
      * priority over embedded methods, although other embedded methods will
      * still call the embedder's method if calling it by name.
-
+     *
      * Embedded classes can implement methods for implementing interfaces on the
      * embedder's behalf, following the rules above.
      *
@@ -315,34 +315,39 @@ class Account implements ToString, Concatenate<Account> {
      */
     embed Name name
 
-    int ageInYears
+    internal int ageInYears
 
-    ZonedDateTime _expiry = ZonedDateTime.now() + 1.year
+    ZonedDateTime expiry = ZonedDateTime.now() + 1.year
 
     public Account(String firstName, String lastName) {
         println("instantiating an Account...")
 
         /*
          * Constructors are the only place in Sylan where assignments are
-         * allowed outside the context of a binding.
+         * allowed outside the context of a binding. Each field must be set
+         * once, and exactly once.
+         *
+         * Note that this class elsewhere uses the auto-generated getters for
+         * these fields but assignments in constructor must set the underlying
+         * fields via `this` directly.
          */
-        name.firstName = firstName
-        name.lastName = lastName
-        ageInYears = 35
+        this.name.firstName = firstName
+        this.name.lastName = lastName
+        this.ageInYears = 35
     }
 
     public override String toString() {
         `{firstName} {lastName} is {ageInYears} years old`
     }
 
-    public override Account concatenate(Account a) {
-        var firstName = firstName.concat(a.firstName)
-        var lastName = lastName.concat(a.lastName)
+    public override Account concatenate(Account other) {
+        var firstName = firstName.concat(other.firstName)
+        var lastName = lastName.concat(other.lastName)
 
         Account(
             .firstName,
             .lastName,
-            ageInYears = ageInYears + a.ageInYears,
+            ageInYears = ageInYears + other.ageInYears,
         )
     }
 
@@ -350,8 +355,18 @@ class Account implements ToString, Concatenate<Account> {
      * Methods without any arguments can be called without parentheses,
      * effectively making them readonly properties or getters with syntactical
      * sugar. An important difference between Java getters and Sylan "getters"
-     * is that Sylan's can shadow fields transparently, allowing fields to be
+     * is that Sylan's can replace fields transparently, allowing fields to be
      * "upgraded" to getters transparently without breaking API compatibility.
+     *
+     * Getters are automatically generated for fields with the same
+     * accessibility.
+     *
+     * Fields must always be accessed via `this`, but as even private fields
+     * autogenerate getter methods of the same accessibility, methods can use
+     * the getter in practice e.g. `name` rather than `this.name`.
+     *
+     * `this` is intended to only be used explicitly in explicit getter
+     * implementations or when assigning in constructors.
      */
 
     public String name() {
