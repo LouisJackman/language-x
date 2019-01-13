@@ -29,6 +29,11 @@
 //! strict, non-pure language, can just execute sequentially at runtime without
 //! needing monads or uniqueness types to enforce the order.
 //!
+//! There are three keywords that work effectively like predefined identifiers:
+//! `it`, `continue`, and `_`. They are also the only keywords that are allowed
+//! to be shadowed; user-defined symbols will fail to bind if a binding of the
+//! same name already exists in the same or outer scope.
+//!
 //! A simplification step is performed before giving the AST to the backend as
 //! a jump is needed from Sylan's pragmatic, large syntax to the much smaller,
 //! more "pure" form that defines the core Sylan execution semantics. See the
@@ -81,11 +86,6 @@ pub enum Error {
 }
 
 type Result<T> = result::Result<T, Error>;
-
-fn is_ignored_binding(identifier: Identifier) -> bool {
-    let Identifier(string) = identifier;
-    (*string) == "_"
-}
 
 pub struct Parser {
     tokens: Tokens,
@@ -400,14 +400,10 @@ impl Parser {
         let item = self
             .parse_literal(token.clone())
             .map(|lexed_token| Ok(PatternItem::Literal(lexed_token)))
-            .unwrap_or_else(|| {
-                if let Token::Identifier(identifier) = token {
-                    Ok(if is_ignored_binding(identifier.clone()) {
-                        PatternItem::Ignored
-                    } else {
-                        PatternItem::Identifier(identifier)
-                    })
-                } else {
+            .unwrap_or_else(|| match token {
+                Token::Identifier(identifier) => Ok(PatternItem::Identifier(identifier)),
+                Token::PlaceholderIdentifier => Ok(PatternItem::Ignored),
+                _ => {
                     let composite = self.parse_composite_pattern()?;
                     Ok(PatternItem::Composite(composite))
                 }

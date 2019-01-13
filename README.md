@@ -816,6 +816,30 @@ case of native compilation.
   compatibility with the existing public field. Setters do not exist due to
   Sylan being a immutable language.
 
+### Bindings
+
+* Types, variables, functions are all in the same namespace. Although types and
+  values exist in two different phases, compile-time and runtime respectively,
+  Sylan still won't allow identifiers between the two to clash.
+* Types should start with capital letters, and values with lowercase letters.
+  This is just a convention though, one which Sylan's prelude package breaks
+  frequently to make the language look more Java-like, e.g. `boolean` rather
+  than `Boolean`.
+* Methods are namespaced to their types, although just deeper in the namespacing
+  hierarchy rather than in a completely different standalone global namespace.
+* Shadowing is not allowed except for keyword identifiers.
+* There are three keyword identifiers: `_`, `continue`, and `it`. `continue` and
+  `it` are _almost_ dynamically scoped, changing implicitly throughout scopes
+  based on the context. `continue` binds to the innermost non-labelled `for`
+  iteration function, `it` is the innermost syntactically-zero-parameter
+  lambda's sole parameter, and `_` is an ignored value in a binding and a
+  partial-application notation for the innermost invocation.
+* Types and variables can both be thought of as "bindings", just one at
+  compile-time and another at runtime. Never the twain shall meet, at least
+  until Sylan designs how they should interoperate if at all. This will depend
+  on how compile-time metaprogramming is implemented and whether Sylan decides
+  to implement any form of dependent typing.
+
 ### Type Hierarchies
 
 * Final classes and trait-like interfaces. No concrete inheritance or abstract
