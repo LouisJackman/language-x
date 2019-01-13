@@ -51,10 +51,10 @@ use lexing::tokens::Token;
 use lexing::Tokens;
 use parsing::nodes::Expression::{self, UnaryOperator};
 use parsing::nodes::{
-    Accessibility, Binding, Case, Code, CompositePattern, ContextualBinding, ContextualCode,
-    ContextualScope, DeclarationItem, FilePackage, For, If, Import, Lambda, LambdaSignature,
-    MainPackage, Package, Pattern, PatternField, PatternItem, Scope, Select, Switch, Throw,
-    Timeout, TypeDeclaration, ValueParameter,
+    Accessibility, Binding, Case, Code, CompositePattern, ContextualBinding, DeclarationItem,
+    FilePackage, For, If, Import, Lambda, LambdaSignature, MainPackage, Package, Pattern,
+    PatternField, PatternItem, Scope, Select, Switch, Throw, Timeout, TypeDeclaration,
+    ValueParameter,
 };
 
 mod nodes;
@@ -226,7 +226,7 @@ impl Parser {
         unimplemented!()
     }
 
-    fn parse_with(&mut self) -> Result<nodes::ContextualScope> {
+    fn parse_with(&mut self) -> Result<nodes::Scope> {
         let mut bindings = HashSet::new();
         let mut contextual_bindings = HashSet::new();
         let mut expressions = vec![];
@@ -251,10 +251,9 @@ impl Parser {
             }
         }
 
-        Ok(ContextualScope {
-            code: ContextualCode {
+        Ok(Scope {
+            code: Code {
                 bindings,
-                contextual_bindings,
                 expressions,
             },
             parent: Some(Scope::within(&self.current_scope)),
@@ -694,7 +693,7 @@ impl Parser {
                         // Non-atomic tokens each delegate to a dedicated method.
                         Token::Identifier(identifier) => self.parse_leading_identifier(identifier),
                         Token::BitwiseNot => self.parse_bitwise_not(),
-                        Token::With => self.parse_with().map(nodes::Expression::ContextualScope),
+                        Token::With => self.parse_with().map(nodes::Expression::Scope),
                         Token::For => self.parse_for(None),
                         Token::If => self.parse_if().map(nodes::Expression::If),
                         Token::OpenBrace => {

@@ -30,6 +30,7 @@ pub enum Item {
     Function(Function),
     Method(Method),
     Binding(Binding),
+    ContextualBinding(ContextualBinding),
     SyDoc(SyDoc),
 }
 
@@ -37,7 +38,6 @@ pub enum Item {
 /// Sylan to do actual useful work.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Expression {
-    ContextualScope(ContextualScope),
     Scope(Scope),
     Lambda(Lambda),
     Identifier(Identifier),
@@ -302,13 +302,6 @@ impl Code {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ContextualCode {
-    pub bindings: HashSet<Binding>,
-    pub contextual_bindings: HashSet<ContextualBinding>,
-    pub expressions: Expressions,
-}
-
 /// Scopes, unlike non-main packages, can contain executable code. Unlike all
 /// packages, they can refer to parent scopes. They can declare variables with
 /// bindings but cannot declare new types or subpackages like packages can.
@@ -331,24 +324,6 @@ impl Scope {
         let code = Code::new();
         let parent = Some(parent.clone());
         Rc::new(Self { code, parent })
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ContextualScope {
-    pub code: ContextualCode,
-    pub parent: Option<Rc<Scope>>,
-}
-
-impl ContextualScope {
-    pub fn new_root() -> Self {
-        let code = ContextualCode {
-            bindings: HashSet::new(),
-            contextual_bindings: HashSet::new(),
-            expressions: vec![],
-        };
-        let parent = None;
-        Self { code, parent }
     }
 }
 
