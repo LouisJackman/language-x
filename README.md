@@ -81,9 +81,9 @@ executables with no required runtimes.
 
     void fizzBuzz(int n) {
 
-        // Sylan supports blocks, syntax for passing a lambda as a final argument to
-        // an invocable. Note the use of `it` as a shorthand for one-argument
-        // blocks.
+        // Sylan supports passing a lambdas as final arguments to an invocable
+        // outside the invocation parentheses. Note the use of `it` as a
+        // shorthand for one-argument blocks.
         1.upTo(n).forEach -> {
             println(
                 switch {
@@ -104,10 +104,7 @@ executables with no required runtimes.
          * to Python, they go inside the item they describe rather than before it.
          */
 
-        // Lambdas are created by passing a block to the `fn` function. This usually
-        // isn't necessary, as most lambdas can be passed using the block syntax
-        // instead.
-        var highlight = fn -> s { `>> {s} <<` }
+        var highlight = -> s { `>> {s} <<` }
 
         // The # operator composes invocables together.
         1.upTo(5)
@@ -130,7 +127,7 @@ executables with no required runtimes.
             println(`{n}`)
         }
 
-        var quadruple = fn -> { it.doubled.doubled }
+        var quadruple = -> { it.doubled.doubled }
 
         123456789
             |> ::quadruple
@@ -285,6 +282,8 @@ executables with no required runtimes.
             var b <- Empty
 
             println("Will not be run.")
+
+            Empty
         }
     }
 
@@ -514,12 +513,12 @@ executables with no required runtimes.
         var age = 25
         var account2 = Account(.firstName, .lastName, ageInYears = age)
 
-        var f = fn -> { println(it.toString) }
+        var f = -> { println(it.toString) }
 
         f(account1)
         f(account2(firstName = "Emma"))
 
-        var g = fn -> {
+        var g = -> {
             println("returning a value")
             it
         }
@@ -796,16 +795,16 @@ case of native compilation.
   contains expressions.
 * Expressions cannot contain items, with one exception: let bindings within
   lambdas expressions.
-* Grouped expressions with parentheses are not allowed at the top-level of an
-  expression, only as subexpressions within larger expressions. This allows
-  Sylan to parse separate expressions unambiguously without error prone
-  constructs like JavaScript's automatic semicolon insertion. This fixes the
-  problem of a grouped expression being ambiguously either an invocation of an
-  invocable on the previous line or a new grouped expression.
-* Unary operators are the only whitespace sensitive token in Sylan, being
-  interpreted as binary with trailing whitespace and unary otherwise. This was
-  inspired by the approach taken by Ruby to solve the same problem, a language
-  that doesn't have problems with ambiguous statement termination in practice.
+* Grouped expressions with parentheses and lambda literals are not allowed at
+  the top-level of an expression, only as subexpressions within larger
+  expressions. This allows Sylan to parse separate expressions unambiguously
+  without error prone constructs like JavaScript's automatic semicolon
+  insertion. This fixes the problem of a grouped expression being ambiguously
+  either an invocation of an invocable on the previous line or a new grouped
+  expression.
+* Both unary and infix operators are supported, but one operator cannot be both.
+  This is to avoid parsing ambiguities and to avoid disambiguating with
+  whitespace.
 
 ### Types
 

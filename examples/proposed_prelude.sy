@@ -146,5 +146,3 @@ public void println(String message) {
 public T id<T>(T value) {
     value
 }
-
-public alias fn = ::id
