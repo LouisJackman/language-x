@@ -70,7 +70,7 @@ pub enum Token {
     // discarding values.
     PlaceholderIdentifier,
 
-    /// Does nothing but let us reserve keywords for future use.
+    /// Does nothing but reserves keywords for future use.
     ReservedKeyword,
 
     Reject,

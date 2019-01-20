@@ -56,10 +56,10 @@ use lexing::tokens::Token;
 use lexing::Tokens;
 use parsing::nodes::Expression::{self, UnaryOperator};
 use parsing::nodes::{
-    Accessibility, Binding, Case, Code, CompositePattern, ContextualBinding, DeclarationItem,
-    FilePackage, For, If, Import, Lambda, LambdaSignature, MainPackage, Package, Pattern,
-    PatternGetter, PatternItem, Scope, Select, Switch, Throw, Timeout, TypeDeclaration,
-    ValueParameter,
+    Accessibility, Binding, Case, CaseMatch, Code, CompositePattern, ContextualBinding,
+    DeclarationItem, FilePackage, For, If, Import, Lambda, LambdaSignature, Literal, MainPackage,
+    Package, Pattern, PatternGetter, PatternItem, Scope, Select, Switch, Throw, Timeout,
+    TypeDeclaration, ValueParameter,
 };
 
 mod nodes;
@@ -474,7 +474,10 @@ impl Parser {
         self.expect_and_discard(Token::Assign)?;
         let value = self.parse_expression()?;
 
-        Ok(Binding { pattern, value })
+        Ok(Binding {
+            pattern,
+            value: Box::new(value),
+        })
     }
 
     fn parse_contextual_binding(&mut self) -> Result<nodes::ContextualBinding> {
@@ -500,6 +503,7 @@ impl Parser {
 
     fn parse_select(&mut self) -> Result<nodes::Select> {
         self.tokens.discard();
+        let messageType = self.parse_type_name()?;
         self.expect_and_discard(Token::OpenBrace)?;
         let mut cases = vec![];
         let mut timeout = None;
@@ -509,20 +513,14 @@ impl Parser {
             if self.next_is(&Token::Timeout) {
                 if timeout.is_none() {
                     let nanoseconds = Box::new(self.parse_expression()?);
-                    let body = Box::new(if self.next_is(&Token::LambdaArrow) {
-                        self.tokens.discard();
-                        self.parse_expression()?
-                    } else {
-                        self.expect(Token::OpenBrace)?;
-                        Expression::Scope(self.parse_scope()?)
-                    });
+                    let body = self.parse_scope()?;
                     timeout = Some(Timeout { nanoseconds, body });
                 } else {
                     self.unexpected(Token::Timeout)?;
                 }
             } else {
                 let body = loop {
-                    let pattern_match = if self.next_is(&Token::Default) {
+                    let pattern = if self.next_is(&Token::Default) {
                         Pattern {
                             item: PatternItem::Ignored,
                             bound_match: None,
@@ -530,12 +528,16 @@ impl Parser {
                     } else {
                         self.parse_pattern()?
                     };
-                    matches.push_back(pattern_match);
-                    if self.next_is(&Token::LambdaArrow) {
-                        self.tokens.discard();
-                        break self.parse_expression()?;
-                    } else if self.next_is(&Token::OpenBrace) {
-                        break Expression::Scope(self.parse_scope()?);
+
+                    matches.push_back(CaseMatch {
+                        pattern,
+
+                        // TODO: parse case guards.
+                        guard: None,
+                    });
+
+                    if self.next_is(&Token::OpenBrace) {
+                        break self.parse_scope()?;
                     } else {
                         self.expect_and_discard(Token::SubItemSeparator)?;
                     }
@@ -545,7 +547,11 @@ impl Parser {
 
             if self.next_is(&Token::CloseBrace) {
                 self.tokens.discard();
-                break Ok(Select { cases, timeout });
+                break Ok(Select {
+                    messageType,
+                    cases,
+                    timeout,
+                });
             }
         }
     }
@@ -559,7 +565,7 @@ impl Parser {
         loop {
             let mut matches = LinkedList::new();
             let body = loop {
-                let pattern_match = if self.next_is(&Token::Default) {
+                let pattern = if self.next_is(&Token::Default) {
                     Pattern {
                         item: PatternItem::Ignored,
                         bound_match: None,
@@ -567,12 +573,16 @@ impl Parser {
                 } else {
                     self.parse_pattern()?
                 };
-                matches.push_back(pattern_match);
-                if self.next_is(&Token::LambdaArrow) {
-                    self.tokens.discard();
-                    break self.parse_expression()?;
-                } else if self.next_is(&Token::OpenBrace) {
-                    break Expression::Scope(self.parse_scope()?);
+
+                matches.push_back(CaseMatch {
+                    pattern,
+
+                    // TODO: parse the guard.
+                    guard: None,
+                });
+
+                if self.next_is(&Token::OpenBrace) {
+                    break self.parse_scope()?;
                 } else {
                     self.expect_and_discard(Token::SubItemSeparator)?;
                 }
@@ -640,9 +650,9 @@ impl Parser {
                     .map(result::Result::unwrap)
                     .collect::<Vec<Pattern>>();
 
-                Ok(nodes::Expression::Lambda(
+                Ok(nodes::Expression::Literal(Literal::Lambda(
                     self.parse_lambda(successfully_converted)?,
-                ))
+                )))
             }
         } else if expressions.len() == 1 {
             Ok(expressions[0].clone())
@@ -689,12 +699,12 @@ impl Parser {
                         // Non-atomic tokens each delegate to a dedicated method.
                         Token::Identifier(identifier) => self.parse_leading_identifier(identifier),
                         Token::BitwiseNot => self.parse_bitwise_not(),
-                        Token::With => self.parse_with().map(nodes::Expression::Scope),
+                        Token::With => self.parse_with().map(nodes::Expression::With),
                         Token::For => self.parse_for(None),
                         Token::If => self.parse_if().map(nodes::Expression::If),
-                        Token::OpenBrace => {
-                            self.parse_lambda(vec![]).map(nodes::Expression::Lambda)
-                        }
+                        Token::OpenBrace => self
+                            .parse_lambda(vec![])
+                            .map(|lambda| nodes::Expression::Literal(Literal::Lambda(lambda))),
                         Token::InvocableHandle => self.parse_invocable_handle(),
                         Token::Not => self.parse_not(),
                         Token::OpenParentheses => self.parse_open_parentheses(),

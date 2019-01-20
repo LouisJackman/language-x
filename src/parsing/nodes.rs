@@ -1,8 +1,7 @@
 //! Sylan consists of items and expressions. Items are declarative whereas
 //! expressions are executed and yield values. Such values can be the void value
-//! for expressions executed solely for side-effects. Non-declaration statements
-//! don't exist but can be approximated by stacking expressions one after the
-//! other and discarding their values.
+//! for expressions executed solely for side-effects. "Statements" can be approximated by stacking
+//! expressions one after the other and discarding their values.
 
 use std::collections::{HashSet, LinkedList};
 use std::hash::{Hash, Hasher};
@@ -22,37 +21,50 @@ pub struct File {
     pub package: FilePackage,
 }
 
-/// The declarations that make up the structure of a Sylan program.
+/// The declarations that make up the static structure of a Sylan program. Items
+/// can't be contained within expressions, with the exception of bindings.
 pub enum Item {
     Package(Package),
     Class(Class),
     Interface(Interface),
     Function(Function),
     Method(Method),
+    SyDoc(SyDoc),
+    ContextualIgnoral(ContextualIgnoral),
+    Alias(Alias),
+
+    // Unlike the previous variants, these can be arbitrarily nested within
+    // expressions. This is to allow corecursion among other features.
+    //
+    // For loops also create bindings, but are not items because I can't
+    // think of a use case for mutually recursive loop continuation bindings.
     Binding(Binding),
     ContextualBinding(ContextualBinding),
-    SyDoc(SyDoc),
 }
 
 /// The expressions that allow Turing-complete computations, i.e. allowing
 /// Sylan to do actual useful work.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Expression {
-    Scope(Scope),
-    Lambda(Lambda),
     Identifier(Identifier),
     Literal(Literal),
     UnaryOperator(UnaryOperator, Box<Expression>),
     BinaryOperator(BinaryOperator, Box<Expression>, Box<Expression>),
     Switch(Switch),
     Select(Select),
-    DoContext(Box<Expression>, Scope),
+    Context(Box<Expression>, Scope),
+    Using(Using),
     If(If),
+    IfLet(IfLet),
+    Cond(Cond),
     For(For),
     Continue(Continue),
     Call(Call),
     PackageLookup(PackageLookup),
     Throw(Throw),
+    With(Scope),
+    While(Throw),
+    WhileLet(WhileLet),
 }
 
 /// Every node in Sylan is either an item or an expression, even the special
@@ -162,19 +174,27 @@ pub enum TypeDeclaration {
 }
 
 pub struct ConcreteMethod {
-    pub method_type: Type,
     pub function: Function,
-    pub overrides: bool,
 }
 
 pub struct AbstractMethod {
-    pub method_type: Type,
     pub signature: FunctionSignature,
 }
 
 pub enum MethodItem {
     Concrete(ConcreteMethod),
     Abstract(AbstractMethod),
+}
+
+pub struct DeclarationModifiers {
+    accessibility: Accessibility,
+}
+
+pub struct MethodModifiers {
+    declaration: DeclarationModifiers,
+    is_virtual: bool,
+    overrides: bool,
+    default: bool,
 }
 
 /// Methods, which can be potentially abstract (i.e. with undefined bodies) in
@@ -186,6 +206,7 @@ pub enum MethodItem {
 /// to their type and instance are bound to the method itself.
 pub struct Method {
     pub name: Identifier,
+    pub modifiers: MethodModifiers,
     pub item: MethodItem,
 }
 
@@ -240,7 +261,7 @@ type TypeArguments = Argument<Type>;
 #[derive(Clone, Debug, Eq)]
 pub struct Binding {
     pub pattern: Pattern,
-    pub value: Expression,
+    pub value: Box<Expression>,
 }
 
 impl PartialEq for Binding {
@@ -258,6 +279,14 @@ impl Hash for Binding {
 #[derive(Clone, Debug, Eq)]
 pub struct ContextualBinding {
     pub name: Identifier,
+    pub value: Expression,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Alias(Identifier);
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ContextualIgnoral {
     pub value: Expression,
 }
 
@@ -363,17 +392,10 @@ pub struct Lambda {
 pub enum Literal {
     Boolean(bool),
     Char(char),
-
-    /// Reentering the lexer is needed for interpolations in interpolated
-    /// strings.
-    ///
-    /// TODO: this could lead to impenetrable Sylan code and significant lexer
-    /// complications. Let's just allow interpolating symbols, nothing else,
-    /// and call it a day.
     InterpolatedString(InterpolatedString),
-
     Number(i64, u64),
     String(SylanString),
+    Lambda(Lambda),
 }
 
 pub type PackageLookup = Vec<Identifier>;
@@ -385,9 +407,7 @@ pub enum UnaryOperator {
     BitwiseNot,
     BitwiseXor,
     MethodHandle,
-    Negate,
     Not,
-    Positive,
 }
 
 /// Sylan allows overridding existing operators but not defining new ones,
@@ -426,20 +446,30 @@ pub struct Switch {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Timeout {
     pub nanoseconds: Box<Expression>,
-    pub body: Box<Expression>,
+    pub body: Scope,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Select {
+    pub messageType: Type,
     pub cases: Vec<Case>,
     pub timeout: Option<Timeout>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum FunctionArgument {
+    Normal(Argument<Expression>),
+    Entry(Box<Expression>, Box<Expression>),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Call {
     pub target: Box<Expression>,
-    pub arguments: Vec<Argument<Expression>>,
+    pub arguments: Vec<FunctionArgument>,
 }
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Using(Box<Expression>);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct If {
@@ -449,14 +479,50 @@ pub struct If {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct IfLet {
+    pub binding: Binding,
+    pub then: Scope,
+    pub else_clause: Option<Scope>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CondCase {
+    pub condition: Box<Expression>,
+    pub then: Scope,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Cond(pub LinkedList<CondCase>);
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CaseMatch {
+    pub pattern: Pattern,
+    pub guard: Option<Expression>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Case {
-    pub matches: LinkedList<Pattern>,
-    pub body: Expression,
+    pub matches: LinkedList<CaseMatch>,
+    pub body: Scope,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct For {
     pub bindings: Vec<Binding>,
+    pub scope: Scope,
+    pub label: Option<Identifier>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct While {
+    pub condition: Box<Expression>,
+    pub scope: Scope,
+    pub label: Option<Identifier>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WhileLet {
+    pub binding: Binding,
     pub scope: Scope,
     pub label: Option<Identifier>,
 }
