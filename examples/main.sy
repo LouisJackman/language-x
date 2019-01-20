@@ -47,14 +47,14 @@ void demoIteration() {
 
     // The # operator composes invocables together.
     1.upTo(5)
-        .map(Number::doubled # ToString::toString # ::highlight)
+        .map(::Number.doubled # ::ToString.toString # ::highlight)
         .forEach(::println)
 
     // Sylan supports field-looking getters and transparently upgrading an
     // expression to a lazy computation, both of which mandate no parentheses
     // for no-argument invocables. Use the :: operator without a prefix to pick
-    // up these invocables as first-class values. Use it with a type prefix to
-    // refer to a method of a type.
+    // up these invocables as first-class values. Combine it with the dot
+    // operator to refer to a method of a type.
 
     List(1, 2, 3).forEach -> n {
 
@@ -70,7 +70,7 @@ void demoIteration() {
 
     123456789
         |> ::quadruple
-        |> Object::toString
+        |> ::Object.toString
         |> ::highlight
         |> ::println
 
@@ -86,13 +86,15 @@ void demoIteration() {
     do -> {
         var counterService = using Task -> {
             for n = 0 {
-                var sender = select Task
+                var sender = select Task {
+                    default { it }
+                }
                 if n < 5 {
                     sender.send(Some(n))
-                    continue n + 1
+                    continue(n + 1)
                 } else {
                     sender.send(Empty)
-                    continue n
+                    continue(n)
                 }
             }
         }
@@ -100,7 +102,7 @@ void demoIteration() {
         5.times -> {
             counterService.send(currentTask)
         }
-        while var Some(n) = select int {
+        while var Some(n) = select int { default { it } } {
             println(`{n}`)
         }
     }
@@ -203,6 +205,18 @@ String doubled<N>(N n) where
     (n + n).toString()
 }
 
+void printNumber(Number n) {
+    /**
+     * Sylan uses concrete implementations of interfaces by default when they're
+     * used as typed directly. To get dynamic dispatch, use the virtual keyword
+     * like so:
+     *
+     *     void printNumber(virtual Number n) {
+     */
+
+    println(`{n}`)
+}
+
 Optional<int> demoContexts() {
 
     /*
@@ -235,7 +249,7 @@ package counter {
     }
 
     public void start(Task sender, int n = 0) {
-        switch select Message {
+        select Message {
             .Increment {
                 start(sender, n + 1)
             }
@@ -432,9 +446,9 @@ void demoPatternMatching() {
  * versioning where new major module versions are effectively different modules.
  */
 alias counter2 = counter
-alias Person = ::Account
+alias Person = Account
 alias Showable = ToString
-alias factorial2 = ::factorial
+alias factorial2 = factorial
 
 int maxBound = 5
 
@@ -586,7 +600,9 @@ c.send(counter.Message.Get)
 
 // Should print 5 and then 6.
 2.times -> {
-    var n = select int
+    var n = select int {
+        default { it }
+    }
     println(`{n}`)
 }
 

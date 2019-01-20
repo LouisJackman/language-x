@@ -81,9 +81,9 @@ executables with no required runtimes.
 
     void fizzBuzz(int n) {
 
-        // Sylan supports passing a lambdas as final arguments to an invocable
-        // outside the invocation parentheses. Note the use of `it` as a
-        // shorthand for one-argument blocks.
+        // Sylan supports blocks, syntax for passing a lambda as a final argument to
+        // an invocable. Note the use of `it` as a shorthand for one-argument
+        // blocks.
         1.upTo(n).forEach -> {
             println(
                 switch {
@@ -104,18 +104,21 @@ executables with no required runtimes.
          * to Python, they go inside the item they describe rather than before it.
          */
 
+        // Lambdas are created by passing a block to the `fn` function. This usually
+        // isn't necessary, as most lambdas can be passed using the block syntax
+        // instead.
         var highlight = -> s { `>> {s} <<` }
 
         // The # operator composes invocables together.
         1.upTo(5)
-            .map(Number::doubled # ToString::toString # ::highlight)
+            .map(::Number.doubled # ::ToString.toString # ::highlight)
             .forEach(::println)
 
         // Sylan supports field-looking getters and transparently upgrading an
         // expression to a lazy computation, both of which mandate no parentheses
         // for no-argument invocables. Use the :: operator without a prefix to pick
-        // up these invocables as first-class values. Use it with a type prefix to
-        // refer to a method of a type.
+        // up these invocables as first-class values. Combine it with the dot
+        // operator to refer to a method of a type.
 
         List(1, 2, 3).forEach -> n {
 
@@ -131,7 +134,7 @@ executables with no required runtimes.
 
         123456789
             |> ::quadruple
-            |> Object::toString
+            |> ::Object.toString
             |> ::highlight
             |> ::println
 
@@ -147,13 +150,15 @@ executables with no required runtimes.
         do -> {
             var counterService = using Task -> {
                 for n = 0 {
-                    var sender = select Task
+                    var sender = select Task {
+                        default { it }
+                    }
                     if n < 5 {
                         sender.send(Some(n))
-                        continue n + 1
+                        continue(n + 1)
                     } else {
                         sender.send(Empty)
-                        continue n
+                        continue(n)
                     }
                 }
             }
@@ -161,7 +166,7 @@ executables with no required runtimes.
             5.times -> {
                 counterService.send(currentTask)
             }
-            while var Some(n) = select int {
+            while var Some(n) = select int { default { it } } {
                 println(`{n}`)
             }
         }
@@ -264,6 +269,18 @@ executables with no required runtimes.
         (n + n).toString()
     }
 
+    void printNumber(Number n) {
+        /**
+         * Sylan uses concrete implementations of interfaces by default when they're
+         * used as typed directly. To get dynamic dispatch, use the virtual keyword
+         * like so:
+         *
+         *     void printNumber(virtual Number n) {
+         */
+
+        println(`{n}`)
+    }
+
     Optional<int> demoContexts() {
 
         /*
@@ -296,7 +313,7 @@ executables with no required runtimes.
         }
 
         public void start(Task sender, int n = 0) {
-            switch select Message {
+            select Message {
                 .Increment {
                     start(sender, n + 1)
                 }
@@ -493,9 +510,9 @@ executables with no required runtimes.
      * versioning where new major module versions are effectively different modules.
      */
     alias counter2 = counter
-    alias Person = ::Account
+    alias Person = Account
     alias Showable = ToString
-    alias factorial2 = ::factorial
+    alias factorial2 = factorial
 
     int maxBound = 5
 
@@ -647,7 +664,9 @@ executables with no required runtimes.
 
     // Should print 5 and then 6.
     2.times -> {
-        var n = select int
+        var n = select int {
+            default { it }
+        }
         println(`{n}`)
     }
 
