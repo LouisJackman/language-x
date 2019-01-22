@@ -52,15 +52,15 @@ use common::multiphase::{self, Identifier};
 use common::peekable_buffer::PeekableBuffer;
 use common::version::Version;
 use lexing::lexer::{self, LexedToken};
-use lexing::Tokens;
 use lexing::tokens::Token;
+use lexing::Tokens;
+use parsing::nodes::Expression::{self, UnaryOperator};
 use parsing::nodes::{
     Accessibility, Binding, Case, CaseMatch, Code, CompositePattern, ContextualBinding,
     DeclarationItem, FilePackage, For, If, Import, Item, Lambda, LambdaSignature, Literal,
     MainPackage, Package, Pattern, PatternGetter, PatternItem, Scope, Select, Switch, Throw,
     Timeout, TypeDeclaration, ValueParameter,
 };
-use parsing::nodes::Expression::{self, UnaryOperator};
 
 mod nodes;
 
@@ -268,10 +268,10 @@ impl Parser {
         })
     }
 
-    fn parse_extend(&mut self) -> Result<nodes::TypeDeclaration> {
+    fn parse_extend(&mut self) -> Result<nodes::TypeSpecification> {
         self.tokens.discard();
         let specification = self.parse_type_specification()?;
-        Ok(TypeDeclaration::Extension(specification))
+        Ok(specification)
     }
 
     fn parse_for(&mut self, label: Option<Identifier>) -> Result<nodes::Expression> {
@@ -465,14 +465,13 @@ impl Parser {
 
         let name = self.parse_identifier()?;
         self.expect_and_discard(Token::OpenBrace)?;
-        let (imports, declarations) = self.parse_inside_package()?;
+        let items = self.parse_inside_package()?;
         self.expect_and_discard(Token::CloseBrace)?;
 
         Ok(nodes::Package {
             accessibility: Accessibility::Public,
             name,
-            imports,
-            declarations,
+            items,
         })
     }
 
@@ -509,7 +508,7 @@ impl Parser {
         }
     }
 
-    fn parse_identifier_in_main_package(&mut self) -> Result<Identifier> {
+    fn parse_identifier_in_main_package(&mut self) -> Result<Item> {
         unimplemented!()
     }
 
@@ -786,7 +785,7 @@ impl Parser {
     }
 
     fn parse_inside_package(&mut self) -> Result<Vec<nodes::Item>> {
-        let items: Vec<Item> = vec![];
+        let mut items: Vec<Item> = vec![];
 
         loop {
             let maybe_token = self.tokens.peek().map(|lexed| lexed.token.clone());
@@ -797,36 +796,36 @@ impl Parser {
                 Some(token) => {
                     match token {
                         Token::Alias => {
-                            self.parse_alias();
-                            unimplemented!()
+                            let alias = self.parse_alias()?;
+                            items.push(Item::Alias(alias));
                         }
                         Token::Class => {
-                            self.parse_class();
-                            unimplemented!()
+                            let _class = self.parse_class()?;
+                            items.push(Item::Class(_class));
                         }
                         Token::Extend => {
-                            self.parse_extend();
-                            unimplemented!()
+                            let extension = self.parse_extend()?;
+                            items.push(Item::Extension(extension));
                         }
                         Token::Import => {
-                            self.parse_import();
-                            unimplemented!()
+                            let import = self.parse_import()?;
+                            items.push(Item::Import(import));
                         }
                         Token::Interface => {
-                            self.parse_interface();
-                            unimplemented!()
+                            let interface = self.parse_interface()?;
+                            items.push(Item::Interface(interface));
                         }
                         Token::Package => {
-                            self.parse_package_definition();
-                            unimplemented!()
-                        }
-                        Token::Identifier(_) => {
-                            self.parse_identifier_in_package();
-                            unimplemented!()
+                            let package = self.parse_package_definition()?;
+                            items.push(Item::Package(package));
                         }
                         Token::Public | Token::Internal | Token::Ignorable => {
-                            self.parse_modifier_in_package();
-                            unimplemented!()
+                            let item = self.parse_modifier_in_package()?;
+                            items.push(item);
+                        }
+                        Token::Identifier(_) => {
+                            let item = self.parse_identifier_in_main_package()?;
+                            items.push(item);
                         }
 
                         _unexpected => {
@@ -842,8 +841,12 @@ impl Parser {
     }
 
     fn parse_main_package(&mut self) -> Result<nodes::MainPackage> {
-        let items: Vec<Item> = vec![];
-        let implicit_main = tokens::Scope;
+        let mut items: Vec<Item> = vec![];
+
+        let mut implicit_main = Code {
+            bindings: HashSet::new(),
+            expressions: vec![],
+        };
 
         loop {
             let maybe_token = self.tokens.peek().map(|lexed| lexed.token.clone());
@@ -854,32 +857,32 @@ impl Parser {
                 Some(token) => {
                     match token {
                         Token::Alias => {
-                            self.parse_alias();
-                            unimplemented!()
+                            let alias = self.parse_alias()?;
+                            items.push(Item::Alias(alias));
                         }
                         Token::Class => {
-                            let _class = self.parse_class();
-                            unimplemented!()
+                            let _class = self.parse_class()?;
+                            items.push(Item::Class(_class));
                         }
                         Token::Extend => {
-                            self.parse_extend();
-                            unimplemented!()
+                            let extension = self.parse_extend()?;
+                            items.push(Item::Extension(extension));
                         }
                         Token::Import => {
-                            self.parse_import();
-                            unimplemented!()
+                            let import = self.parse_import()?;
+                            items.push(Item::Import(import));
                         }
                         Token::Interface => {
-                            self.parse_interface();
-                            unimplemented!()
+                            let interface = self.parse_interface()?;
+                            items.push(Item::Interface(interface));
                         }
                         Token::Package => {
-                            self.parse_package_definition();
-                            unimplemented!()
+                            let package = self.parse_package_definition()?;
+                            items.push(Item::Package(package));
                         }
                         Token::Public | Token::Internal | Token::Ignorable => {
-                            self.parse_modifier_in_package();
-                            unimplemented!()
+                            let item = self.parse_modifier_in_package()?;
+                            items.push(item);
                         }
 
                         // Don't fail if an identifier is a runtime expression rather than the start
@@ -893,12 +896,12 @@ impl Parser {
                         // Unlike non-main packages, the main package will try to interpret
                         // expressions and type-inferred declarations to execute.
                         Token::Var => {
-                            self.parse_binding();
-                            unimplemented!()
+                            let binding = self.parse_binding()?;
+                            implicit_main.bindings.insert(binding);
                         }
                         _ => {
-                            self.parse_expression();
-                            unimplemented!()
+                            let expression = self.parse_expression()?;
+                            implicit_main.expressions.push(expression);
                         }
                     }
                 }
@@ -906,33 +909,14 @@ impl Parser {
         }
 
         let package = Package {
-            imports,
-            declarations,
+            items,
             accessibility: Accessibility::Public,
             name: Identifier(Arc::new(String::from("main"))),
         };
 
-        let bindings = package
-            .declarations
-            .iter()
-            .map(|declaration| declaration.item.clone())
-            .map(|item| {
-                if let DeclarationItem::Binding(binding) = item {
-                    Some(binding)
-                } else {
-                    None
-                }
-            })
-            .filter(Option::is_some)
-            .map(Option::unwrap)
-            .collect::<HashSet<Binding>>();
-
         Ok(MainPackage {
             package,
-            code: Code {
-                bindings,
-                expressions,
-            },
+            code: implicit_main,
         })
     }
 

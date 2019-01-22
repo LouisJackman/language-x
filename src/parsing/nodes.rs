@@ -23,9 +23,11 @@ pub struct File {
 
 /// The declarations that make up the static structure of a Sylan program. Items
 /// can't be contained within expressions, with the exception of bindings.
+#[derive(Clone)]
 pub enum Item {
     Package(Package),
     Class(Class),
+    Extension(TypeSpecification),
     Interface(Interface),
     Function(Function),
     Method(Method),
@@ -80,9 +82,8 @@ pub enum Node {
 #[derive(Clone)]
 pub struct Package {
     pub accessibility: Accessibility,
-    pub imports: Vec<Import>,
-    pub declarations: Vec<Declaration>,
     pub name: Identifier,
+    pub items: Vec<Item>,
 }
 
 pub struct MainPackage {
@@ -126,6 +127,7 @@ pub struct Declaration {
 
 /// Concrete classes that support implementing interfaces and embedding other
 /// classes, but cannot extend other classes directly.
+#[derive(Clone)]
 pub struct Class {
     pub implements: LinkedList<Type>,
     pub methods: HashSet<ConcreteMethod>,
@@ -136,16 +138,19 @@ pub struct Class {
 /// that implementors must implement, providing already-defined utility methods,
 /// and even allowing already-defined methods to be specialised via overriding
 /// in implementing classes.
+#[derive(Clone)]
 pub struct Interface {
     pub extends: LinkedList<Type>,
     pub methods: HashSet<Method>,
 }
 
+#[derive(Clone)]
 pub enum TypeItem {
     Class(Class),
     Interface(Interface),
 }
 
+#[derive(Clone)]
 pub struct TypeSpecification {
     pub name: Identifier,
     pub item: TypeItem,
@@ -174,23 +179,28 @@ pub enum TypeDeclaration {
     Assignment(TypeAssignment),
 }
 
+#[derive(Clone)]
 pub struct ConcreteMethod {
     pub function: Function,
 }
 
+#[derive(Clone)]
 pub struct AbstractMethod {
     pub signature: FunctionSignature,
 }
 
+#[derive(Clone)]
 pub enum MethodItem {
     Concrete(ConcreteMethod),
     Abstract(AbstractMethod),
 }
 
+#[derive(Clone)]
 pub struct DeclarationModifiers {
     accessibility: Accessibility,
 }
 
+#[derive(Clone)]
 pub struct MethodModifiers {
     declaration: DeclarationModifiers,
     is_virtual: bool,
@@ -205,6 +215,7 @@ pub struct MethodModifiers {
 /// Otherwise they are higher-order constructs that can be passed around like
 /// normal functions and lambdas. Like Python and unlike JS, their reference
 /// to their type and instance are bound to the method itself.
+#[derive(Clone)]
 pub struct Method {
     pub name: Identifier,
     pub modifiers: MethodModifiers,
@@ -284,7 +295,10 @@ pub struct ContextualBinding {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Alias(Identifier);
+pub struct Alias {
+    new: Identifier,
+    original: Identifier,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContextualIgnoral {
