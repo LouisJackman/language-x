@@ -34,11 +34,10 @@ void fizzBuzz(int n) {
 
 fizzBuzz(100)
 
+/**
+ * SyDocs can be written for code documentation.
+ */
 void demoIteration() {
-    /**
-     * SyDocs can be written for code documentation. Unlike JavaDoc but similar
-     * to Python, they go inside the item they describe rather than before it.
-     */
 
     // Lambdas are created by passing a block to the `fn` function. This usually
     // isn't necessary, as most lambdas can be passed using the block syntax
@@ -193,7 +192,7 @@ ignorable internal int printFactorial(int n) {
     result
 }
 
-private void twice<N>(N n, N f(N)) where
+void twice<N>(N n, N f(N)) where
     N : Number
 {
     f(n) + f(n)
@@ -205,15 +204,14 @@ String doubled<N>(N n) where
     (n + n).toString()
 }
 
+/**
+ * Sylan uses concrete implementations of interfaces by default when they're
+ * used as typed directly. To get dynamic dispatch, use the virtual keyword
+ * like so:
+ *
+ *     void printNumber(virtual Number n) {
+ */
 void printNumber(Number n) {
-    /**
-     * Sylan uses concrete implementations of interfaces by default when they're
-     * used as typed directly. To get dynamic dispatch, use the virtual keyword
-     * like so:
-     *
-     *     void printNumber(virtual Number n) {
-     */
-
     println(`{n}`)
 }
 
@@ -289,27 +287,27 @@ interface Equals<T> {
     }
 }
 
+/**
+ * Hashing, equality checking, and the constructor all just exist
+ * automatically. They can still be manually overridden if necessary though.
+ * `close` is also automatically implemented for classes that implement
+ * `AutoCloseable`, the default implementation just closing all
+ * `AutoCloseable` fields. This can also be overridden if the default
+ * implementation makes no sense.
+ */
 class Name {
-    /**
-     * Hashing, equality checking, and the constructor all just exist
-     * automatically. They can still be manually overridden if necessary though.
-     * `close` is also automatically implemented for classes that implement
-     * `AutoCloseable`, the default implementation just closing all
-     * `AutoCloseable` fields. This can also be overridden if the default
-     * implementation makes no sense.
-     */
-
     internal String firstName
     internal String lastName
 }
 
+/**
+ * Classes can implement interfaces but cannot extend other classes.
+ * Interfaces can extend other interfaces though. Concrete inheritance
+ * generally causes more problems that it's worth and type embedding plus a
+ * more powerful interface system makes up for the difference.
+ */
 class Account implements ToString, Concatenate<Account> {
-    /**
-     * Classes can implement interfaces but cannot extend other classes.
-     * Interfaces can extend other interfaces though. Concrete inheritance
-     * generally causes more problems that it's worth and type embedding plus a
-     * more powerful interface system makes up for the difference.
-     */
+
 
     /*
      * Embedding a field hoists all of its _accessible_ methods into
