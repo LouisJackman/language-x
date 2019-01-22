@@ -437,27 +437,8 @@ impl Parser {
         unimplemented!()
     }
 
-    // TODO: work out how to parse type parameters and default values for lambdas
-    // unambiguously.
-    fn parse_lambda(&mut self, parameter_patterns: Vec<Pattern>) -> Result<nodes::Lambda> {
-        self.tokens.discard();
-
-        let scope = self.parse_scope()?;
-
-        let value_parameters = parameter_patterns
-            .into_iter()
-            .map(|pattern| ValueParameter {
-                pattern,
-                default_value: None,
-            })
-            .collect::<Vec<ValueParameter>>();
-
-        let signature = LambdaSignature {
-            type_parameters: vec![],
-            value_parameters,
-        };
-
-        Ok(Lambda { signature, scope })
+    fn parse_lambda(&mut self) -> Result<nodes::Lambda> {
+        unimplemented!()
     }
 
     fn parse_package_definition(&mut self) -> Result<nodes::Package> {
@@ -652,13 +633,8 @@ impl Parser {
                     .unwrap();
                 Err(failed_conversion)
             } else {
-                let successfully_converted = parameter_patterns
-                    .into_iter()
-                    .map(result::Result::unwrap)
-                    .collect::<Vec<Pattern>>();
-
                 Ok(nodes::Expression::Literal(Literal::Lambda(
-                    self.parse_lambda(successfully_converted)?,
+                    self.parse_lambda()?,
                 )))
             }
         } else if expressions.len() == 1 {
@@ -709,12 +685,47 @@ impl Parser {
                         Token::With => self.parse_with().map(nodes::Expression::With),
                         Token::For => self.parse_for(None),
                         Token::If => self.parse_if().map(nodes::Expression::If),
-                        Token::OpenBrace => self
-                            .parse_lambda(vec![])
-                            .map(|lambda| nodes::Expression::Literal(Literal::Lambda(lambda))),
+                        Token::LambdaArrow => self
+                            .parse_lambda()
+                            .map(|f| nodes::Expression::Literal(Literal::Lambda(f))),
                         Token::InvocableHandle => self.parse_invocable_handle(),
                         Token::Not => self.parse_not(),
                         Token::OpenParentheses => self.parse_open_parentheses(),
+                        Token::Select => self.parse_select().map(nodes::Expression::Select),
+                        Token::Switch => self.parse_switch().map(nodes::Expression::Switch),
+                        Token::Throw => self.parse_throw().map(nodes::Expression::Throw),
+
+                        non_expression => self.unexpected(non_expression),
+                    })
+            }
+            None => self.fail(
+                "\
+                 an expression at the end of the Sylan file is not\
+                 finished\
+                 ",
+            ),
+        }
+    }
+
+    /// Outermost expressions are the same as any other expression except for disallowing grouped
+    /// subexpressions with parentheses and lambda literals. Both of those exclusions are to make
+    /// parsing unambiguous.
+    fn parse_outermost_expression(&mut self) -> Result<nodes::Expression> {
+        let token = self.tokens.peek().cloned();
+        match token {
+            Some(lexed) => {
+                let token = lexed.token;
+                self.parse_literal(token.clone())
+                    .map(|literal| Ok(nodes::Expression::Literal(literal)))
+                    .unwrap_or_else(|| match token {
+                        // Non-atomic tokens each delegate to a dedicated method.
+                        Token::Identifier(identifier) => self.parse_leading_identifier(identifier),
+                        Token::BitwiseNot => self.parse_bitwise_not(),
+                        Token::With => self.parse_with().map(nodes::Expression::With),
+                        Token::For => self.parse_for(None),
+                        Token::If => self.parse_if().map(nodes::Expression::If),
+                        Token::InvocableHandle => self.parse_invocable_handle(),
+                        Token::Not => self.parse_not(),
                         Token::Select => self.parse_select().map(nodes::Expression::Select),
                         Token::Switch => self.parse_switch().map(nodes::Expression::Switch),
                         Token::Throw => self.parse_throw().map(nodes::Expression::Throw),
