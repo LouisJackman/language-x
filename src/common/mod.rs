@@ -7,7 +7,6 @@
 //! As the different phases should be isolated as much as possible, this module should be kept small
 //! to avoid heavy coupling.
 
-pub mod excursion_buffer;
 pub mod multiphase;
 pub mod peekable_buffer;
 pub mod version;

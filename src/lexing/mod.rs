@@ -16,7 +16,6 @@
 use std::io;
 use std::ops::Index;
 
-use common::excursion_buffer::ExcursionBuffer;
 use common::peekable_buffer::PeekableBuffer;
 use lexing::lexer::{LexedToken, Lexer, LexerTask, LexerTaskError};
 
@@ -51,16 +50,6 @@ impl Tokens {
 
     pub fn join_lexer_thread(self) -> Result<(), LexerTaskError> {
         self.lexer_task.join()
-    }
-}
-
-impl ExcursionBuffer for Tokens {
-    fn start_excursion(&mut self) -> Self {
-        Self {
-            lookahead: self.lookahead.clone(),
-            lookahead_len: self.lookahead_len,
-            lexer_task: self.lexer_task.start_excursion(),
-        }
     }
 }
 

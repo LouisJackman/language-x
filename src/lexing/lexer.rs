@@ -4,7 +4,6 @@ use std::io;
 use std::sync::mpsc::{channel, Receiver, RecvError, SendError};
 use std::thread::{self, JoinHandle};
 
-use common::excursion_buffer::ExcursionBuffer;
 use common::multiphase::{self, InterpolatedString, SylanString};
 use common::peekable_buffer::PeekableBuffer;
 use common::string_matches_char_slice;
@@ -76,12 +75,6 @@ impl LexerTask {
 
     pub fn recv(&self) -> Result<LexedToken, RecvError> {
         self.tokens.recv()
-    }
-}
-
-impl ExcursionBuffer for LexerTask {
-    fn start_excursion(&mut self) -> Self {
-        unimplemented!()
     }
 }
 
