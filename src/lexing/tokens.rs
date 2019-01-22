@@ -4,6 +4,7 @@ use common::version::Version;
 /// All tokens that can currently exist in all version of a Sylan program source.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
+    Alias,
     Boolean(bool),
     Char(char),
     Identifier(Identifier),
@@ -69,6 +70,8 @@ pub enum Token {
     // A dummy identifier that has different meanings in different contexts. In bindings it allows
     // discarding values.
     PlaceholderIdentifier,
+
+    Public,
 
     /// Does nothing but reserves keywords for future use.
     ReservedKeyword,

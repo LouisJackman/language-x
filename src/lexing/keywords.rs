@@ -11,6 +11,7 @@ pub fn new() -> HashMap<&'static str, Token> {
     let mut map = HashMap::new();
     map.extend(vec![
         ("_", Token::PlaceholderIdentifier),
+        ("alias", Token::Alias),
         ("as", Token::As),
         ("class", Token::Class),
         ("continue", Token::Continue),
@@ -31,6 +32,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("module", Token::Module),
         ("override", Token::Override),
         ("package", Token::Package),
+        ("public", Token::Public),
         ("reject", Token::Reject),
         ("requires", Token::Requires),
         ("select", Token::Select),

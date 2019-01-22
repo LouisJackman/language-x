@@ -32,6 +32,7 @@ pub enum Item {
     SyDoc(SyDoc),
     ContextualIgnoral(ContextualIgnoral),
     Alias(Alias),
+    Import(Import),
 
     // Unlike the previous variants, these can be arbitrarily nested within
     // expressions. This is to allow corecursion among other features.
@@ -406,7 +407,7 @@ pub type PackageLookup = Vec<Identifier>;
 pub enum UnaryOperator {
     BitwiseNot,
     BitwiseXor,
-    MethodHandle,
+    InvocableHandle,
     Not,
 }
 
