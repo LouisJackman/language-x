@@ -82,6 +82,7 @@
 //!
 //! _For more details on each stage, see each modules' documentation._
 
+#[forbid(unsafe_code)]
 use std::alloc::System;
 use std::env::{args, Args};
 use std::fs::File;
@@ -96,9 +97,6 @@ mod common;
 mod lexing;
 mod parsing;
 mod source;
-
-#[global_allocator]
-static GLOBAL: System = System;
 
 fn load_source(args: Args) -> Result<String, String> {
     let args_vector = args.collect::<Vec<String>>();
