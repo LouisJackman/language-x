@@ -82,8 +82,8 @@
 //!
 //! _For more details on each stage, see each modules' documentation._
 
-#[forbid(unsafe_code)]
-use std::alloc::System;
+#![forbid(unsafe_code)]
+
 use std::env::{args, Args};
 use std::fs::File;
 use std::io::Read;
