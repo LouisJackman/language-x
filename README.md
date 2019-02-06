@@ -51,8 +51,12 @@ executables with no required runtimes.
 ## Installation
 
 Run `make` to build a production release Sylan, or `make build-dev` for a
-development release. You can then find the `sylan` executable in the `target`
-directory; run Sylan programs via commands like `sylan main.sy`.
+development release. You can then find the resulting `sylan` executable in the
+`target` directory; run Sylan programs via commands like `./sylan main.sy`.
+
+If you'd rather run the build and the resulting Sylan executable in a container,
+you can create a Docker image with `docker build -t sylan .` and then run Sylan
+with invocations like `docker run --rm sylan main.sy`.
 
 Sylan, being written in Rust, uses standard Rust tooling such as cargo for
 development.  If you're familiar with it, use it as you would with any other
