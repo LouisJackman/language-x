@@ -23,6 +23,7 @@ executables with no required runtimes.
 
 ## Contents
 
+* [Installation](#installation)
 * [Done so Far](#done-so-far)
 * [Example](#example)
 * [Overview](#overview)
@@ -46,6 +47,19 @@ executables with no required runtimes.
   - [Standard Library](#standard-library)
   - [To Consider](#to-consider)
 * [Implementation Details](#implementation-details)
+
+## Installation
+
+Run `make` to build a production release Sylan, or `make build-dev` for a
+development release. You can then find the `sylan` executable in the `target`
+directory; run Sylan programs via commands like `sylan main.sy`.
+
+Sylan, being written in Rust, uses standard Rust tooling such as cargo for
+development.  If you're familiar with it, use it as you would with any other
+Rust project.
+
+If not and you'd rather use `make`, run `make help` to see the available tasks
+that can be run.
 
 ## Done so Far
 
