@@ -36,15 +36,15 @@ addons:
 
 # Clippy is a Rust linter that needs to be installed before use.
 before_script:
-  - rustup component add rustfmt clippy
+  - make install-compiler-components
 
 # Ensure code is formatted correctly, that there are not fatal linting errors,
 # that it compiles, and that all of the tests pass.
 script:
-  - cargo fmt --all -- --check
-  - cargo clippy --all-targets --all-features
-  - cargo build
-  - cargo test
+  - make check-fmt
+  - make check-flippy
+  - make build-dev
+  - make verify
 
 # Required for code coverage with kcov and codecov.io
 # Adapted from: https://github.com/codecov/example-rust
