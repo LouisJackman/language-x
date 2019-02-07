@@ -42,7 +42,7 @@ before_script:
 # that it compiles, and that all of the tests pass.
 script:
   - make check-fmt
-  - make check-flippy
+  - make check-clippy
   - make build-dev
   - make verify
 
