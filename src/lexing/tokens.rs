@@ -9,7 +9,10 @@ pub enum Token {
     Char(char),
     Identifier(Identifier),
     InterpolatedString(InterpolatedString),
+
+    // TODO: reimplement using a variable-width numerics library, like GMP but not GPL licenced.
     Number(i64, u64),
+
     Shebang(Shebang),
     String(SylanString),
     SyDoc(SyDoc),

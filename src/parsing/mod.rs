@@ -280,14 +280,20 @@ impl Parser {
         Ok(specification)
     }
 
-    fn parse_for(&mut self, label: Option<Identifier>) -> Result<nodes::Expression> {
+    fn parse_for(&mut self) -> Result<nodes::Expression> {
         self.tokens.discard();
+        let label = if self.next_is(&Token::Var) {
+            None
+        } else {
+            Some(self.parse_identifier()?)
+        };
 
         let mut bindings = vec![];
         let scope = loop {
             if self.next_is(&Token::OpenBrace) {
                 break self.parse_scope()?;
             } else {
+                self.expect_and_discard(Token::Var)?;
                 bindings.push(self.parse_binding()?);
                 if self.next_is(&Token::SubItemSeparator) {
                     self.tokens.discard();
@@ -664,7 +670,7 @@ impl Parser {
                         // Non-atomic tokens each delegate to a dedicated method.
                         Token::BitwiseNot => self.parse_bitwise_not(),
                         Token::With => self.parse_with().map(nodes::Expression::With),
-                        Token::For => self.parse_for(None),
+                        Token::For => self.parse_for(),
                         Token::If => self.parse_if().map(nodes::Expression::If),
                         Token::LambdaArrow => self
                             .parse_lambda()
@@ -702,7 +708,7 @@ impl Parser {
                         // Non-atomic tokens each delegate to a dedicated method.
                         Token::BitwiseNot => self.parse_bitwise_not(),
                         Token::With => self.parse_with().map(nodes::Expression::With),
-                        Token::For => self.parse_for(None),
+                        Token::For => self.parse_for(),
                         Token::If => self.parse_if().map(nodes::Expression::If),
                         Token::InvocableHandle => self.parse_invocable_handle(),
                         Token::Not => self.parse_not(),
