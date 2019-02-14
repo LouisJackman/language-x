@@ -296,8 +296,8 @@ pub struct ContextualBinding {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Alias {
-    new: Identifier,
-    original: Identifier,
+    pub new: Identifier,
+    pub original: Lookup,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -413,6 +413,9 @@ pub enum Literal {
     Lambda(Lambda),
 }
 
+/// A lookup is an expression, but its information should be completely resolvable in the parsing
+/// and semantic analysis. It allows looking items up in static program structure, e.g. types and
+/// packages.
 pub type Lookup = Vec<Identifier>;
 
 /// Sylan allows overridding existing operators but not defining new ones,

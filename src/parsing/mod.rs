@@ -210,7 +210,7 @@ impl Parser {
         self.parse_unary_operator(nodes::UnaryOperator::InvocableHandle)
     }
 
-    fn parse_lookup(&mut self) -> Result<nodes::PackageLookup> {
+    fn parse_lookup(&mut self) -> Result<nodes::Lookup> {
         let mut lookup = vec![];
         loop {
             lookup.push(self.parse_identifier()?);
@@ -223,7 +223,12 @@ impl Parser {
     }
 
     fn parse_alias(&mut self) -> Result<nodes::Alias> {
-        unimplemented!()
+        self.expect_and_discard(Token::Alias)?;
+        let new = self.parse_identifier()?;
+        self.expect_and_discard(Token::Assign)?;
+        let original = self.parse_lookup()?;
+
+        Ok(nodes::Alias { new, original })
     }
 
     fn parse_type_specification(&mut self) -> Result<nodes::TypeSpecification> {
