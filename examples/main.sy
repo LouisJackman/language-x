@@ -39,9 +39,6 @@ fizzBuzz(100)
  */
 void demoIteration() {
 
-    // Lambdas are created by passing a block to the `fn` function. This usually
-    // isn't necessary, as most lambdas can be passed using the block syntax
-    // instead.
     var highlight = -> s { `>> {s} <<` }
 
     // The # operator composes invocables together.
@@ -55,6 +52,8 @@ void demoIteration() {
     // up these invocables as first-class values. Combine it with the dot
     // operator to refer to a method of a type.
 
+    // Lambdas can be passed outside of calling parentheses when they are the
+    // final argument.
     List(1, 2, 3).forEach -> n {
 
         /*

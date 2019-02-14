@@ -210,7 +210,7 @@ impl Parser {
         self.parse_unary_operator(nodes::UnaryOperator::InvocableHandle)
     }
 
-    fn parse_package_lookup(&mut self) -> Result<nodes::PackageLookup> {
+    fn parse_lookup(&mut self) -> Result<nodes::PackageLookup> {
         let mut lookup = vec![];
         loop {
             lookup.push(self.parse_identifier()?);
@@ -425,7 +425,7 @@ impl Parser {
 
     fn parse_import(&mut self) -> Result<nodes::Import> {
         self.tokens.discard();
-        let lookup = self.parse_package_lookup()?;
+        let lookup = self.parse_lookup()?;
         Ok(Import { lookup })
     }
 

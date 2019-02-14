@@ -63,7 +63,7 @@ pub enum Expression {
     For(For),
     Continue(Continue),
     Call(Call),
-    PackageLookup(PackageLookup),
+    Lookup(Lookup),
     Throw(Throw),
     With(Scope),
     While(Throw),
@@ -102,7 +102,7 @@ pub enum FilePackage {
 
 #[derive(Clone)]
 pub struct Import {
-    pub lookup: PackageLookup,
+    pub lookup: Lookup,
 }
 
 #[derive(Clone)]
@@ -413,7 +413,7 @@ pub enum Literal {
     Lambda(Lambda),
 }
 
-pub type PackageLookup = Vec<Identifier>;
+pub type Lookup = Vec<Identifier>;
 
 /// Sylan allows overridding existing operators but not defining new ones,
 /// otherwise an operator would be an `Identifier` instead of in an enum.
