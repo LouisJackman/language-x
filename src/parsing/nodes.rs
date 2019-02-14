@@ -499,12 +499,12 @@ pub struct IfLet {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CondCase {
-    pub condition: Box<Expression>,
+    pub conditions: LinkedList<Expression>,
     pub then: Scope,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Cond(pub LinkedList<CondCase>);
+pub struct Cond(pub Vec<CondCase>);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CaseMatch {

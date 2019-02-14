@@ -56,10 +56,10 @@ use lexing::tokens::Token;
 use lexing::Tokens;
 use parsing::nodes::Expression::{self, UnaryOperator};
 use parsing::nodes::{
-    Accessibility, Binding, Case, CaseMatch, Code, CompositePattern, ContextualBinding,
-    DeclarationItem, FilePackage, For, If, Import, Item, Lambda, Literal, MainPackage, Package,
-    Pattern, PatternGetter, PatternItem, Scope, Select, Switch, Throw, Timeout, TypeDeclaration,
-    ValueParameter,
+    Accessibility, Binding, Case, CaseMatch, Code, CompositePattern, Cond, CondCase,
+    ContextualBinding, DeclarationItem, FilePackage, For, If, Import, Item, Lambda, Literal,
+    MainPackage, Package, Pattern, PatternGetter, PatternItem, Scope, Select, Switch, Throw,
+    Timeout, TypeDeclaration, ValueParameter,
 };
 
 mod modifier_sets;
@@ -590,8 +590,35 @@ impl Parser {
         }
     }
 
-    fn parse_switch(&mut self) -> Result<Switch> {
-        self.tokens.discard();
+    fn parse_cond(&mut self) -> Result<Cond> {
+        self.expect_and_discard(Token::OpenBrace)?;
+
+        // TODO: revisit the data types used for accumulating cases in switches and conds; perhaps
+        // linked list or set would be better suited?
+        let mut cases = vec![];
+
+        loop {
+            let mut conditions = LinkedList::new();
+            let then = loop {
+                let expression = self.parse_expression()?;
+                conditions.push_back(expression);
+
+                if self.next_is(&Token::OpenBrace) {
+                    break self.parse_scope()?;
+                } else {
+                    self.expect_and_discard(Token::SubItemSeparator)?;
+                }
+            };
+            cases.push(CondCase { conditions, then });
+
+            if self.next_is(&Token::CloseBrace) {
+                self.tokens.discard();
+                break Ok(Cond(cases));
+            }
+        }
+    }
+
+    fn parse_direct_switch(&mut self) -> Result<Switch> {
         let expression = self.parse_expression()?;
         self.expect_and_discard(Token::OpenBrace)?;
         let mut cases = vec![];
@@ -630,6 +657,16 @@ impl Parser {
                     cases,
                 });
             }
+        }
+    }
+
+    fn parse_switch(&mut self) -> Result<Expression> {
+        self.tokens.discard();
+
+        if self.next_is(&Token::OpenBrace) {
+            self.parse_cond().map(Expression::Cond)
+        } else {
+            self.parse_direct_switch().map(Expression::Switch)
         }
     }
 
@@ -679,7 +716,7 @@ impl Parser {
                         Token::Not => self.parse_not(),
                         Token::OpenParentheses => self.parse_open_parentheses(),
                         Token::Select => self.parse_select().map(nodes::Expression::Select),
-                        Token::Switch => self.parse_switch().map(nodes::Expression::Switch),
+                        Token::Switch => self.parse_switch(),
                         Token::Throw => self.parse_throw().map(nodes::Expression::Throw),
 
                         non_expression => self.unexpected(non_expression),
@@ -713,7 +750,7 @@ impl Parser {
                         Token::InvocableHandle => self.parse_invocable_handle(),
                         Token::Not => self.parse_not(),
                         Token::Select => self.parse_select().map(nodes::Expression::Select),
-                        Token::Switch => self.parse_switch().map(nodes::Expression::Switch),
+                        Token::Switch => self.parse_switch(),
                         Token::Throw => self.parse_throw().map(nodes::Expression::Throw),
 
                         non_expression => self.unexpected(non_expression),
