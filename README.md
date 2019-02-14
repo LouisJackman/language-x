@@ -952,6 +952,10 @@ case of native compilation.
 * This ensures APIs and program structure is rigid and explicitly typed while
   expressions are concise, without boilerplate, and utterly consistent rather
   than making type annotations a matter of taste.
+* This philosophy extends to lambdas; as lambdas are used locally and not for
+  definitions (which use declared functions and methods), lambda expressions
+  also only allow inferred types (which is why type parameter syntax is not
+  supported).
 
 ### Language Versioning
 

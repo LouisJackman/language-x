@@ -438,12 +438,42 @@ impl Parser {
         unimplemented!()
     }
 
-    fn reinterpret_expression_as_pattern(&mut self, _expression: &Expression) -> Result<Pattern> {
-        unimplemented!()
+    fn parse_lambda_signature(&mut self) -> Result<Vec<ValueParameter>> {
+        let parameters = vec![];
+
+        loop {
+            let pattern = self.parse_pattern()?;
+            let default_value = if self.next_is(&Token::Assign) {
+                self.tokens.discard();
+                Some(self.parse_expression()?)
+            } else {
+                None
+            };
+            let parameter = nodes::ValueParameter {
+                pattern,
+                default_value,
+            };
+
+            parameters.push(parameter);
+
+            if self.next_is(&Token::SubItemSeparator) {
+                self.tokens.discard();
+            } else {
+                break Ok(parameters);
+            }
+        }
     }
 
+    /// Parsing a lambda; this should not happen from a top-level expression, but only a
+    /// subexpresion. This is avoid the ambiguity between a lambda literal and the shorthand for
+    /// passing a lambda as a final argument, specifically when that shorthand is on a new line.
     fn parse_lambda(&mut self) -> Result<nodes::Lambda> {
-        unimplemented!()
+        self.expect_and_discard(Token::LambdaArrow)?;
+        let signature = self.parse_lambda_signature()?;
+        self.expect(Token::OpenBrace)?;
+        let scope = self.parse_scope()?;
+
+        Ok(Lambda { signature, scope })
     }
 
     fn parse_package_definition(&mut self) -> Result<nodes::Package> {

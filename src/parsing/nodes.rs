@@ -378,12 +378,6 @@ pub struct FunctionSignature {
     pub return_type: Type,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct LambdaSignature {
-    pub type_parameters: Vec<TypeParameter>,
-    pub value_parameters: Vec<ValueParameter>,
-}
-
 /// Like methods, functions have a scope and type and value parameters. Unlike
 /// methods, they do not carry references to types or instances, and cannot be
 /// overridden or be abstract.
@@ -399,7 +393,7 @@ pub struct Function {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lambda {
-    pub signature: LambdaSignature,
+    pub signature: Vec<ValueParameter>,
     pub scope: Scope,
 }
 
