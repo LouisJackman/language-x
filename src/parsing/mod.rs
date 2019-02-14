@@ -57,11 +57,12 @@ use lexing::Tokens;
 use parsing::nodes::Expression::{self, UnaryOperator};
 use parsing::nodes::{
     Accessibility, Binding, Case, CaseMatch, Code, CompositePattern, ContextualBinding,
-    DeclarationItem, FilePackage, For, If, Import, Item, Lambda, LambdaSignature, Literal,
-    MainPackage, Package, Pattern, PatternGetter, PatternItem, Scope, Select, Switch, Throw,
-    Timeout, TypeDeclaration, ValueParameter,
+    DeclarationItem, FilePackage, For, If, Import, Item, Lambda, Literal, MainPackage, Package,
+    Pattern, PatternGetter, PatternItem, Scope, Select, Switch, Throw, Timeout, TypeDeclaration,
+    ValueParameter,
 };
 
+mod modifier_sets;
 mod nodes;
 
 // TODO: break cycles in scopes to cleanup memory properly.
@@ -439,7 +440,7 @@ impl Parser {
     }
 
     fn parse_lambda_signature(&mut self) -> Result<Vec<ValueParameter>> {
-        let parameters = vec![];
+        let mut parameters = vec![];
 
         loop {
             let pattern = self.parse_pattern()?;
@@ -633,50 +634,10 @@ impl Parser {
     }
 
     fn parse_open_parentheses(&mut self) -> Result<nodes::Expression> {
-        self.tokens.discard();
-        let mut expressions = vec![];
-
-        loop {
-            expressions.push(self.parse_expression()?);
-
-            let next = self
-                .tokens
-                .read()
-                .map(|lexed| Ok(lexed.clone().token))
-                .unwrap_or_else(|| self.premature_eof())?;
-
-            match next {
-                Token::SubItemSeparator => {}
-                Token::CloseParentheses => break,
-                unexpected => self.unexpected(unexpected)?,
-            }
-        }
-
-        if self.next_is(&Token::LambdaArrow) {
-            let parameter_patterns = expressions
-                .into_iter()
-                .map(|expression| self.reinterpret_expression_as_pattern(&expression))
-                .collect::<Vec<Result<Pattern>>>();
-
-            let failed = parameter_patterns.iter().any(|result| !result.is_ok());
-
-            if failed {
-                let failed_conversion = parameter_patterns
-                    .into_iter()
-                    .map(result::Result::unwrap_err)
-                    .next()
-                    .unwrap();
-                Err(failed_conversion)
-            } else {
-                Ok(nodes::Expression::Literal(Literal::Lambda(
-                    self.parse_lambda()?,
-                )))
-            }
-        } else if expressions.len() == 1 {
-            Ok(expressions[0].clone())
-        } else {
-            self.fail("multiple expressions found in a grouped expression; is it missing an operator or a comma?")
-        }
+        self.expect_and_discard(Token::OpenParentheses);
+        let expression = self.parse_expression()?;
+        self.expect_and_discard(Token::CloseParentheses);
+        Ok(expression)
     }
 
     fn parse_literal(&mut self, token: Token) -> Option<nodes::Literal> {
@@ -685,24 +646,10 @@ impl Parser {
             // except interpolated strings.
             Token::Boolean(b) => Some(nodes::Literal::Boolean(b)),
             Token::Char(c) => Some(nodes::Literal::Char(c)),
-            Token::InterpolatedString(string) => {
-                // TODO: reenter the lexer to handle interpolation
-                // properly.
-                Some(nodes::Literal::InterpolatedString(string))
-            }
+            Token::InterpolatedString(string) => Some(nodes::Literal::InterpolatedString(string)),
             Token::Number(decimal, fraction) => Some(nodes::Literal::Number(decimal, fraction)),
             Token::String(string) => Some(nodes::Literal::String(string)),
             _ => None,
-        }
-    }
-
-    fn parse_leading_identifier(&mut self, identifier: Identifier) -> Result<nodes::Expression> {
-        if self.nth_is(1, &Token::Colon) {
-            self.tokens.discard();
-            self.tokens.discard();
-            self.parse_for(Some(identifier))
-        } else {
-            Ok(nodes::Expression::Identifier(self.parse_identifier()?))
         }
     }
 
@@ -715,7 +662,6 @@ impl Parser {
                     .map(|literal| Ok(nodes::Expression::Literal(literal)))
                     .unwrap_or_else(|| match token {
                         // Non-atomic tokens each delegate to a dedicated method.
-                        Token::Identifier(identifier) => self.parse_leading_identifier(identifier),
                         Token::BitwiseNot => self.parse_bitwise_not(),
                         Token::With => self.parse_with().map(nodes::Expression::With),
                         Token::For => self.parse_for(None),
@@ -754,7 +700,6 @@ impl Parser {
                     .map(|literal| Ok(nodes::Expression::Literal(literal)))
                     .unwrap_or_else(|| match token {
                         // Non-atomic tokens each delegate to a dedicated method.
-                        Token::Identifier(identifier) => self.parse_leading_identifier(identifier),
                         Token::BitwiseNot => self.parse_bitwise_not(),
                         Token::With => self.parse_with().map(nodes::Expression::With),
                         Token::For => self.parse_for(None),

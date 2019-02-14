@@ -105,7 +105,7 @@ pub struct Import {
     pub lookup: Lookup,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Accessibility {
     Public,
     Internal,
