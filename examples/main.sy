@@ -15,7 +15,7 @@ import sylan.util.concurrency.Task
 import sylan.util.datetime.ZonedDateTime
 import sylan.util.optional.{Empty, Some}
 
-void fizzBuzz(int n) {
+func fizzBuzz(n int) void {
 
     // Sylan supports blocks, syntax for passing a lambda as a final argument to
     // an invocable. Note the use of `it` as a shorthand for one-argument
@@ -37,7 +37,7 @@ fizzBuzz(100)
 /**
  * SyDocs can be written for code documentation.
  */
-void demoIteration() {
+func demoIteration() void {
 
     var highlight = -> s { `>> {s} <<` }
 
@@ -131,7 +131,7 @@ void demoIteration() {
 
                 // This for loop is labelled as "outer", so that is available
                 // to call as a function if iteration is desired. That allows
-                // it to skip the inner `for` here; `continue` is this context
+                // it to skip the inner `for` here; `continue` in this context
                 // would cause an infinite loop.
                 outer(n - 1)
             }
@@ -150,7 +150,7 @@ void demoIteration() {
  * As can be seen in this function and the previous, Sylan allows functions to
  * stand alone in packages without being tied to classes or interfaces.
  */
-internal int factorial(int n) {
+func internal factorial(n int) int {
     switch n {
         0, 1 {
             1
@@ -168,7 +168,7 @@ internal int factorial(int n) {
     }
 }
 
-ignorable internal int printFactorial(int n) {
+func ignorable internal printFactorial(n int) int {
     /*
      * Sylan does not allow callers to throw away non-`void` function or methods
      * results unless they're declared with the `ignorable` modifier.
@@ -191,13 +191,13 @@ ignorable internal int printFactorial(int n) {
     result
 }
 
-void twice<N>(N n, N f(N)) where
+func twice<N>(n N, f (N) N) void where
     N : Number
 {
     f(n) + f(n)
 }
 
-String doubled<N>(N n) where
+func doubled<N>(n N) String where
     N : Add & ToString
 {
     (n + n).toString()
@@ -208,13 +208,13 @@ String doubled<N>(N n) where
  * used as typed directly. To get dynamic dispatch, use the virtual keyword
  * like so:
  *
- *     void printNumber(virtual Number n) {
+ *     func printNumber(n virtual Number) Number {
  */
-void printNumber(Number n) {
+func printNumber(n Number) void {
     println(`{n}`)
 }
 
-Optional<int> demoContexts() {
+func demoContexts() Optional<int> {
 
     /*
      * Haskell programmers will recognise this as a monadic do notation, which
@@ -245,7 +245,7 @@ package counter {
         Get,
     }
 
-    public void start(Task sender, int n = 0) {
+    func public start(sender Task, n int = 0) void {
         select Message {
             .Increment {
                 start(sender, n + 1)
@@ -265,11 +265,11 @@ package counter {
 }
 
 interface Concatenate<T> {
-    public T concatenate(T y)
+    func public concatenate(y T) T
 }
 
 interface Equals<T> {
-    public boolean equals(T other)
+    func public equals(other T) boolean
 
     /*
      * Sylan's interface methods can have bodies like Java 8's defender methods.
@@ -281,7 +281,7 @@ interface Equals<T> {
      * inheritance in Sylan means there is no other possible use case for them
      * except to be implemented by the implementor.
      */
-    public default virtual notEquals(T other) {
+    func public default virtual notEquals(other T) boolean {
         !equals(other)
     }
 }
@@ -295,8 +295,8 @@ interface Equals<T> {
  * implementation makes no sense.
  */
 class Name {
-    internal String firstName
-    internal String lastName
+    var internal firstName String
+    var internal lastName String
 }
 
 /**
@@ -305,7 +305,7 @@ class Name {
  * generally causes more problems that it's worth and type embedding plus a
  * more powerful interface system makes up for the difference.
  */
-class Account implements ToString, Concatenate<Account> {
+class Account implements ToString, Concatenate<This> {
 
 
     /*
@@ -326,13 +326,13 @@ class Account implements ToString, Concatenate<Account> {
      * consistent with the MRO of inheritance. Therefore, changing the order of
      * embeds can change behaviour.
      */
-    embed Name name
+    var embed name Name
 
-    internal int ageInYears
+    var internal ageInYears int
 
-    ZonedDateTime expiry = ZonedDateTime.now() + 1.year
+    var expiry ZonedDateTime = ZonedDateTime.now() + 1.year
 
-    public Account(String firstName, String lastName) {
+    constructor(firstName String, lastName String) {
         println("instantiating an Account...")
 
         /*
@@ -349,11 +349,11 @@ class Account implements ToString, Concatenate<Account> {
         this.ageInYears = 35
     }
 
-    public override String toString() {
+    func public override toString() String {
         `{firstName} {lastName} is {ageInYears} years old`
     }
 
-    public override Account concatenate(Account other) {
+    func public override concatenate(other Account) Account {
         var firstName = firstName.concat(other.firstName)
         var lastName = lastName.concat(other.lastName)
 
@@ -382,11 +382,11 @@ class Account implements ToString, Concatenate<Account> {
      * implementations or when assigning in constructors.
      */
 
-    public String name() {
+    func public name() String {
         `{firstName} {lastName}`
     }
 
-    public boolean locked() {
+    func public locked() boolean {
         expiry < ZonedDateTime.now
     }
 }
@@ -398,14 +398,14 @@ class Account implements ToString, Concatenate<Account> {
  * be two completely different implementations. This is a more disciplined
  * replacement for method overloading.
  */
-extend class Account implements Concatenate<Account, Result = String> {
+extend Account implements Concatenate<This, Result = String> {
 
-    public override String concatenate(This that) {
+    func public override concatenate(that This) String {
         `{firstName} {that.firstName}`
     }
 }
 
-void demoPatternMatching() {
+func demoPatternMatching() void {
     var account1 = Account(firstName = "Tom", lastName = "Smith")
     var matchingLastName = "Smith"
 
@@ -447,9 +447,9 @@ alias Person = Account
 alias Showable = ToString
 alias factorial2 = factorial
 
-int maxBound = 5
+var maxBound int = 5
 
-void demoClosures() {
+func demoClosures() void {
     var x = 5
 
     var account1 = Account(
@@ -482,39 +482,39 @@ void demoClosures() {
 class NumericLiteralsClass implements ToString {
 
     // Non-overflowable numbers.
-    int a = 5
-    uint b = 5u
-    decimal c = 10.0
+    var a int = 5
+    var b uint = 5u
+    var c decimal = 10.0
 
     // Overflowable, machine-width numbers.
-    byte d = 5u8
-    uint16 e = 11u16
-    uint32 f = 12u32
-    uint64 g = 13u64
-    int8 h = 15s8
-    short i = 13s16
-    int32 j = 7s
-    long k = 7s64
-    float l = 12f
-    double m = 8f64
+    var d byte = 5u8
+    var e uint16 = 11u16
+    var f uint32 = 12u32
+    var g uint64 = 13u64
+    var h int8 = 15s8
+    var i short = 13s16
+    var j int32 = 7s
+    var k long = 7s64
+    var l float = 12f
+    var m double = 8f64
 
-    public override String toString() {
+    func public override toString() String {
         `{a}{b}{c}{d}{e}{f}{g}{h}{i}{j}{k}{l}{m}`
     }
 }
 
 class AutoCloseableDemo implements AutoCloseable {
 
-    public AutoCloseableDemo() {
+    constructor() {
         println("Opened")
     }
 
-    public override void close() {
+    func public override close() void {
         println("Closed")
     }
 }
 
-void demoAutoCloseables() {
+func demoAutoCloseables() void {
 
     /*
      * Sylan, like Erlang and Go, strongly discourages catching exceptional
@@ -552,7 +552,7 @@ void demoAutoCloseables() {
     // Prints "Entering scope", "Opened", "Using closeable", "Closed", and finally "Leaving scope".
 }
 
-void demo() {
+func demo() void {
     // As mentioned above, all invocables can omit parentheses if they have
     // zero parameters. This is primarily for getters, but should also be used
     // for Pascal-procedure-style invocations just for consistency. That
