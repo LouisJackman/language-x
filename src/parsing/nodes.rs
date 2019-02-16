@@ -161,12 +161,6 @@ pub struct NewType {
     pub specification: TypeSpecification,
 }
 
-pub struct TypeAssignment {
-    pub name: Identifier,
-    pub type_parameters: Vec<TypeParameter>,
-    pub assignee: Type,
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Type {
     pub name: Identifier,
@@ -176,7 +170,6 @@ pub struct Type {
 pub enum TypeDeclaration {
     New(NewType),
     Extension(TypeSpecification),
-    Assignment(TypeAssignment),
 }
 
 #[derive(Clone)]
