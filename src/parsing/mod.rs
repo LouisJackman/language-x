@@ -57,9 +57,8 @@ use lexing::Tokens;
 use parsing::nodes::Expression::{self, UnaryOperator};
 use parsing::nodes::{
     Accessibility, Binding, Case, CaseMatch, Code, CompositePattern, Cond, CondCase,
-    ContextualBinding, DeclarationItem, FilePackage, For, If, Import, Item, Lambda, Literal,
-    MainPackage, Package, Pattern, PatternGetter, PatternItem, Scope, Select, Switch, Throw,
-    Timeout, TypeDeclaration, ValueParameter,
+    ContextualBinding, FilePackage, For, If, Import, Item, Lambda, Literal, MainPackage, Package,
+    Pattern, PatternGetter, PatternItem, Scope, Select, Switch, Throw, Timeout, ValueParameter,
 };
 
 mod modifier_sets;
@@ -72,6 +71,7 @@ pub enum ParserErrorDescription {
     Described(String),
     Expected(Token),
     Unexpected(Token),
+    LexerThreadFailed(String),
     PrematureEof,
 }
 
@@ -537,7 +537,7 @@ impl Parser {
 
     fn parse_select(&mut self) -> Result<nodes::Select> {
         self.tokens.discard();
-        let messageType = self.parse_type_name()?;
+        let message_type = self.parse_type_name()?;
         self.expect_and_discard(Token::OpenBrace)?;
         let mut cases = vec![];
         let mut timeout = None;
@@ -582,7 +582,7 @@ impl Parser {
             if self.next_is(&Token::CloseBrace) {
                 self.tokens.discard();
                 break Ok(Select {
-                    messageType,
+                    message_type,
                     cases,
                     timeout,
                 });
@@ -677,9 +677,9 @@ impl Parser {
     }
 
     fn parse_open_parentheses(&mut self) -> Result<nodes::Expression> {
-        self.expect_and_discard(Token::OpenParentheses);
+        self.expect_and_discard(Token::OpenParentheses)?;
         let expression = self.parse_expression()?;
-        self.expect_and_discard(Token::CloseParentheses);
+        self.expect_and_discard(Token::CloseParentheses)?;
         Ok(expression)
     }
 
@@ -1000,7 +1000,14 @@ impl Parser {
     /// finished before continuing.
     pub fn parse(mut self) -> Result<nodes::File> {
         let file = self.parse_file();
-        self.tokens.join_lexer_thread();
+        let join_handle = self.tokens.join_lexer_thread();
+        join_handle.map_err(|err| {
+            let description = ParserErrorDescription::LexerThreadFailed(format!(
+                "parsing failed due to not being able to join on the lexer thread: {:?}",
+                err,
+            ));
+            Error::Parser(ParserError { description })
+        })?;
         file
     }
 }

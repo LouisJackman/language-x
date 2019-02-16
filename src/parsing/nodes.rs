@@ -417,7 +417,6 @@ pub type Lookup = Vec<Identifier>;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum UnaryOperator {
     BitwiseNot,
-    BitwiseXor,
     InvocableHandle,
     Not,
 }
@@ -431,6 +430,7 @@ pub enum BinaryOperator {
     Assign,
     BitwiseAnd,
     BitwiseOr,
+    BitwiseXor,
     Compose,
     Divide,
     Dot,
@@ -463,7 +463,7 @@ pub struct Timeout {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Select {
-    pub messageType: Type,
+    pub message_type: Type,
     pub cases: Vec<Case>,
     pub timeout: Option<Timeout>,
 }
