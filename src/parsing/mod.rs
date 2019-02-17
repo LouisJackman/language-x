@@ -57,11 +57,11 @@ use lexing::Tokens;
 use parsing::nodes::Expression::{self, UnaryOperator};
 use parsing::nodes::{
     Accessibility, Binding, Case, CaseMatch, Code, CompositePattern, Cond, CondCase,
-    ContextualBinding, FilePackage, For, If, Import, Item, Lambda, Literal, MainPackage, Package,
-    Pattern, PatternGetter, PatternItem, Scope, Select, Switch, Throw, Timeout, ValueParameter,
+    ContextualBinding, FilePackage, For, If, Import, Item, Lambda, LambdaSignature, Literal,
+    MainPackage, Package, Pattern, PatternGetter, PatternItem, Scope, Select, Switch, Throw,
+    Timeout, Type, TypeParameter, ValueParameter,
 };
 
-mod modifier_sets;
 mod nodes;
 
 // TODO: break cycles in scopes to cleanup memory properly.
@@ -221,15 +221,6 @@ impl Parser {
                 break Ok(lookup);
             }
         }
-    }
-
-    fn parse_alias(&mut self) -> Result<nodes::Alias> {
-        self.expect_and_discard(Token::Alias)?;
-        let new = self.parse_identifier()?;
-        self.expect_and_discard(Token::Assign)?;
-        let original = self.parse_lookup()?;
-
-        Ok(nodes::Alias { new, original })
     }
 
     fn parse_type_specification(&mut self) -> Result<nodes::TypeSpecification> {
@@ -445,19 +436,85 @@ impl Parser {
         unimplemented!()
     }
 
-    fn parse_lambda_signature(&mut self) -> Result<Vec<ValueParameter>> {
+    fn parse_type_constraints(&mut self) -> Result<Vec<Type>> {
+        let mut constraints = vec![];
+        loop {
+            constraints.push(self.parse_type_name()?);
+            if self.next_is(&Token::Ampersand) {
+                self.expect_and_discard(Token::Ampersand)?;
+            } else {
+                break Ok(constraints);
+            }
+        }
+    }
+
+    fn parse_type_parameter_list(&mut self) -> Result<Vec<TypeParameter>> {
+        if self.next_is(&Token::LeftAngleBracket) {
+            let mut list = vec![];
+            self.expect_and_discard(Token::LeftAngleBracket)?;
+            loop {
+                let name = self.parse_identifier()?;
+                let upper_bounds = if self.next_is(&Token::Colon) {
+                    self.expect_and_discard(Token::Colon)?;
+                    self.parse_type_constraints()?
+                } else {
+                    vec![]
+                };
+                let default_value = if self.next_is(&Token::Assign) {
+                    self.expect_and_discard(Token::Assign)?;
+                    Some(self.parse_type_name()?)
+                } else {
+                    None
+                };
+
+                list.push(TypeParameter {
+                    name,
+                    upper_bounds,
+                    default_value,
+                });
+
+                if self.next_is(&Token::RightAngleBracket) {
+                    self.expect_and_discard(Token::RightAngleBracket)?;
+                    break Ok(list);
+                } else {
+                    self.expect_and_discard(Token::SubItemSeparator)?;
+                }
+            }
+        } else {
+            Ok(vec![])
+        }
+    }
+
+    fn parse_lambda_value_parameter_list(&mut self) -> Result<Vec<ValueParameter>> {
         let mut parameters = vec![];
+
+        let wrapped_in_parentheses = self.next_is(&Token::OpenBrace);
+        if wrapped_in_parentheses {
+            self.expect_and_discard(Token::OpenParentheses)?;
+        }
 
         loop {
             let pattern = self.parse_pattern()?;
+
+            let explicit_type_annotation = if self.next_is(&Token::SubItemSeparator)
+                || self.next_is(&Token::Assign)
+                || (wrapped_in_parentheses && self.next_is(&Token::CloseParentheses))
+            {
+                None
+            } else {
+                Some(self.parse_type_name()?)
+            };
+
             let default_value = if self.next_is(&Token::Assign) {
                 self.tokens.discard();
                 Some(self.parse_expression()?)
             } else {
                 None
             };
+
             let parameter = nodes::ValueParameter {
                 pattern,
+                explicit_type_annotation,
                 default_value,
             };
 
@@ -466,9 +523,45 @@ impl Parser {
             if self.next_is(&Token::SubItemSeparator) {
                 self.tokens.discard();
             } else {
+                if wrapped_in_parentheses {
+                    self.expect_and_discard(Token::CloseParentheses)?;
+                }
                 break Ok(parameters);
             }
         }
+    }
+
+    fn parse_lambda_result_type_annotation(&mut self) -> Result<Option<Type>> {
+        if self.next_is(&Token::OpenBrace) {
+            Ok(None)
+        } else {
+            Ok(Some(self.parse_type_name()?))
+        }
+    }
+
+    fn parse_lambda_signature(&mut self) -> Result<LambdaSignature> {
+        let ignorable = self.next_is(&Token::Ignorable);
+        if ignorable {
+            self.expect_and_discard(Token::Ignorable);
+        }
+
+        let type_parameters = self.parse_type_parameter_list()?;
+
+        let value_parameters_wrapped_in_parentheses = self.next_is(&Token::OpenParentheses);
+        let value_parameters = self.parse_lambda_value_parameter_list()?;
+
+        let explicit_return_type_annotation = if value_parameters_wrapped_in_parentheses {
+            self.parse_lambda_result_type_annotation()?
+        } else {
+            None
+        };
+
+        Ok(LambdaSignature {
+            type_parameters,
+            value_parameters,
+            explicit_return_type_annotation,
+            ignorable,
+        })
     }
 
     /// Parsing a lambda; this should not happen from a top-level expression, but only a
@@ -501,12 +594,20 @@ impl Parser {
     fn parse_binding(&mut self) -> Result<nodes::Binding> {
         self.tokens.discard();
         let pattern = self.parse_pattern()?;
+
+        let explicit_type_annotation = if self.next_is(&Token::Assign) {
+            None
+        } else {
+            Some(self.parse_type_name()?)
+        };
         self.expect_and_discard(Token::Assign)?;
+
         let value = self.parse_expression()?;
 
         Ok(Binding {
             pattern,
             value: Box::new(value),
+            explicit_type_annotation,
         })
     }
 
@@ -531,10 +632,6 @@ impl Parser {
         }
     }
 
-    fn parse_identifier_in_main_package(&mut self) -> Result<Item> {
-        unimplemented!()
-    }
-
     fn parse_select(&mut self) -> Result<nodes::Select> {
         self.tokens.discard();
         let message_type = self.parse_type_name()?;
@@ -554,14 +651,7 @@ impl Parser {
                 }
             } else {
                 let body = loop {
-                    let pattern = if self.next_is(&Token::Default) {
-                        Pattern {
-                            item: PatternItem::Ignored,
-                            bound_match: None,
-                        }
-                    } else {
-                        self.parse_pattern()?
-                    };
+                    let pattern = self.parse_pattern()?;
 
                     matches.push_back(CaseMatch {
                         pattern,
@@ -626,14 +716,7 @@ impl Parser {
         loop {
             let mut matches = LinkedList::new();
             let body = loop {
-                let pattern = if self.next_is(&Token::Default) {
-                    Pattern {
-                        item: PatternItem::Ignored,
-                        bound_match: None,
-                    }
-                } else {
-                    self.parse_pattern()?
-                };
+                let pattern = self.parse_pattern()?;
 
                 matches.push_back(CaseMatch {
                     pattern,
@@ -733,7 +816,7 @@ impl Parser {
 
     /// Outermost expressions are the same as any other expression except for disallowing grouped
     /// subexpressions with parentheses and lambda literals. Both of those exclusions are to make
-    /// parsing unambiguous.
+    /// parsing unambiguous without requiring explicit line continuations.
     fn parse_outermost_expression(&mut self) -> Result<nodes::Expression> {
         let token = self.tokens.peek().cloned();
         match token {
@@ -810,14 +893,6 @@ impl Parser {
         Ok(expression)
     }
 
-    fn parse_identifier_in_package(&mut self) -> Result<Item> {
-        unimplemented!()
-    }
-
-    fn parse_modifier_in_package(&mut self) -> Result<Item> {
-        unimplemented!()
-    }
-
     fn parse_inside_package(&mut self) -> Result<Vec<nodes::Item>> {
         let mut items: Vec<Item> = vec![];
 
@@ -827,47 +902,34 @@ impl Parser {
             match maybe_token {
                 None => break,
 
-                Some(token) => {
-                    match token {
-                        Token::Alias => {
-                            let alias = self.parse_alias()?;
-                            items.push(Item::Alias(alias));
-                        }
-                        Token::Class => {
-                            let _class = self.parse_class()?;
-                            items.push(Item::Class(_class));
-                        }
-                        Token::Extend => {
-                            let extension = self.parse_extend()?;
-                            items.push(Item::Extension(extension));
-                        }
-                        Token::Import => {
-                            let import = self.parse_import()?;
-                            items.push(Item::Import(import));
-                        }
-                        Token::Interface => {
-                            let interface = self.parse_interface()?;
-                            items.push(Item::Interface(interface));
-                        }
-                        Token::Package => {
-                            let package = self.parse_package_definition()?;
-                            items.push(Item::Package(package));
-                        }
-                        Token::Public | Token::Internal | Token::Ignorable => {
-                            let item = self.parse_modifier_in_package()?;
-                            items.push(item);
-                        }
-                        Token::Identifier(_) => {
-                            let item = self.parse_identifier_in_main_package()?;
-                            items.push(item);
-                        }
-
-                        _unexpected => {
-                            //self.unexpected(unexpected);
-                            unimplemented!()
-                        }
+                Some(token) => match token {
+                    Token::Class => {
+                        let _class = self.parse_class()?;
+                        items.push(Item::Class(_class));
                     }
-                }
+                    Token::Extend => {
+                        let extension = self.parse_extend()?;
+                        items.push(Item::Extension(extension));
+                    }
+                    Token::Import => {
+                        let import = self.parse_import()?;
+                        items.push(Item::Import(import));
+                    }
+                    Token::Interface => {
+                        let interface = self.parse_interface()?;
+                        items.push(Item::Interface(interface));
+                    }
+                    Token::Package => {
+                        let package = self.parse_package_definition()?;
+                        items.push(Item::Package(package));
+                    }
+                    Token::Var => {
+                        let binding = self.parse_binding()?;
+                        items.push(Item::Binding(binding));
+                    }
+
+                    unexpected => self.unexpected(unexpected)?,
+                },
             }
         }
 
@@ -890,10 +952,6 @@ impl Parser {
 
                 Some(token) => {
                     match token {
-                        Token::Alias => {
-                            let alias = self.parse_alias()?;
-                            items.push(Item::Alias(alias));
-                        }
                         Token::Class => {
                             let _class = self.parse_class()?;
                             items.push(Item::Class(_class));
@@ -914,21 +972,10 @@ impl Parser {
                             let package = self.parse_package_definition()?;
                             items.push(Item::Package(package));
                         }
-                        Token::Public | Token::Internal | Token::Ignorable => {
-                            let item = self.parse_modifier_in_package()?;
-                            items.push(item);
-                        }
 
-                        // Don't fail if an identifier is a runtime expression rather than the start
-                        // of a function or method declaration return type. Main packages,
-                        // unlike all other packages, are expected to handle this.
-                        Token::Identifier(_) => {
-                            self.parse_identifier_in_main_package();
-                            unimplemented!()
-                        }
-
-                        // Unlike non-main packages, the main package will try to interpret
-                        // expressions and type-inferred declarations to execute.
+                        // Unlike all other packages, the main package allows both variables
+                        // without type annotations, falling back to type inference, and also
+                        // arbritary expressions.
                         Token::Var => {
                             let binding = self.parse_binding()?;
                             implicit_main.bindings.insert(binding);

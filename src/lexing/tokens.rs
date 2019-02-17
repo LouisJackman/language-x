@@ -2,9 +2,8 @@ use common::multiphase::{Identifier, InterpolatedString, Shebang, SyDoc, SylanSt
 use common::version::Version;
 
 /// All tokens that can currently exist in all version of a Sylan program source.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Token {
-    Alias,
     Boolean(bool),
     Char(char),
     Identifier(Identifier),
@@ -18,7 +17,7 @@ pub enum Token {
     SyDoc(SyDoc),
     Version(Version),
     Add,
-    And,
+    Ampersand,
     As,
     Assign,
     Bind,
@@ -32,8 +31,8 @@ pub enum Token {
     CloseSquareBracket,
     Colon,
     Compose,
+    Constructor,
     Continue,
-    Default,
     Divide,
     Dot,
     Else,
@@ -44,12 +43,14 @@ pub enum Token {
     Extends,
     Exports,
     For,
+    Func,
     GreaterThan,
     GreaterThanOrEquals,
+    Extern,
     If,
     It,
     Ignorable,
-    Implements,
+    TypeConstraint,
     Import,
     InvocableHandle,
     Interface,
@@ -96,7 +97,6 @@ pub enum Token {
     Var,
     Virtual,
     With,
-    Where,
     While,
 }
 

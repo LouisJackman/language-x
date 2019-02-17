@@ -29,8 +29,6 @@ pub enum Item {
     Class(Class),
     Extension(TypeSpecification),
     Interface(Interface),
-    Function(Function),
-    Method(Method),
     SyDoc(SyDoc),
     ContextualIgnoral(ContextualIgnoral),
     Alias(Alias),
@@ -130,8 +128,7 @@ pub struct Declaration {
 #[derive(Clone)]
 pub struct Class {
     pub implements: LinkedList<Type>,
-    pub methods: HashSet<ConcreteMethod>,
-    pub items: HashSet<Declaration>,
+    pub methods: HashSet<Method>,
 }
 
 /// Interfaces that support extending other interfaces, providing empty methods
@@ -173,22 +170,6 @@ pub enum TypeDeclaration {
 }
 
 #[derive(Clone)]
-pub struct ConcreteMethod {
-    pub function: Function,
-}
-
-#[derive(Clone)]
-pub struct AbstractMethod {
-    pub signature: FunctionSignature,
-}
-
-#[derive(Clone)]
-pub enum MethodItem {
-    Concrete(ConcreteMethod),
-    Abstract(AbstractMethod),
-}
-
-#[derive(Clone)]
 pub struct DeclarationModifiers {
     accessibility: Accessibility,
 }
@@ -201,18 +182,24 @@ pub struct MethodModifiers {
     default: bool,
 }
 
-/// Methods, which can be potentially abstract (i.e. with undefined bodies) in
-/// interfaces, can be overridable and virtual in interfaces, and must be tied
-/// to either a class an interface.
+/// Methods and just bindings in a class, which can be potentially abstract (i.e. with no initial
+/// value) in interfaces, can be overridable and virtual in interfaces, and must be tied to either
+/// a class an interface. There is no meaningful distintion between a method and an attribute: a
+/// `method` is just a binding in a class and it works like a traditional OOP method
+/// when that binding contains a lambda.
 ///
-/// Otherwise they are higher-order constructs that can be passed around like
-/// normal functions and lambdas. Like Python and unlike JS, their reference
-/// to their type and instance are bound to the method itself.
+/// They are just normal bindings but tied to their type. Like Python and unlike JS, their
+/// reference to their type and instance are bound to the method itself.
+///
+/// Type annotations are only optional in a special case: direct literals. This means a very common
+/// case, OOP-style methods, don't require spelling out type annotations twice as lambdas are
+/// literals.
 #[derive(Clone)]
 pub struct Method {
     pub name: Identifier,
     pub modifiers: MethodModifiers,
-    pub item: MethodItem,
+    pub type_annotation: Option<Type>,
+    pub non_abstract_value: Option<Expression>,
 }
 
 /// Value parameters are for values at runtime and have identifiers and
@@ -220,13 +207,8 @@ pub struct Method {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ValueParameter {
     pub pattern: Pattern,
+    pub explicit_type_annotation: Option<Type>,
     pub default_value: Option<Expression>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ValueParameterWithTypeAnnotation {
-    parameter: ValueParameter,
-    type_annotation: Type,
 }
 
 /// Type parameters are for types at compile-time and have optional upper
@@ -234,7 +216,7 @@ pub struct ValueParameterWithTypeAnnotation {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TypeParameter {
     pub name: Identifier,
-    pub upper_bounds: LinkedList<Type>,
+    pub upper_bounds: Vec<Type>,
     pub default_value: Option<Type>,
 }
 
@@ -267,6 +249,7 @@ type TypeArguments = Argument<Type>;
 pub struct Binding {
     pub pattern: Pattern,
     pub value: Box<Expression>,
+    pub explicit_type_annotation: Option<Type>,
 }
 
 impl PartialEq for Binding {
@@ -365,28 +348,16 @@ impl Scope {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FunctionSignature {
+pub struct LambdaSignature {
     pub type_parameters: Vec<TypeParameter>,
-    pub value_parameters: Vec<ValueParameterWithTypeAnnotation>,
-    pub return_type: Type,
-}
-
-/// Like methods, functions have a scope and type and value parameters. Unlike
-/// methods, they do not carry references to types or instances, and cannot be
-/// overridden or be abstract.
-///
-/// There is no difference between a function or a lambda. A lambda is merely a
-/// function that isn't attached to a binding in a scope. After being lexed from
-/// different tokens they become indistinguishable in the AST.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Function {
-    pub signature: FunctionSignature,
-    pub scope: Scope,
+    pub value_parameters: Vec<ValueParameter>,
+    pub explicit_return_type_annotation: Option<Type>,
+    pub ignorable: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lambda {
-    pub signature: Vec<ValueParameter>,
+    pub signature: LambdaSignature,
     pub scope: Scope,
 }
 
@@ -462,7 +433,7 @@ pub struct Select {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum FunctionArgument {
+pub enum LambdaArgument {
     Normal(Argument<Expression>),
     Entry(Box<Expression>, Box<Expression>),
 }
@@ -470,7 +441,7 @@ pub enum FunctionArgument {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Call {
     pub target: Box<Expression>,
-    pub arguments: Vec<FunctionArgument>,
+    pub arguments: Vec<LambdaArgument>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -563,8 +534,8 @@ pub struct CompositePattern {
 pub enum PatternItem {
     Literal(Literal),
     Identifier(Identifier),
-    Ignored,
     Composite(CompositePattern),
+    Ignored,
 }
 
 #[derive(Clone, Debug, Eq)]

@@ -748,7 +748,7 @@ impl Lexer {
     fn lex_with_leading_ampersand(&mut self) -> Token {
         if self.source.next_is('&') {
             self.source.discard();
-            Token::And
+            Token::Ampersand
         } else {
             Token::BitwiseAnd
         }
