@@ -21,24 +21,24 @@ import sylan.util.collections.list as list
  * letters in every other case.
  */
 
-public class void {
+class public Void {
     /**
      * The unit-type, a.k.a. `void`. It can be instantiated, but contains
      * nothing.
      */
 }
 
-public enum boolean {
-    true,
-    false,
+enum public Boolean {
+    True,
+    False,
 }
 
-public alias true = boolean.true
-public alias true = boolean.false
+var public True = Boolean.true
+var public False = Boolean.false
 
-public interface Number {
+interface public Number {
 
-    public N negated() where N : Number {
+    var public negated = -> () This {
         /**
          * Negate a number; replaces the unary minus operator present in other
          * languages.
@@ -57,26 +57,26 @@ public interface Number {
 
     // Bitshift operators were moved out of built-in operators and into extern
     // methods to avoid the parsing ambiguity from `<<` and `>>`.
-    public extern N shr() where N : Number
-    public extern N shl() where N : Number
+    public extern shr() Number
+    public extern shl() Number
 
-    public N doubled<N>() where N : Number {
+    var public doubled = -> () Number {
         this * 2
     }
 
-    public N tripled<N>() where N : Number {
+    var public tripled = -> () Number {
         this * 3
     }
 
-    public N quadrupled<N>() where N : Number {
+    var public quadrupled = -> () Number {
         this * 4
     }
 
-    public N quintupled<N>() where N : Number {
+    var public quintupled = -> () Number {
         this * 5
     }
 
-    public List<N> to(N n) where N : Number {
+    var public to = -> <N: Number> (n N) List<N> {
         list.generate(initial = 1) -> {
             if n < it {
                 list.generation.Finish
@@ -90,43 +90,43 @@ public interface Number {
 // Built-in types, which look a bit like Java primitives except that they are
 // real OO-style types. These can't be defined in Sylan itself due to their
 // precise definition in raw memory.
-public extern class int;
-public extern class uint;
-public extern class byte;
-public extern class uint16;
-public extern class uint32;
-public extern class uint64;
-public extern class int8;
-public extern class short;
-public extern class int32;
-public extern class long;
-public extern class float;
-public extern class double;
+class public extern Int;
+class public extern UInt;
+class public extern Byte;
+class public extern UInt16;
+class public extern UInt32;
+class public extern UInt64;
+class public extern Int8;
+class public extern Short;
+class public extern Int32;
+class public extern Long;
+class public extern Float;
+class public extern Double;
 
-public interface ToString {
-    public String toString()
+interface public ToString {
+    var public toString() String
 }
 
-public class String {
+class public String {
     //
 }
 
-public class decimal {
+class public Decimal {
     //
 }
 
-public extern Task currentTask()
+var public extern currentTask() Task
 
 class AssertionError implements Exception {
 
-    public override String message() {
+    var public override message = -> () String {
         "assertion failed"
     }
 }
 
 // TODO: this should really be a macro, but Sylan doesn't yet have a solid plan
 // for macros.
-public void assert(boolean predicate) {
+var public assert = -> (predicate Boolean) Void {
     /**
      * Assert that predicate is true, otherwise throw an `AssertionError`.
      */
@@ -136,13 +136,14 @@ public void assert(boolean predicate) {
     }
 }
 
-public extern void print(String message)
+var public extern print(message String) Void
 
-public void println(String message) {
+var public println = -> (message String) Void {
     print(message)
     print("\n")
 }
 
-public T id<T>(T value) {
+var public id = -> <T> (value T) T {
     value
 }
+

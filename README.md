@@ -943,15 +943,12 @@ case of native compilation.
 * Once we allow that, there's no reason not to allow LHS type inference to flow
   from the RHS as long as it only flows to declarations within a function,
   lambda, or method body and does not escape it.
-* Sylan is more opinionated than most language on how to use type annotations:
-  all items should be 100% explicitly typed whereas all declarations scoped
-  inside a method or function should be 100% implicitly typed. The language will
-  not expose edge cases where type annotations are ever actually necessary in
-  method or function bodies (like the "`:: Float` to disambiguate `Show`"
-  problem of Haskell). This is why numbers have explicit type suffixes.
+* Sylan is more opinionated than some statically-typed functional languages on
+  type inference; while all function-local variables can infer types, declared
+  items in classes and packages must always be explicitly typed. This includes
+  package functions, class methods, constructors, and class fields.
 * This ensures APIs and program structure is rigid and explicitly typed while
-  expressions are concise, without boilerplate, and utterly consistent rather
-  than making type annotations a matter of taste.
+  expressions are concise and with little boilerplate.
 * This philosophy extends to lambdas; as lambdas are used locally and not for
   definitions (which use declared functions and methods), lambda expressions
   also only allow inferred types (which is why type parameter syntax is not
