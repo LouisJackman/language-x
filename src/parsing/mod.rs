@@ -542,7 +542,7 @@ impl Parser {
     fn parse_lambda_signature(&mut self) -> Result<LambdaSignature> {
         let ignorable = self.next_is(&Token::Ignorable);
         if ignorable {
-            self.expect_and_discard(Token::Ignorable);
+            self.expect_and_discard(Token::Ignorable)?;
         }
 
         let type_parameters = self.parse_type_parameter_list()?;
@@ -653,12 +653,14 @@ impl Parser {
                 let body = loop {
                     let pattern = self.parse_pattern()?;
 
-                    matches.push_back(CaseMatch {
-                        pattern,
+                    let guard = if self.next_is(&Token::If) {
+                        self.expect_and_discard(Token::If)?;
+                        Some(self.parse_expression()?)
+                    } else {
+                        None
+                    };
 
-                        // TODO: parse case guards.
-                        guard: None,
-                    });
+                    matches.push_back(CaseMatch { pattern, guard });
 
                     if self.next_is(&Token::OpenBrace) {
                         break self.parse_scope()?;
@@ -718,12 +720,14 @@ impl Parser {
             let body = loop {
                 let pattern = self.parse_pattern()?;
 
-                matches.push_back(CaseMatch {
-                    pattern,
+                let guard = if self.next_is(&Token::If) {
+                    self.expect_and_discard(Token::If)?;
+                    Some(self.parse_expression()?)
+                } else {
+                    None
+                };
 
-                    // TODO: parse the guard.
-                    guard: None,
-                });
+                matches.push_back(CaseMatch { pattern, guard });
 
                 if self.next_is(&Token::OpenBrace) {
                     break self.parse_scope()?;
