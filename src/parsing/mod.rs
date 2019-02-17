@@ -59,7 +59,7 @@ use parsing::nodes::{
     Accessibility, Binding, Case, CaseMatch, Code, CompositePattern, Cond, CondCase,
     ContextualBinding, FilePackage, For, If, Import, Item, Lambda, LambdaSignature, Literal,
     MainPackage, Package, Pattern, PatternGetter, PatternItem, Scope, Select, Switch, Throw,
-    Timeout, Type, TypeParameter, ValueParameter,
+    Timeout, Type, TypeExtension, TypeParameter, ValueParameter,
 };
 
 mod nodes;
@@ -223,11 +223,11 @@ impl Parser {
         }
     }
 
-    fn parse_type_specification(&mut self) -> Result<nodes::TypeSpecification> {
+    fn parse_class_body(&mut self) -> Result<nodes::TypeSpecification> {
         unimplemented!()
     }
 
-    fn parse_class(&mut self) -> Result<nodes::Class> {
+    fn parse_class_definition(&mut self) -> Result<nodes::Class> {
         unimplemented!()
     }
 
@@ -265,10 +265,16 @@ impl Parser {
         })
     }
 
-    fn parse_extend(&mut self) -> Result<nodes::TypeSpecification> {
+    fn parse_extension(&mut self) -> Result<nodes::TypeExtension> {
         self.tokens.discard();
-        let specification = self.parse_type_specification()?;
-        Ok(specification)
+        let extension = if self.next_is(&Token::Class) {
+            self.expect_and_discard(Token::Class);
+            TypeExtension::Class(self.parse_class_definition()?)
+        } else {
+            self.expect_and_discard(Token::Interface);
+            TypeExtension::Interface(self.parse_interface_definition()?)
+        };
+        Ok(extension)
     }
 
     fn parse_for(&mut self) -> Result<nodes::Expression> {
@@ -432,7 +438,11 @@ impl Parser {
         Ok(Import { lookup })
     }
 
-    fn parse_interface(&mut self) -> Result<nodes::Interface> {
+    fn parse_interface_body(&mut self) -> Result<nodes::TypeSpecification> {
+        unimplemented!()
+    }
+
+    fn parse_interface_definition(&mut self) -> Result<nodes::Interface> {
         unimplemented!()
     }
 
@@ -852,14 +862,6 @@ impl Parser {
         }
     }
 
-    fn parse_class_body(&mut self) -> Result<nodes::TypeSpecification> {
-        unimplemented!()
-    }
-
-    fn parse_interface_body(&mut self) -> Result<nodes::TypeSpecification> {
-        unimplemented!()
-    }
-
     fn parse_scope(&mut self) -> Result<nodes::Scope> {
         let code = self.parse_code()?;
         Ok(Scope {
@@ -908,11 +910,11 @@ impl Parser {
 
                 Some(token) => match token {
                     Token::Class => {
-                        let _class = self.parse_class()?;
-                        items.push(Item::Class(_class));
+                        let class_definition = self.parse_class_definition()?;
+                        items.push(Item::Class(class_definition));
                     }
                     Token::Extend => {
-                        let extension = self.parse_extend()?;
+                        let extension = self.parse_extension()?;
                         items.push(Item::Extension(extension));
                     }
                     Token::Import => {
@@ -920,7 +922,7 @@ impl Parser {
                         items.push(Item::Import(import));
                     }
                     Token::Interface => {
-                        let interface = self.parse_interface()?;
+                        let interface = self.parse_interface_definition()?;
                         items.push(Item::Interface(interface));
                     }
                     Token::Package => {
@@ -957,11 +959,11 @@ impl Parser {
                 Some(token) => {
                     match token {
                         Token::Class => {
-                            let _class = self.parse_class()?;
-                            items.push(Item::Class(_class));
+                            let class_definition = self.parse_class_definition()?;
+                            items.push(Item::Class(class_definition));
                         }
                         Token::Extend => {
-                            let extension = self.parse_extend()?;
+                            let extension = self.parse_extension()?;
                             items.push(Item::Extension(extension));
                         }
                         Token::Import => {
@@ -969,7 +971,7 @@ impl Parser {
                             items.push(Item::Import(import));
                         }
                         Token::Interface => {
-                            let interface = self.parse_interface()?;
+                            let interface = self.parse_interface_definition()?;
                             items.push(Item::Interface(interface));
                         }
                         Token::Package => {

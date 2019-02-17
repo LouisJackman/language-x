@@ -27,7 +27,7 @@ pub struct File {
 pub enum Item {
     Package(Package),
     Class(Class),
-    Extension(TypeSpecification),
+    Extension(Extension),
     Interface(Interface),
     SyDoc(SyDoc),
     ContextualIgnoral(ContextualIgnoral),
@@ -148,25 +148,15 @@ pub enum TypeItem {
 }
 
 #[derive(Clone)]
-pub struct TypeSpecification {
-    pub name: Identifier,
-    pub item: TypeItem,
-}
-
-pub struct NewType {
-    pub type_parameters: Vec<TypeParameter>,
-    pub specification: TypeSpecification,
+pub enum TypeExtension {
+    Class(Class),
+    Interface(Interface),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Type {
     pub name: Identifier,
     pub arguments: Vec<Argument<Type>>,
-}
-
-pub enum TypeDeclaration {
-    New(NewType),
-    Extension(TypeSpecification),
 }
 
 #[derive(Clone)]
