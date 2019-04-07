@@ -15,7 +15,7 @@ import sylan.util.concurrency.Task
 import sylan.util.datetime.ZonedDateTime
 import sylan.util.optional.{Empty, Some}
 
-var fizzBuzz = -> (n Int) Int {
+func fizzBuzz(n Int) Int {
 
     // Sylan supports blocks, syntax for passing a lambda as a final argument to
     // an invocable. Note the use of `it` as a shorthand for one-argument
@@ -37,7 +37,7 @@ fizzBuzz(100)
 /**
  * SyDocs can be written for code documentation.
  */
-var demoIteration = -> () Void {
+func demoIteration() {
 
     var highlight = -> s { `>> {s} <<` }
 
@@ -150,7 +150,7 @@ var demoIteration = -> () Void {
  * As can be seen in this function and the previous, Sylan allows functions to
  * stand alone in packages without being tied to classes or interfaces.
  */
-var internal factorial = -> (n Int) Int {
+func internal factorial(n Int) Int {
     switch n {
         0, 1 {
             1
@@ -168,7 +168,7 @@ var internal factorial = -> (n Int) Int {
     }
 }
 
-var internal printFactorial = -> ignorable (n Int) Int {
+func internal ignorable printFactorial(n Int) Int {
     /*
      * Sylan does not allow callers to throw away non-`Void` function or methods
      * results unless they're declared with the `ignorable` modifier.
@@ -185,17 +185,17 @@ var internal printFactorial = -> ignorable (n Int) Int {
     /*
      * Sylan is an expression-oriented language, so everything returns a value
      * including loops and `if`s. Therefore, the last value is returned by
-     * default. The lack of explicit `return`s mean there is always a single
+     * default. The lack of explicit `return`s means there is always a single
      * exit point from a function or method: the last expression.
      */
     result
 }
 
-var twice = -> <N : Number = int> (n N, f (N) N) N {
+func twice[N Number = int](n N, f (N) N) N {
     f(n) + f(n)
 }
 
-var doubled = -> <N : Add & ToString> (n N) String {
+func doubled[N Add & ToString](n N) String {
     (n + n).toString()
 }
 
@@ -204,13 +204,13 @@ var doubled = -> <N : Add & ToString> (n N) String {
  * used as typed directly. To get dynamic dispatch, use the virtual keyword
  * like so:
  *
- *     var printNumber = -> n virtual Number : Number {
+ *     func printNumber(n virtual Number) Number {
  */
-var printNumber = -> (n Number) Void {
+func printNumber(n Number) {
     println(`{n}`)
 }
 
-var demoContexts = -> () Optional<Int> {
+func demoContexts() Optional[Int] {
 
     /*
      * Haskell programmers will recognise this as a monadic do notation, which
@@ -241,7 +241,7 @@ package counter {
         Get,
     }
 
-    var public start = -> (sender Task, n Int = 0) Void {
+    func public start(sender Task, n Int = 0) {
         select Message {
             .Increment {
                 start(sender, n + 1)
@@ -260,12 +260,12 @@ package counter {
     }
 }
 
-interface Concatenate<T> {
-    var public concatenate(T) T
+interface Concatenate[T] {
+    func public concatenate(T) T
 }
 
-interface Equals<T> {
-    var public equals(T) Boolean
+interface Equals[T] {
+    func public equals(T) Boolean
 
     /*
      * Sylan's interface methods can have bodies like Java 8's defender methods.
@@ -277,7 +277,7 @@ interface Equals<T> {
      * inheritance in Sylan means there is no other possible use case for them
      * except to be implemented by the implementor.
      */
-    var public virtual notEquals = -> (other T) boolean {
+    func public virtual notEquals(other T) boolean {
         !equals(other)
     }
 }
@@ -301,7 +301,7 @@ class Name {
  * generally causes more problems that it's worth and type embedding plus a
  * more powerful interface system makes up for the difference.
  */
-class Account : ToString, Concatenate<This> {
+class Account implements ToString, Concatenate[This] {
 
 
     /*
@@ -345,11 +345,11 @@ class Account : ToString, Concatenate<This> {
         this.ageInYears = 35
     }
 
-    var public override toString = -> () String {
+    func public override toString() String {
         `{firstName} {lastName} is {ageInYears} years old`
     }
 
-    var public override concatenate = -> (other This) This {
+    func public override concatenate(other This) This {
         var firstName = firstName.concat(other.firstName)
         var lastName = lastName.concat(other.lastName)
 
@@ -378,11 +378,11 @@ class Account : ToString, Concatenate<This> {
      * implementations or when assigning in constructors.
      */
 
-    var public name = -> () String {
+    func public name() String {
         `{firstName} {lastName}`
     }
 
-    var public locked = -> () Boolean {
+    func public locked() Boolean {
         expiry < ZonedDateTime.now
     }
 }
@@ -394,14 +394,14 @@ class Account : ToString, Concatenate<This> {
  * be two completely different implementations. This is a more disciplined
  * replacement for method overloading.
  */
-extend class Account : Concatenate<This, Result = String> {
+extend class Account implements Concatenate[This, Result = String] {
 
-    var public override concatenate = -> (that This) String {
+    func public override concatenate(that This) String {
         `{firstName} {that.firstName}`
     }
 }
 
-var demoPatternMatching = -> () Void {
+func demoPatternMatching() {
     var account1 = Account(firstName = "Tom", lastName = "Smith")
     var matchingLastName = "Smith"
 
@@ -445,7 +445,7 @@ var factorial2 = factorial
 
 var maxBound Int = 5
 
-var demoClosures = -> () Void {
+func demoClosures() {
     var x = 5
 
     var account1 = Account(
@@ -475,7 +475,7 @@ var demoClosures = -> () Void {
     println(`n == {n}`)
 }
 
-class NumericLiteralsClass : ToString {
+class NumericLiteralsClass implements ToString {
 
     // Non-overflowable numbers.
     var a Int = 5
@@ -494,23 +494,23 @@ class NumericLiteralsClass : ToString {
     var l Float = 12f
     var m Double = 8f64
 
-    var public override toString = -> () String {
+    func public override toString() String {
         `{a}{b}{c}{d}{e}{f}{g}{h}{i}{j}{k}{l}{m}`
     }
 }
 
-class AutoCloseableDemo : AutoCloseable {
+class AutoCloseableDemo implements AutoCloseable {
 
     constructor() {
         println("Opened")
     }
 
-    var public override close = -> () Void {
+    func public override close() {
         println("Closed")
     }
 }
 
-var demoAutoCloseables = -> () Void {
+func demoAutoCloseables() {
 
     /*
      * Sylan, like Erlang and Go, strongly discourages catching exceptional
@@ -548,7 +548,7 @@ var demoAutoCloseables = -> () Void {
     // Prints "Entering scope", "Opened", "Using closeable", "Closed", and finally "Leaving scope".
 }
 
-var demo = -> () Void {
+func demo() {
     // As mentioned above, all invocables can omit parentheses if they have
     // zero parameters. This is primarily for getters, but should also be used
     // for Pascal-procedure-style invocations just for consistency. That

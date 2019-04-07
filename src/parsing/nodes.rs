@@ -148,7 +148,7 @@ pub enum TypeItem {
 }
 
 #[derive(Clone)]
-pub enum TypeExtension {
+pub enum Extension {
     Class(Class),
     Interface(Interface),
 }
@@ -366,42 +366,16 @@ pub enum Literal {
 /// packages.
 pub type Lookup = Vec<Identifier>;
 
-/// Sylan allows overridding existing operators but not defining new ones,
-/// otherwise an operator would be an `Identifier` instead of in an enum.
+/// Sylan allows defining operations but only binary ones. Unary ones are fixed in the language
+/// and cannot be used as names for identifiers.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum UnaryOperator {
-    BitwiseNot,
     InvocableHandle,
     Not,
 }
 
-/// Sylan allows overridding existing operators but not defining new ones,
-/// otherwise an operator would be an `Identifier` instead of in an enum.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum BinaryOperator {
-    Add,
-    And,
-    Assign,
-    BitwiseAnd,
-    BitwiseOr,
-    BitwiseXor,
-    Compose,
-    Divide,
-    Dot,
-    Equals,
-    GreaterThan,
-    GreaterThanOrEquals,
-    LessThan,
-    LessThenOrEquals,
-    Modulo,
-    Multiply,
-    NotEquals,
-    Or,
-    Pipe,
-    ShiftLeft,
-    ShiftRight,
-    Subtract,
-}
+pub struct BinaryOperator(Identifier);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Switch {

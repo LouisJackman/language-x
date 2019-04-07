@@ -57,9 +57,9 @@ use lexing::Tokens;
 use parsing::nodes::Expression::{self, UnaryOperator};
 use parsing::nodes::{
     Accessibility, Binding, Case, CaseMatch, Code, CompositePattern, Cond, CondCase,
-    ContextualBinding, FilePackage, For, If, Import, Item, Lambda, LambdaSignature, Literal,
-    MainPackage, Package, Pattern, PatternGetter, PatternItem, Scope, Select, Switch, Throw,
-    Timeout, Type, TypeExtension, TypeParameter, ValueParameter,
+    ContextualBinding, Extension, FilePackage, For, If, Import, Item, Lambda, LambdaSignature,
+    Literal, MainPackage, Method, Package, Pattern, PatternGetter, PatternItem, Scope, Select,
+    Switch, Throw, Timeout, Type, TypeParameter, ValueParameter,
 };
 
 mod nodes;
@@ -199,10 +199,6 @@ impl Parser {
             .map(|expression| UnaryOperator(operator, Box::new(expression)))
     }
 
-    fn parse_bitwise_not(&mut self) -> Result<nodes::Expression> {
-        self.parse_unary_operator(nodes::UnaryOperator::BitwiseNot)
-    }
-
     fn parse_not(&mut self) -> Result<nodes::Expression> {
         self.parse_unary_operator(nodes::UnaryOperator::Not)
     }
@@ -223,7 +219,7 @@ impl Parser {
         }
     }
 
-    fn parse_class_body(&mut self) -> Result<nodes::TypeSpecification> {
+    fn parse_class_body(&mut self) -> Result<HashSet<Method>> {
         unimplemented!()
     }
 
@@ -265,14 +261,14 @@ impl Parser {
         })
     }
 
-    fn parse_extension(&mut self) -> Result<nodes::TypeExtension> {
+    fn parse_extension(&mut self) -> Result<nodes::Extension> {
         self.tokens.discard();
         let extension = if self.next_is(&Token::Class) {
-            self.expect_and_discard(Token::Class);
-            TypeExtension::Class(self.parse_class_definition()?)
+            self.expect_and_discard(Token::Class)?;
+            Extension::Class(self.parse_class_definition()?)
         } else {
-            self.expect_and_discard(Token::Interface);
-            TypeExtension::Interface(self.parse_interface_definition()?)
+            self.expect_and_discard(Token::Interface)?;
+            Extension::Interface(self.parse_interface_definition()?)
         };
         Ok(extension)
     }
@@ -432,13 +428,27 @@ impl Parser {
         })
     }
 
+    fn parse_lambda_call(&mut self) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn parse_type_argument_list(&mut self) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn parse_binary_operator(&mut self) -> Result<()> {
+        // TODO: implement precedence rather than just left-to-right.
+
+        unimplemented!()
+    }
+
     fn parse_import(&mut self) -> Result<nodes::Import> {
         self.tokens.discard();
         let lookup = self.parse_lookup()?;
         Ok(Import { lookup })
     }
 
-    fn parse_interface_body(&mut self) -> Result<nodes::TypeSpecification> {
+    fn parse_interface_body(&mut self) -> Result<HashSet<Method>> {
         unimplemented!()
     }
 
@@ -459,9 +469,9 @@ impl Parser {
     }
 
     fn parse_type_parameter_list(&mut self) -> Result<Vec<TypeParameter>> {
-        if self.next_is(&Token::LeftAngleBracket) {
+        if self.next_is(&Token::OpenSquareBracket) {
             let mut list = vec![];
-            self.expect_and_discard(Token::LeftAngleBracket)?;
+            self.expect_and_discard(Token::OpenSquareBracket)?;
             loop {
                 let name = self.parse_identifier()?;
                 let upper_bounds = if self.next_is(&Token::Colon) {
@@ -483,8 +493,8 @@ impl Parser {
                     default_value,
                 });
 
-                if self.next_is(&Token::RightAngleBracket) {
-                    self.expect_and_discard(Token::RightAngleBracket)?;
+                if self.next_is(&Token::CloseSquareBracket) {
+                    self.expect_and_discard(Token::CloseSquareBracket)?;
                     break Ok(list);
                 } else {
                     self.expect_and_discard(Token::SubItemSeparator)?;
@@ -773,13 +783,6 @@ impl Parser {
         Ok(Throw(Box::new(expression)))
     }
 
-    fn parse_open_parentheses(&mut self) -> Result<nodes::Expression> {
-        self.expect_and_discard(Token::OpenParentheses)?;
-        let expression = self.parse_expression()?;
-        self.expect_and_discard(Token::CloseParentheses)?;
-        Ok(expression)
-    }
-
     fn parse_literal(&mut self, token: Token) -> Option<nodes::Literal> {
         match token {
             // Literal tokens are a one-to-one translation to AST nodes
@@ -802,7 +805,6 @@ impl Parser {
                     .map(|literal| Ok(nodes::Expression::Literal(literal)))
                     .unwrap_or_else(|| match token {
                         // Non-atomic tokens each delegate to a dedicated method.
-                        Token::BitwiseNot => self.parse_bitwise_not(),
                         Token::With => self.parse_with().map(nodes::Expression::With),
                         Token::For => self.parse_for(),
                         Token::If => self.parse_if().map(nodes::Expression::If),
@@ -811,7 +813,7 @@ impl Parser {
                             .map(|f| nodes::Expression::Literal(Literal::Lambda(f))),
                         Token::InvocableHandle => self.parse_invocable_handle(),
                         Token::Not => self.parse_not(),
-                        Token::OpenParentheses => self.parse_open_parentheses(),
+                        Token::OpenParentheses => self.parse_grouped_expression(),
                         Token::Select => self.parse_select().map(nodes::Expression::Select),
                         Token::Switch => self.parse_switch(),
                         Token::Throw => self.parse_throw().map(nodes::Expression::Throw),
@@ -840,7 +842,6 @@ impl Parser {
                     .map(|literal| Ok(nodes::Expression::Literal(literal)))
                     .unwrap_or_else(|| match token {
                         // Non-atomic tokens each delegate to a dedicated method.
-                        Token::BitwiseNot => self.parse_bitwise_not(),
                         Token::With => self.parse_with().map(nodes::Expression::With),
                         Token::For => self.parse_for(),
                         Token::If => self.parse_if().map(nodes::Expression::If),
@@ -882,7 +883,7 @@ impl Parser {
                 self.tokens.discard();
                 break;
             } else {
-                expressions.push(self.parse_expression()?);
+                expressions.push(self.parse_outermost_expression()?);
             }
         }
 
@@ -892,7 +893,7 @@ impl Parser {
         })
     }
 
-    fn parse_expression_grouping(&mut self) -> Result<nodes::Expression> {
+    fn parse_grouped_expression(&mut self) -> Result<nodes::Expression> {
         self.tokens.discard();
         let expression = self.parse_expression()?;
         self.expect_and_discard(Token::CloseParentheses)?;

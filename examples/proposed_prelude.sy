@@ -15,12 +15,6 @@ package sylan.lang
 
 import sylan.util.collections.list as list
 
-/*
- * Don't copy the lower-case type names here. That's solely done for _prelude_
- * types to be familiar to Java and C# keywords. Types should start with capital
- * letters in every other case.
- */
-
 class public Void {
     /**
      * The unit-type, a.k.a. `void`. It can be instantiated, but contains
@@ -30,13 +24,45 @@ class public Void {
 
 enum public Boolean {
     True,
-    False,
+    False;
+
+
+    var public extern && operator (other This)
+    var public extern || operator (other This)
+}
+
+class public extern Invokable<Result, Args...>
+
+extend class Invokable<Result, Args...> {
+
+    var public extern |> operator <T> (other (Result) T) T
+    var public extern # operator <T> (other (Result) T) (Args...) T
 }
 
 var public True = Boolean.true
 var public False = Boolean.false
 
 interface public Number {
+
+    // Natively-defined arithmetic operators.
+    var public extern + operator (other This) This
+    var public extern - operator (other This) This
+    var public extern / operator (other This) This
+    var public extern % operator (other This) This
+    var public extern * operator (other This) This
+    var public extern ** operator (other This) This
+
+    // Natively-defined bitwise operators.
+    var public extern & operator (other This) This
+    var public extern ^ operator (other This) This
+    var public extern bitnot() This
+
+    var public extern < operator (other This) This
+    var public extern <= operator (other This) This
+    var public extern == operator (other This) This
+    var public extern != operator (other This) This
+    var public extern > operator (other This) This
+    var public extern >= operator (other This) This
 
     var public negated = -> () This {
         /**
@@ -55,8 +81,9 @@ interface public Number {
         }
     }
 
-    // Bitshift operators were moved out of built-in operators and into extern
-    // methods to avoid the parsing ambiguity from `<<` and `>>`.
+    // Bitshift operators with angle brackets were moved out of built-in
+    // operators and into extern methods to avoid the parsing ambiguity from
+    // `<<` and `>>`.
     public extern shr() Number
     public extern shl() Number
 
@@ -90,18 +117,18 @@ interface public Number {
 // Built-in types, which look a bit like Java primitives except that they are
 // real OO-style types. These can't be defined in Sylan itself due to their
 // precise definition in raw memory.
-class public extern Int;
-class public extern UInt;
-class public extern Byte;
-class public extern UInt16;
-class public extern UInt32;
-class public extern UInt64;
-class public extern Int8;
-class public extern Short;
-class public extern Int32;
-class public extern Long;
-class public extern Float;
-class public extern Double;
+class public extern Int
+class public extern UInt
+class public extern Byte
+class public extern UInt16
+class public extern UInt32
+class public extern UInt64
+class public extern Int8
+class public extern Short
+class public extern Int32
+class public extern Long
+class public extern Float
+class public extern Double
 
 interface public ToString {
     var public toString() String

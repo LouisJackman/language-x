@@ -21,6 +21,7 @@ use lexing::lexer::{LexedToken, Lexer, LexerTask, LexerTaskError};
 
 mod char_escapes;
 mod keywords;
+mod non_word_chars;
 
 pub mod lexer;
 pub mod tokens;
@@ -229,7 +230,7 @@ mod tests {
                 tokens.peek_nth(5).unwrap().token.clone()
             },
             &Token::Identifier(Identifier::from("forEach")),
-        )
+        );
     }
 
     #[test]
