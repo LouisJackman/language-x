@@ -3,6 +3,7 @@ ARG RUST_CHANNEL=stable
 FROM rust:1.33.0-slim-stretch as builder
 
 ENV DEBIAN_FRONTEND noninteractive
+ENV RUST_CHANNEL=$RUST_CHANNEL
 
 RUN apt-get update --yes \
     && apt-get install make --yes --no-install-recommends \
