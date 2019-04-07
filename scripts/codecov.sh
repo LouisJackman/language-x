@@ -1,5 +1,8 @@
 #!/bin/sh
 
+set -o errexit
+set -o nounset
+
 report=$(find target/debug -maxdepth 1 -name 'sylan-*' -a ! -name '*.d')
 
 for file in $report
