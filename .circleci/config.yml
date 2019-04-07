@@ -11,10 +11,14 @@ jobs:
           key: project-cache
       - run:
           name: Verify and Build on Stable
-          command: make
+          command: |
+              rustup install stable
+              make
       - run:
           name: Verify and Build on Beta
-          command: make RUST_VERSION=beta
+          command: |
+              rustup install beta
+              make RUST_VERSION=beta
       - run:
           name: Upload Coverage
           command: ./scripts/codecov.sh
