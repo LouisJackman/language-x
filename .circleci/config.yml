@@ -6,28 +6,16 @@ jobs:
       - image: circleci/rust
 
     steps:
+      - setup_remote_docker
       - checkout
-      - restore_cache:
-          key: project-cache
+
       - run:
-          name: Verify and Build on Stable
+          name: Verify, Build and Upload Coverage for Stable Rust
           command: |
-              rustup install stable
-              make
+            docker build --target coverage -t sylan-coverage .
+            docker run -e CODECOV_TOKEN sylan-coverage
+
       - run:
-          name: Verify and Build on Beta
-          command: |
-              rustup install beta
-              make RUST_VERSION=beta
-      - run:
-          name: Upload Coverage
-          command: ./scripts/codecov.sh
-      - save_cache:
-          key: project-cache
-          paths:
-            - ./kcov-build/usr/local/bin/kcov
-            - ./.codecov
-            - "~/.cargo"
-            - "~/.rustup"
-            - "./target"
+          name: Verify and Build for Beta Rust
+          command: docker build --target builder --build-arg RUST_CHANNEL=beta .
 
