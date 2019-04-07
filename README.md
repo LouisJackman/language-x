@@ -1,6 +1,6 @@
 # The Sylan Programming Language
 
-[![Build Status](https://travis-ci.org/LouisJackman/sylan.svg?branch=master)](https://travis-ci.org/LouisJackman/sylan)
+[![CircleCI](https://circleci.com/gh/LouisJackman/sylan.svg?style=svg)](https://circleci.com/gh/LouisJackman/sylan)
 [![codecov](https://codecov.io/gh/LouisJackman/sylan/branch/master/graph/badge.svg)](https://codecov.io/gh/LouisJackman/sylan)
 ![](https://img.shields.io/github/license/LouisJackman/sylan.svg)
 
@@ -97,7 +97,7 @@ that can be run.
     import sylan.util.datetime.ZonedDateTime
     import sylan.util.optional.{Empty, Some}
 
-    void fizzBuzz(int n) {
+    func fizzBuzz(n Int) Int {
 
         // Sylan supports blocks, syntax for passing a lambda as a final argument to
         // an invocable. Note the use of `it` as a shorthand for one-argument
@@ -108,7 +108,7 @@ that can be run.
                     0 == (it % 15) { "FizzBuzz" }
                     0 == (it % 5) { "Fizz" }
                     0 == (it % 3) { "Buzz" }
-                    default { it }
+                    _ { it }
                 }
             )
         }
@@ -116,15 +116,11 @@ that can be run.
 
     fizzBuzz(100)
 
-    void demoIteration() {
-        /**
-         * SyDocs can be written for code documentation. Unlike JavaDoc but similar
-         * to Python, they go inside the item they describe rather than before it.
-         */
+    /**
+     * SyDocs can be written for code documentation.
+     */
+    func demoIteration() {
 
-        // Lambdas are created by passing a block to the `fn` function. This usually
-        // isn't necessary, as most lambdas can be passed using the block syntax
-        // instead.
         var highlight = -> s { `>> {s} <<` }
 
         // The # operator composes invocables together.
@@ -138,6 +134,8 @@ that can be run.
         // up these invocables as first-class values. Combine it with the dot
         // operator to refer to a method of a type.
 
+        // Lambdas can be passed outside of calling parentheses when they are the
+        // final argument.
         List(1, 2, 3).forEach -> n {
 
             /*
@@ -169,7 +167,7 @@ that can be run.
             var counterService = using Task -> {
                 for n = 0 {
                     var sender = select Task {
-                        default { it }
+                        _ { it }
                     }
                     if n < 5 {
                         sender.send(Some(n))
@@ -184,7 +182,7 @@ that can be run.
             5.times -> {
                 counterService.send(currentTask)
             }
-            while var Some(n) = select int { default { it } } {
+            while var Some(n) = select int { _ { it } } {
                 println(`{n}`)
             }
         }
@@ -215,7 +213,7 @@ that can be run.
 
                     // This for loop is labelled as "outer", so that is available
                     // to call as a function if iteration is desired. That allows
-                    // it to skip the inner `for` here; `continue` is this context
+                    // it to skip the inner `for` here; `continue` in this context
                     // would cause an infinite loop.
                     outer(n - 1)
                 }
@@ -234,7 +232,7 @@ that can be run.
      * As can be seen in this function and the previous, Sylan allows functions to
      * stand alone in packages without being tied to classes or interfaces.
      */
-    internal int factorial(int n) {
+    func internal factorial(n Int) Int {
         switch n {
             0, 1 {
                 1
@@ -252,9 +250,9 @@ that can be run.
         }
     }
 
-    ignorable internal int printFactorial(int n) {
+    func internal ignorable printFactorial(n Int) Int {
         /*
-         * Sylan does not allow callers to throw away non-`void` function or methods
+         * Sylan does not allow callers to throw away non-`Void` function or methods
          * results unless they're declared with the `ignorable` modifier.
          *
          * This makes sense when getting a return value is potentially useful but
@@ -269,37 +267,32 @@ that can be run.
         /*
          * Sylan is an expression-oriented language, so everything returns a value
          * including loops and `if`s. Therefore, the last value is returned by
-         * default. The lack of explicit `return`s mean there is always a single
+         * default. The lack of explicit `return`s means there is always a single
          * exit point from a function or method: the last expression.
          */
         result
     }
 
-    private void twice<N>(N n, N f(N)) where
-        N : Number
-    {
+    func twice[N Number = int](n N, f (N) N) N {
         f(n) + f(n)
     }
 
-    String doubled<N>(N n) where
-        N : Add & ToString
-    {
+    func doubled[N Add & ToString](n N) String {
         (n + n).toString()
     }
 
-    void printNumber(Number n) {
-        /**
-         * Sylan uses concrete implementations of interfaces by default when they're
-         * used as typed directly. To get dynamic dispatch, use the virtual keyword
-         * like so:
-         *
-         *     void printNumber(virtual Number n) {
-         */
-
+    /**
+     * Sylan uses concrete implementations of interfaces by default when they're
+     * used as typed directly. To get dynamic dispatch, use the virtual keyword
+     * like so:
+     *
+     *     func printNumber(n virtual Number) Number {
+     */
+    func printNumber(n Number) {
         println(`{n}`)
     }
 
-    Optional<int> demoContexts() {
+    func demoContexts() Optional[Int] {
 
         /*
          * Haskell programmers will recognise this as a monadic do notation, which
@@ -326,11 +319,11 @@ that can be run.
 
         enum Message {
             Increment,
-            Reset(int),
+            Reset(Int),
             Get,
         }
 
-        public void start(Task sender, int n = 0) {
+        func public start(sender Task, n Int = 0) {
             select Message {
                 .Increment {
                     start(sender, n + 1)
@@ -349,49 +342,48 @@ that can be run.
         }
     }
 
-    interface Concatenate<T> {
-        public T concatenate(T y)
+    interface Concatenate[T] {
+        func public concatenate(T) T
     }
 
-    interface Equals<T> {
-        public boolean equals(T other)
+    interface Equals[T] {
+        func public equals(T) Boolean
 
         /*
          * Sylan's interface methods can have bodies like Java 8's defender methods.
-         * Unlike Java 8, private methods with bodies are also allowed with the
-         * `default` keyword. Similar to C# but unlike Java, a default method body
-         * in an interface can only be overridden if annotated with `virtual`.
+         * Unlike Java 8, private methods with bodies are also allowed with the.
+         * Similar to C# but unlike Java, a default method body in an interface
+         * can only be overridden if annotated with `virtual`.
          *
          * `virtual` is default for non-default methods since the lack of concrete
          * inheritance in Sylan means there is no other possible use case for them
          * except to be implemented by the implementor.
          */
-        public default virtual notEquals(T other) {
+        func public virtual notEquals(other T) boolean {
             !equals(other)
         }
     }
 
+    /**
+     * Hashing, equality checking, and the constructor all just exist
+     * automatically. They can still be manually overridden if necessary though.
+     * `close` is also automatically implemented for classes that implement
+     * `AutoCloseable`, the default implementation just closing all
+     * `AutoCloseable` fields. This can also be overridden if the default
+     * implementation makes no sense.
+     */
     class Name {
-        /**
-         * Hashing, equality checking, and the constructor all just exist
-         * automatically. They can still be manually overridden if necessary though.
-         * `close` is also automatically implemented for classes that implement
-         * `AutoCloseable`, the default implementation just closing all
-         * `AutoCloseable` fields. This can also be overridden if the default
-         * implementation makes no sense.
-         */
-
-        internal String firstName
-        internal String lastName
+        var internal firstName String
+        var internal lastName String
     }
 
-    class Account implements ToString, Concatenate<Account> {
-        /**
-         * Classes can implement interfaces but cannot extend other classes.
-         * Interfaces can extend other interfaces though. Concrete inheritance
-         * generally causes more problems that it's worth and type embedding plus a
-         * more powerful interface system makes up for the difference.
-         */
+    /**
+     * Classes can implement interfaces but cannot extend other classes.
+     * Interfaces can extend other interfaces though. Concrete inheritance
+     * generally causes more problems that it's worth and type embedding plus a
+     * more powerful interface system makes up for the difference.
+     */
+    class Account implements ToString, Concatenate[This] {
 
         /*
          * Embedding a field hoists all of its _accessible_ methods into
@@ -411,13 +403,13 @@ that can be run.
          * consistent with the MRO of inheritance. Therefore, changing the order of
          * embeds can change behaviour.
          */
-        embed Name name
+        var embed name Name
 
-        internal int ageInYears
+        var internal ageInYears Int
 
-        ZonedDateTime expiry = ZonedDateTime.now() + 1.year
+        var expiry ZonedDateTime = ZonedDateTime.now() + 1.year
 
-        public Account(String firstName, String lastName) {
+        constructor(firstName String, lastName String) {
             println("instantiating an Account...")
 
             /*
@@ -434,11 +426,11 @@ that can be run.
             this.ageInYears = 35
         }
 
-        public override String toString() {
+        func public override toString() String {
             `{firstName} {lastName} is {ageInYears} years old`
         }
 
-        public override Account concatenate(Account other) {
+        func public override concatenate(other This) This {
             var firstName = firstName.concat(other.firstName)
             var lastName = lastName.concat(other.lastName)
 
@@ -467,11 +459,11 @@ that can be run.
          * implementations or when assigning in constructors.
          */
 
-        public String name() {
+        func public name() String {
             `{firstName} {lastName}`
         }
 
-        public boolean locked() {
+        func public locked() Boolean {
             expiry < ZonedDateTime.now
         }
     }
@@ -483,14 +475,14 @@ that can be run.
      * be two completely different implementations. This is a more disciplined
      * replacement for method overloading.
      */
-    extend class Account implements Concatenate<Account, Result = String> {
+    extend class Account implements Concatenate[This, Result = String] {
 
-        public override String concatenate(This that) {
+        func public override concatenate(that This) String {
             `{firstName} {that.firstName}`
         }
     }
 
-    void demoPatternMatching() {
+    func demoPatternMatching() {
         var account1 = Account(firstName = "Tom", lastName = "Smith")
         var matchingLastName = "Smith"
 
@@ -510,7 +502,7 @@ that can be run.
                 println("ALSO LOCKED")
             }
 
-            default {
+            _ {
                 println("NOT LOCKED: ")
                 println(account1)
             }
@@ -527,14 +519,14 @@ that can be run.
      * refactoring. Any item in any module can be aliased, which can ease module
      * versioning where new major module versions are effectively different modules.
      */
-    alias counter2 = counter
-    alias Person = Account
-    alias Showable = ToString
-    alias factorial2 = factorial
+    var counter2 = counter
+    var Person = Account
+    var Showable = ToString
+    var factorial2 = factorial
 
-    int maxBound = 5
+    var maxBound Int = 5
 
-    void demoClosures() {
+    func demoClosures() {
         var x = 5
 
         var account1 = Account(
@@ -567,39 +559,39 @@ that can be run.
     class NumericLiteralsClass implements ToString {
 
         // Non-overflowable numbers.
-        int a = 5
-        uint b = 5u
-        decimal c = 10.0
+        var a Int = 5
+        var b UInt = 5u
+        var c Decimal = 10.0
 
         // Overflowable, machine-width numbers.
-        byte d = 5u8
-        uint16 e = 11u16
-        uint32 f = 12u32
-        uint64 g = 13u64
-        int8 h = 15s8
-        short i = 13s16
-        int32 j = 7s
-        long k = 7s64
-        float l = 12f
-        double m = 8f64
+        var d Byte = 5u8
+        var e UInt16 = 11u16
+        var f UInt32 = 12u32
+        var g UInt64 = 13u64
+        var h Int8 = 15s8
+        var i Short = 13s16
+        var j Int32 = 7s
+        var k Long = 7s64
+        var l Float = 12f
+        var m Double = 8f64
 
-        public override String toString() {
+        func public override toString() String {
             `{a}{b}{c}{d}{e}{f}{g}{h}{i}{j}{k}{l}{m}`
         }
     }
 
     class AutoCloseableDemo implements AutoCloseable {
 
-        public AutoCloseableDemo() {
+        constructor() {
             println("Opened")
         }
 
-        public override void close() {
+        func public override close() {
             println("Closed")
         }
     }
 
-    void demoAutoCloseables() {
+    func demoAutoCloseables() {
 
         /*
          * Sylan, like Erlang and Go, strongly discourages catching exceptional
@@ -637,7 +629,7 @@ that can be run.
         // Prints "Entering scope", "Opened", "Using closeable", "Closed", and finally "Leaving scope".
     }
 
-    void demo() {
+    func demo() {
         // As mentioned above, all invocables can omit parentheses if they have
         // zero parameters. This is primarily for getters, but should also be used
         // for Pascal-procedure-style invocations just for consistency. That
@@ -682,8 +674,8 @@ that can be run.
 
     // Should print 5 and then 6.
     2.times -> {
-        var n = select int {
-            default { it }
+        var n = select Int {
+            _ { it }
         }
         println(`{n}`)
     }
@@ -710,7 +702,7 @@ that can be run.
 
     /*
       A multiline comment.
-
+    
       /*
         A nested multiline comment.
       */
@@ -841,7 +833,8 @@ case of native compilation.
   expression.
 * Both unary and infix operators are supported, but one operator cannot be both.
   This is to avoid parsing ambiguities and to avoid disambiguating with
-  whitespace.
+  whitespace. Unary operators are fixed whereas infix operators are arbitary
+  identifiers, which can be defined by developers.
 
 ### Types
 
@@ -1129,7 +1122,6 @@ case of native compilation.
   bumped, similar to Elm.
 * Replace auto-generated methods with a more consistent `derives`/`deriving`
   approach, a la Rust and Haskell.
-* Finish operator overloading proposal.
 
 ## Implementation Details
 
