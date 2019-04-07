@@ -1,4 +1,4 @@
-ARG RUST_CHANNEL stable
+ARG RUST_CHANNEL=stable
 
 FROM rust:1.33.0-slim-stretch as builder
 
