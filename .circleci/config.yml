@@ -5,16 +5,10 @@ jobs:
     docker:
       - image: circleci/rust
 
-    environment:
-      DEBIAN_FRONTEND=noninteractive
-
     steps:
       - checkout
       - restore_cache:
           key: project-cache
-      - run:
-          name: Ensure kcov is Installed
-          command: if ! [ -f /usr/bin/kcov ]; then apt-get install --yes --no-install-recommends kcov || exit 1; fi
       - run:
           name: Verify and Build on Stable
           command: |
@@ -31,7 +25,8 @@ jobs:
       - save_cache:
           key: project-cache
           paths:
-            - "/usr/bin/kcov"
+            - ./kcov-build/usr/local/bin/kcov
+            - ./.codecov
             - "~/.cargo"
             - "~/.rustup"
             - "./target"
