@@ -10,10 +10,10 @@ jobs:
       - restore_cache:
           key: project-cache
       - run:
-          name: Verify and build on stable
+          name: Verify and Build on Stable
           command: make
       - run:
-          name: Verify and build on beta
+          name: Verify and Build on Beta
           command: make RUST_VERSION=beta
       - run:
           name: Upload Coverage
@@ -22,5 +22,6 @@ jobs:
           key: project-cache
           paths:
             - "~/.cargo"
+            - "~/.rustup"
             - "./target"
 

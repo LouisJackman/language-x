@@ -46,7 +46,7 @@ help:
 	@echo "  build-dev                   Build a development executable."
 
 install-compiler-components:
-	$(RUSTUP) component add rustfmt clippy $(RUSTUP_FLAGS)
+	$(RUSTUP) run $(RUST_VERSION) $(RUSTUP_FLAGS) $(RUSTUP) component add rustfmt clippy $(RUSTUP_FLAGS)
 
 check-fmt:
 	$(RUSTUP) run $(RUST_VERSION) $(RUSTUP_FLAGS) $(CARGO) fmt -- --check $(CARGO_FLAGS)
