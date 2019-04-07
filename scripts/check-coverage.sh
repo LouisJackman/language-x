@@ -22,7 +22,7 @@ do
         --verify "target/cov/$(basename "$file")" \
         "$file"
 
-    if [ "$?" == 0 ]
+    if [ "$?" -eq 0 ]
     then
         echo succeeded coverage report for file "$file"
     else
