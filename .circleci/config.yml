@@ -13,7 +13,7 @@ jobs:
           name: Verify, Build and Upload Coverage for Stable Rust
           command: |
             docker build --target coverage -t sylan-coverage .
-            docker run -e CODECOV_TOKEN sylan-coverage
+            docker run --rm --security-opt seccomp=unconfined -e CODECOV_TOKEN sylan-coverage
 
       - run:
           name: Verify and Build for Beta Rust
