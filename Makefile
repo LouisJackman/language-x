@@ -1,3 +1,5 @@
+.POSIX:
+
 #
 # # Makefile for Sylan
 #
@@ -12,16 +14,17 @@ CARGO=cargo
 CARGO_FLAGS=
 RUSTUP=rustup
 RUSTUP_FLAGS=
+RUST_VERSION=stable
 
 
-all: install-compiler-components fmt check-clippy
-	$(CARGO) build --release $(CARGO_FLAGS)
+all: install-compiler-components verify
+	$(RUSTUP) run $(RUST_VERSION) $(RUSTUP_FLAGS) $(CARGO) build --release $(CARGO_FLAGS)
 
 verify: check-fmt check-clippy
-	$(CARGO) test $(CARGO_FLAGS)
+	$(RUSTUP) run $(RUST_VERSION) $(RUSTUP_FLAGS) $(CARGO) test $(CARGO_FLAGS)
 
 clean:
-	$(CARGO) clean $(CARGO_FLAGS)
+	$(RUSTUP) run $(RUST_VERSION) $(RUSTUP_FLAGS) $(CARGO) clean $(CARGO_FLAGS)
 
 
 help:
@@ -46,14 +49,14 @@ install-compiler-components:
 	$(RUSTUP) component add rustfmt clippy $(RUSTUP_FLAGS)
 
 check-fmt:
-	$(CARGO) fmt -- --check $(CARGO_FLAGS)
+	$(RUSTUP) run $(RUST_VERSION) $(RUSTUP_FLAGS) $(CARGO) fmt -- --check $(CARGO_FLAGS)
 
 fmt:
-	$(CARGO) fmt $(CARGO_FLAGS)
+	$(RUSTUP) run $(RUST_VERSION) $(RUSTUP_FLAGS) $(CARGO) fmt $(CARGO_FLAGS)
 
 check-clippy:
-	$(CARGO) clippy --all-targets --all-features $(CARGO_FLAGS)
+	$(RUSTUP) run $(RUST_VERSION) $(RUSTUP_FLAGS) $(CARGO) clippy --all-targets --all-features $(CARGO_FLAGS)
 
 build-dev:
-	$(CARGO) build $(CARGO_FLAGS)
+	$(RUSTUP) run $(RUST_VERSION) $(RUSTUP_FLAGS) $(CARGO) build $(CARGO_FLAGS)
 
