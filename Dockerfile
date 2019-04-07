@@ -1,6 +1,7 @@
-ARG RUST_CHANNEL=stable
 
 FROM rust:1.33.0-slim-stretch as builder
+
+ARG RUST_CHANNEL=stable
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV RUST_CHANNEL=$RUST_CHANNEL
@@ -33,8 +34,6 @@ COPY --from=builder /opt/sylan/target/debug /opt/debug
 COPY ./scripts /opt/scripts
 
 RUN ["sh", "/opt/scripts/install-coverage-tools.sh"]
-
-USER nobody
 
 ENTRYPOINT ["sh", "/opt/scripts/check-coverage.sh"]
 CMD ["/opt/debug"]
