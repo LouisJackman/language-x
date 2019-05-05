@@ -4,7 +4,7 @@ use std::io;
 use std::sync::mpsc::{channel, Receiver, RecvError, SendError};
 use std::thread::{self, JoinHandle};
 
-use common::multiphase::{self, Identifier, InterpolatedString, SylanString};
+use common::multiphase::{self, InterpolatedString, SylanString};
 use common::peekable_buffer::PeekableBuffer;
 use common::string_matches_char_slice;
 use common::version::Version;

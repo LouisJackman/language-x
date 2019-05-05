@@ -219,13 +219,13 @@ func demoContexts() Optional[Int] {
      * and validation code much cleaner.
      */
     with {
-        var a <- Some(5)
+        <-Some(5)
         println("Doing something.")
 
         // All invocables can drop parentheses if calling with no arguments.
         // This is actually how getters work behind the scenes and why Sylan
         // needn't allow public fields as a feature.
-        var b <- Empty
+        var _ = <-Empty
 
         println("Will not be run.")
 

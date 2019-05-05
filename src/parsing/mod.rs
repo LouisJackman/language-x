@@ -56,10 +56,10 @@ use lexing::tokens::Token;
 use lexing::Tokens;
 use parsing::nodes::Expression::{self, UnaryOperator};
 use parsing::nodes::{
-    Accessibility, Binding, Case, CaseMatch, Code, CompositePattern, Cond, CondCase,
-    ContextualBinding, Extension, FilePackage, For, If, Import, Item, Lambda, LambdaSignature,
-    Literal, MainPackage, Method, Package, Pattern, PatternGetter, PatternItem, Scope, Select,
-    Switch, Throw, Timeout, Type, TypeParameter, ValueParameter,
+    Accessibility, Binding, Case, CaseMatch, Code, CompositePattern, Cond, CondCase, Extension,
+    FilePackage, For, If, Import, Item, Lambda, LambdaSignature, Literal, MainPackage, Method,
+    Package, Pattern, PatternGetter, PatternItem, Scope, Select, Switch, Throw, Timeout, Type,
+    TypeParameter, ValueParameter,
 };
 
 mod nodes;
@@ -207,6 +207,10 @@ impl Parser {
         self.parse_unary_operator(nodes::UnaryOperator::InvocableHandle)
     }
 
+    fn parse_contextual_bind(&mut self) -> Result<nodes::Expression> {
+        self.parse_unary_operator(nodes::UnaryOperator::ContextualBind)
+    }
+
     fn parse_lookup(&mut self) -> Result<nodes::Lookup> {
         let mut lookup = vec![];
         loop {
@@ -227,38 +231,10 @@ impl Parser {
         unimplemented!()
     }
 
-    fn parse_with(&mut self) -> Result<nodes::Scope> {
-        let mut bindings = HashSet::new();
-        let mut contextual_bindings = HashSet::new();
-        let mut expressions = vec![];
-
+    fn parse_with(&mut self) -> Result<nodes::Expression> {
         self.tokens.discard();
-        self.expect_and_discard(Token::OpenBrace)?;
-        loop {
-            if self.next_is(&Token::Var) {
-                if let Some(LexedToken {
-                    token: Token::Bind, ..
-                }) = self.tokens.peek_nth(2)
-                {
-                    contextual_bindings.insert(self.parse_contextual_binding()?);
-                } else {
-                    bindings.insert(self.parse_binding()?);
-                }
-            } else if self.next_is(&Token::CloseBrace) {
-                self.tokens.discard();
-                break;
-            } else {
-                expressions.push(self.parse_expression()?);
-            }
-        }
-
-        Ok(Scope {
-            code: Code {
-                bindings,
-                expressions,
-            },
-            parent: Some(Scope::within(&self.current_scope)),
-        })
+        let scope = self.parse_scope()?;
+        Ok(Expression::Context(scope))
     }
 
     fn parse_extension(&mut self) -> Result<nodes::Extension> {
@@ -631,15 +607,6 @@ impl Parser {
         })
     }
 
-    fn parse_contextual_binding(&mut self) -> Result<nodes::ContextualBinding> {
-        self.tokens.discard();
-        let name = self.parse_identifier()?;
-        self.expect_and_discard(Token::Bind)?;
-        let value = self.parse_expression()?;
-
-        Ok(ContextualBinding { name, value })
-    }
-
     fn parse_identifier(&mut self) -> Result<Identifier> {
         if let Some(lexed) = self.tokens.read() {
             if let Token::Identifier(identifier) = lexed.token {
@@ -805,7 +772,7 @@ impl Parser {
                     .map(|literal| Ok(nodes::Expression::Literal(literal)))
                     .unwrap_or_else(|| match token {
                         // Non-atomic tokens each delegate to a dedicated method.
-                        Token::With => self.parse_with().map(nodes::Expression::With),
+                        Token::With => self.parse_with(),
                         Token::For => self.parse_for(),
                         Token::If => self.parse_if().map(nodes::Expression::If),
                         Token::LambdaArrow => self
@@ -813,6 +780,7 @@ impl Parser {
                             .map(|f| nodes::Expression::Literal(Literal::Lambda(f))),
                         Token::InvocableHandle => self.parse_invocable_handle(),
                         Token::Not => self.parse_not(),
+                        Token::Bind => self.parse_contextual_bind(),
                         Token::OpenParentheses => self.parse_grouped_expression(),
                         Token::Select => self.parse_select().map(nodes::Expression::Select),
                         Token::Switch => self.parse_switch(),
@@ -842,11 +810,12 @@ impl Parser {
                     .map(|literal| Ok(nodes::Expression::Literal(literal)))
                     .unwrap_or_else(|| match token {
                         // Non-atomic tokens each delegate to a dedicated method.
-                        Token::With => self.parse_with().map(nodes::Expression::With),
+                        Token::With => self.parse_with(),
                         Token::For => self.parse_for(),
                         Token::If => self.parse_if().map(nodes::Expression::If),
                         Token::InvocableHandle => self.parse_invocable_handle(),
                         Token::Not => self.parse_not(),
+                        Token::Bind => self.parse_contextual_bind(),
                         Token::Select => self.parse_select().map(nodes::Expression::Select),
                         Token::Switch => self.parse_switch(),
                         Token::Throw => self.parse_throw().map(nodes::Expression::Throw),

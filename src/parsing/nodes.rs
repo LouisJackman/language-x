@@ -40,7 +40,6 @@ pub enum Item {
     // For loops also create bindings, but are not items because I can't
     // think of a use case for mutually recursive loop continuation bindings.
     Binding(Binding),
-    ContextualBinding(ContextualBinding),
 }
 
 /// The expressions that allow Turing-complete computations, i.e. allowing
@@ -53,7 +52,7 @@ pub enum Expression {
     BinaryOperator(BinaryOperator, Box<Expression>, Box<Expression>),
     Switch(Switch),
     Select(Select),
-    Context(Box<Expression>, Scope),
+    Context(Scope),
     Using(Using),
     If(If),
     IfLet(IfLet),
@@ -63,7 +62,6 @@ pub enum Expression {
     Call(Call),
     Lookup(Lookup),
     Throw(Throw),
-    With(Scope),
     While(Throw),
     WhileLet(WhileLet),
 }
@@ -254,12 +252,6 @@ impl Hash for Binding {
     }
 }
 
-#[derive(Clone, Debug, Eq)]
-pub struct ContextualBinding {
-    pub name: Identifier,
-    pub value: Expression,
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Alias {
     pub new: Identifier,
@@ -269,18 +261,6 @@ pub struct Alias {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContextualIgnoral {
     pub value: Expression,
-}
-
-impl PartialEq for ContextualBinding {
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
-    }
-}
-
-impl Hash for ContextualBinding {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.name.hash(state)
-    }
 }
 
 /// Expressions are seperate from bindings.
@@ -372,6 +352,7 @@ pub type Lookup = Vec<Identifier>;
 pub enum UnaryOperator {
     InvocableHandle,
     Not,
+    ContextualBind,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
