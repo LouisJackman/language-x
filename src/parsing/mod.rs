@@ -88,6 +88,13 @@ pub enum Error {
 
 type Result<T> = result::Result<T, Error>;
 
+fn new_void() -> Type {
+    nodes::Type {
+        name: Identifier::from("Void"),
+        arguments: vec![],
+    }
+}
+
 pub struct Parser {
     tokens: Tokens,
     current_scope: Rc<Scope>,
@@ -404,10 +411,6 @@ impl Parser {
         })
     }
 
-    fn parse_lambda_call(&mut self) -> Result<()> {
-        unimplemented!()
-    }
-
     fn parse_type_argument_list(&mut self) -> Result<()> {
         unimplemented!()
     }
@@ -570,6 +573,25 @@ impl Parser {
         let scope = self.parse_scope()?;
 
         Ok(Lambda { signature, scope })
+    }
+
+    fn parse_func(&mut self) -> Result<nodes::Func> {
+        self.expect_and_discard(Token::Func)?;
+        let name = self.parse_identifier()?;
+        let lambda_signature = self.parse_lambda_signature()?;
+        let scope = self.parse_scope()?;
+
+        let signature = if lambda_signature.explicit_return_type_annotation.is_none() {
+            LambdaSignature {
+                explicit_return_type_annotation: Some(new_void()),
+                ..lambda_signature
+            }
+        } else {
+            lambda_signature
+        };
+
+        let lambda = Lambda { signature, scope };
+        Ok(nodes::Func { name, lambda })
     }
 
     fn parse_package_definition(&mut self) -> Result<nodes::Package> {
@@ -899,6 +921,10 @@ impl Parser {
                         let package = self.parse_package_definition()?;
                         items.push(Item::Package(package));
                     }
+                    Token::Func => {
+                        let func = self.parse_func()?;
+                        items.push(Item::Func(func));
+                    }
                     Token::Var => {
                         let binding = self.parse_binding()?;
                         items.push(Item::Binding(binding));
@@ -947,6 +973,10 @@ impl Parser {
                         Token::Package => {
                             let package = self.parse_package_definition()?;
                             items.push(Item::Package(package));
+                        }
+                        Token::Func => {
+                            let func = self.parse_func()?;
+                            items.push(Item::Func(func));
                         }
 
                         // Unlike all other packages, the main package allows both variables

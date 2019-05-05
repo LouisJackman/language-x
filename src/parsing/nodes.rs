@@ -33,6 +33,7 @@ pub enum Item {
     ContextualIgnoral(ContextualIgnoral),
     Alias(Alias),
     Import(Import),
+    Func(Func),
 
     // Unlike the previous variants, these can be arbitrarily nested within
     // expressions. This is to allow corecursion among other features.
@@ -99,6 +100,21 @@ pub enum FilePackage {
 #[derive(Clone)]
 pub struct Import {
     pub lookup: Lookup,
+}
+
+// Funcs are ultimately just lambdas used in a binding, the syntactic equivalent of combining `var`
+// with a lambda expression. However, this is only realised during the simplification stage; at
+// this stage they are still distinct.
+//
+// One notable difference is that omitting a return type on a lambda triggers type inference,
+// whereas it always means the `Void` type for `func`. Also, `Func` expects the lambda signature to
+// explicitly type every parameter, and will quickly fail in a later stage if any type annotations
+// are missing. This is because `func` is intended to be used for top-level functions that define
+// the shape of the program or API, in which types should always be explicitly annotated anyway.
+#[derive(Clone)]
+pub struct Func {
+    pub name: Identifier,
+    pub lambda: Lambda,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

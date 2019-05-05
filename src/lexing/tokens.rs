@@ -35,6 +35,7 @@ pub enum Token {
     Extends,
     Exports,
     For,
+    Func,
     Extern,
     If,
     It,
