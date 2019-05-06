@@ -121,7 +121,7 @@ that can be run.
      */
     func demoIteration() {
 
-        var highlight = -> s { `>> {s} <<` }
+        var highlight = -> s { $">> {s} <<" }
 
         // The # operator composes invocables together.
         1.upTo(5)
@@ -143,7 +143,7 @@ that can be run.
              * interpolated; interpolating arbitrary expressions was purposely
              * omitted due to its ability to create cryptic one-liners.
              */
-            println(`{n}`)
+            println($"{n}")
         }
 
         var quadruple = -> { it.doubled.doubled }
@@ -160,7 +160,7 @@ that can be run.
             "ghi": 987,
         )
         map.forEach -> key, value {
-            println(`{key}: {value}`)
+            println($"{key}: {value}")
         }
 
         do -> {
@@ -183,7 +183,7 @@ that can be run.
                 counterService.send(currentTask)
             }
             while var Some(n) = select int { _ { it } } {
-                println(`{n}`)
+                println($"{n}")
             }
         }
 
@@ -220,7 +220,7 @@ that can be run.
             }
         }
 
-        println(`factorial: {innerFactorial}`)
+        println($"factorial: {innerFactorial}")
     }
 
     /*
@@ -289,7 +289,7 @@ that can be run.
      *     func printNumber(n virtual Number) Number {
      */
     func printNumber(n Number) {
-        println(`{n}`)
+        println($"{n}")
     }
 
     func demoContexts() Optional[Int] {
@@ -341,6 +341,24 @@ that can be run.
             }
         }
     }
+
+    /**
+     * Backquotes can be used to allow any character in an identifier name. This is
+     * designed for two cases:
+     *
+     *  * Allowing fluent sentence-like test cases like below.
+     *  * Easing interoperability with foreign APIs that use different naming
+     *    contentions.
+     *
+     * Like normal strings, they also support raw mode and custom delimiters.
+     * Interpolation is obviously not supported, however.
+     */
+    func `test that addition works`() {
+        if (2 + 2) != 4 {
+            throw Exception("OK, I give up...")
+        }
+    }
+
 
     interface Concatenate[T] {
         func public concatenate(T) T
@@ -427,7 +445,7 @@ that can be run.
         }
 
         func public override toString() String {
-            `{firstName} {lastName} is {ageInYears} years old`
+            $"{firstName} {lastName} is {ageInYears} years old"
         }
 
         func public override concatenate(other This) This {
@@ -460,7 +478,7 @@ that can be run.
          */
 
         func public name() String {
-            `{firstName} {lastName}`
+            $"{firstName} {lastName}"
         }
 
         func public locked() Boolean {
@@ -478,7 +496,7 @@ that can be run.
     extend class Account implements Concatenate[This, Result = String] {
 
         func public override concatenate(that This) String {
-            `{firstName} {that.firstName}`
+            $"{firstName} {that.firstName}"
         }
     }
 
@@ -488,8 +506,8 @@ that can be run.
 
         if var Account(firstName, lastName = .matchingLastName) as account
                 = account1 {
-            println(`Matching first name: {firstName}`)
-            println(`Matching account: {account}`)
+            println($"Matching first name: {firstName}")
+            println($"Matching account: {account}")
         }
 
         switch account1 {
@@ -553,7 +571,7 @@ that can be run.
         var z = g(account1)
 
         var n = twice(3) -> { it * 2 }
-        println(`n == {n}`)
+        println($"n == {n}")
     }
 
     class NumericLiteralsClass implements ToString {
@@ -576,7 +594,7 @@ that can be run.
         var m Double = 8f64
 
         func public override toString() String {
-            `{a}{b}{c}{d}{e}{f}{g}{h}{i}{j}{k}{l}{m}`
+            $"{a}{b}{c}{d}{e}{f}{g}{h}{i}{j}{k}{l}{m}"
         }
     }
 
@@ -639,7 +657,7 @@ that can be run.
 
         printFactorial(42)
         var x = twice(4, ::doubled)
-        println(`{x}`)
+        println($"{x}")
 
         demoContexts
         demoPatternMatching
@@ -677,7 +695,7 @@ that can be run.
         var n = select Int {
             _ { it }
         }
-        println(`{n}`)
+        println($"{n}")
     }
 
     print("""
@@ -690,15 +708,15 @@ that can be run.
 
     var n = 4
 
-    println(```
+    println($"""
     Multiline interpolated strings: {n}
-    ```)
+    """)
 
     var x = do -> {
         println("Returning 5 to be bound as x...")
         5
     }
-    println(`{x}`)
+    println($"{x}")
 
     /*
       A multiline comment.

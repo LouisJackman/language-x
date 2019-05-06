@@ -4,7 +4,7 @@ use std::io;
 use std::sync::mpsc::{channel, Receiver, RecvError, SendError};
 use std::thread::{self, JoinHandle};
 
-use common::multiphase::{self, InterpolatedString, SylanString};
+use common::multiphase::{self, Identifier, InterpolatedString, SylanString};
 use common::peekable_buffer::PeekableBuffer;
 use common::string_matches_char_slice;
 use common::version::Version;
@@ -77,8 +77,8 @@ impl LexerTask {
     }
 }
 
-fn is_start_of_string(c: char) -> bool {
-    (c == '\'') || (c == '"') || (c == '`')
+fn is_start_of_literal_with_escapes(c: char) -> bool {
+    (c == '\'') || (c == '"') || (c == '$') || (c == '`')
 }
 
 fn confirmed_identifier(word: String) -> Token {
@@ -351,7 +351,6 @@ impl Lexer {
                         break Ok(string);
                     } else {
                         string.push(c);
-                        self.source.discard();
                     }
                 }
                 Some(&c) => {
@@ -450,9 +449,16 @@ impl Lexer {
         Ok(Token::String(SylanString::from(string)))
     }
 
-    fn lex_interpolated_string(&mut self) -> TokenResult {
+    fn lex_quoted_identifier(&mut self, escaping: bool) -> TokenResult {
         self.source.discard();
-        let string = self.lex_interpolated_string_content('`', 1, true)?;
+        let string = self.lex_string_content('`', 1, escaping)?;
+        Ok(Token::Identifier(Identifier::from(string)))
+    }
+
+    fn lex_interpolated_string(&mut self, escaping: bool) -> TokenResult {
+        self.source.discard();
+        self.source.discard();
+        let string = self.lex_interpolated_string_content('"', 1, escaping)?;
         Ok(Token::InterpolatedString(string))
     }
 
@@ -471,7 +477,7 @@ impl Lexer {
         Ok(Token::String(SylanString::from(string)))
     }
 
-    fn lex_interpolated_string_with_custom_delimiter(&mut self) -> TokenResult {
+    fn lex_quoted_identifier_with_custom_delimiter(&mut self, escaping: bool) -> TokenResult {
         self.source.discard();
         self.source.discard();
         self.source.discard();
@@ -482,17 +488,33 @@ impl Lexer {
             additional_delimiter_count += 1;
         }
 
+        let string = self.lex_string_content('`', additional_delimiter_count + 3, escaping)?;
+        Ok(Token::Identifier(Identifier::from(string)))
+    }
+
+    fn lex_interpolated_string_with_custom_delimiter(&mut self, escaping: bool) -> TokenResult {
+        self.source.discard();
+        self.source.discard();
+        self.source.discard();
+        self.source.discard();
+
+        let mut additional_delimiter_count = 0;
+        while self.source.peek() == Some(&'"') {
+            self.source.discard();
+            additional_delimiter_count += 1;
+        }
+
         let string =
-            self.lex_interpolated_string_content('`', additional_delimiter_count + 3, true)?;
+            self.lex_interpolated_string_content('"', additional_delimiter_count + 3, escaping)?;
         Ok(Token::InterpolatedString(string))
     }
 
-    fn lex_char(&mut self) -> TokenResult {
+    fn lex_char(&mut self, escaping: bool) -> TokenResult {
         self.source.discard();
 
         match self.source.peek() {
             Some(&c) => {
-                let result = if c == '\\' {
+                let result = if escaping && (c == '\\') {
                     self.lex_escape_char_in_string_or_char().map(Token::Char)
                 } else {
                     self.source.discard();
@@ -779,7 +801,7 @@ impl Lexer {
                             let custom_delimiter = self
                                 .source
                                 .peek_many(3)
-                                .filter(|x| string_matches_char_slice("\"\"\"", x))
+                                .filter(|x| string_matches_char_slice(r#"""""#, x))
                                 .is_some();
 
                             if custom_delimiter {
@@ -796,18 +818,36 @@ impl Lexer {
                                 .is_some();
 
                             if custom_delimiter {
-                                self.lex_interpolated_string_with_custom_delimiter()
+                                self.lex_quoted_identifier_with_custom_delimiter(true)
                             } else {
-                                self.lex_interpolated_string()
+                                self.lex_quoted_identifier(true)
                             }
                         }
-                        '\'' => self.lex_char(),
+                        '$' => {
+                            if self.source.nth_is(1, '"') {
+                                let custom_delimiter = self
+                                    .source
+                                    .peek_many(4)
+                                    .filter(|x| string_matches_char_slice(r#"$""""#, x))
+                                    .is_some();
+
+                                if custom_delimiter {
+                                    self.lex_interpolated_string_with_custom_delimiter(true)
+                                } else {
+                                    self.lex_interpolated_string(true)
+                                }
+                            } else {
+                                self.lex_symbolic()
+                            }
+                        }
+                        '\'' => self.lex_char(true),
 
                         _ => {
                             let next = self.source.peek_nth(1).cloned();
-                            let string_start = next.filter(|c| is_start_of_string(*c));
+                            let escapable_literal_start =
+                                next.filter(|c| is_start_of_literal_with_escapes(*c));
 
-                            match string_start {
+                            match escapable_literal_start {
                                 Some(delimiter) if c == 'r' => {
                                     self.source.discard();
                                     match delimiter {
@@ -815,7 +855,7 @@ impl Lexer {
                                             let custom_delimiter = self
                                                 .source
                                                 .peek_many(3)
-                                                .filter(|x| string_matches_char_slice("\"\"\"", x))
+                                                .filter(|x| string_matches_char_slice(r#"""""#, x))
                                                 .is_some();
 
                                             if custom_delimiter {
@@ -824,7 +864,40 @@ impl Lexer {
                                                 self.lex_string(false)
                                             }
                                         }
-                                        _ => self.expect('"'),
+                                        '`' => {
+                                            let custom_delimiter = self
+                                                .source
+                                                .peek_many(3)
+                                                .filter(|x| string_matches_char_slice("```", x))
+                                                .is_some();
+
+                                            if custom_delimiter {
+                                                self.lex_quoted_identifier_with_custom_delimiter(false)
+                                            } else {
+                                                self.lex_quoted_identifier(false)
+                                            }
+                                        }
+                                        '\'' => {
+                                            self.lex_char(false)
+                                        }
+                                        '$' => {
+                                            if self.source.nth_is(1, '"') {
+                                                let custom_delimiter = self
+                                                    .source
+                                                    .peek_many(4)
+                                                    .filter(|x| string_matches_char_slice(r#"$""""#, x))
+                                                    .is_some();
+
+                                                if custom_delimiter {
+                                                    self.lex_interpolated_string_with_custom_delimiter(false)
+                                                } else {
+                                                    self.lex_interpolated_string(false)
+                                                }
+                                            } else {
+                                                self.lex_symbolic()
+                                            }
+                                        }
+                                        _ => self.fail("expected `r` to prefixed something that otherwise has characters escapes, e.g. strings, interpolated strings, and char literals"),
                                     }
                                 }
                                 _ => {
@@ -986,11 +1059,24 @@ mod tests {
 
     #[test]
     fn identifier() {
-        let mut lexer = test_lexer("  foobar324  \t  \r      abc");
+        let mut lexer = test_lexer(
+            "  foobar324  \t  `foobarbaz`  \r  `abc\\ndef` r`abc\\ndef`  ```abc``def```    abc",
+        );
+
         assert_next(
             &mut lexer,
             &Token::Identifier(Identifier::from("foobar324")),
         );
+        assert_next(
+            &mut lexer,
+            &Token::Identifier(Identifier::from("foobarbaz")),
+        );
+        assert_next(&mut lexer, &Token::Identifier(Identifier::from("abc\ndef")));
+        assert_next(
+            &mut lexer,
+            &Token::Identifier(Identifier::from("abc\\ndef")),
+        );
+        assert_next(&mut lexer, &Token::Identifier(Identifier::from("abc``def")));
         assert_next(&mut lexer, &Token::Identifier(Identifier::from("abc")));
     }
 
@@ -1045,8 +1131,9 @@ mod tests {
 
     #[test]
     fn interpolated_strings() {
-        let mut lexer =
-            test_lexer("   `1{x}{{23`   ````ab{{notInterpolated}}c``\\t{foobar}``` ````");
+        let mut lexer = test_lexer(
+            "   $\"1{x}{{23\"   $\"\"\"\"ab{{notInterpolated}}c\"\"\\t{foobar}\"\"\" \"\"\"\"",
+        );
 
         assert_next(
             &mut lexer,
@@ -1059,7 +1146,10 @@ mod tests {
         assert_next(
             &mut lexer,
             &Token::InterpolatedString(InterpolatedString {
-                string_fragments: vec!["ab{{notInterpolated}}c``\t".to_owned(), "``` ".to_owned()],
+                string_fragments: vec![
+                    "ab{{notInterpolated}}c\"\"\t".to_owned(),
+                    r#"""" "#.to_owned(),
+                ],
                 interpolations: vec![Identifier::from("foobar")],
             }),
         );
