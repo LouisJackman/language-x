@@ -62,6 +62,7 @@ use parsing::nodes::{
     TypeParameter, ValueParameter,
 };
 
+mod modifier_sets;
 mod nodes;
 
 // TODO: break cycles in scopes to cleanup memory properly.
