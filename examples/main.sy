@@ -201,8 +201,9 @@ func doubled[N Add & ToString](n N) String {
 
 /**
  * Sylan uses concrete implementations of interfaces by default when they're
- * used as typed directly. To get dynamic dispatch, use the virtual keyword
- * like so:
+ * used as typed directly, and uses concrete implementations of return type
+ * interfaces using existential types. To get dynamic dispatch, use the virtual
+ * keyword like so:
  *
  *     func printNumber(n virtual Number) Number {
  */
@@ -213,10 +214,11 @@ func printNumber(n Number) {
 func demoContexts() Optional[Int] {
 
     /*
-     * Haskell programmers will recognise this as a monadic do notation, which
-     * Sylan calls "contexts". Non-Haskell programmers will be glad to know that
-     * this feature can make tangled code such as optionality-checking chains
-     * and validation code much cleaner.
+     * Haskell developers will recognise this as the monadic do notation, which
+     * Sylan calls "contexts". Haskell programmers already know the benefits of
+     * this construct; non-Haskell programmers will be glad to know that this
+     * feature can make tangled code such as optionality-checking chains and
+     * validation code much cleaner.
      */
     with {
         <-Some(5)

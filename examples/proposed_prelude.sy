@@ -26,17 +26,16 @@ enum public Boolean {
     True,
     False;
 
-
-    var public extern && operator (other This)
-    var public extern || operator (other This)
+    func public extern operator && (other This)
+    func public extern operator || (other This)
 }
 
-class public extern Invokable<Result, Args...>
+class public extern Invokable[Result, Args...]
 
-extend class Invokable<Result, Args...> {
+extend class Invokable[Result, Args...] {
 
-    var public extern |> operator <T> (other (Result) T) T
-    var public extern # operator <T> (other (Result) T) (Args...) T
+    func public extern operator |> [T](other (Result) T) T
+    func public extern operator # [T](other (Result) T) (Args...) T
 }
 
 var public True = Boolean.true
@@ -45,26 +44,26 @@ var public False = Boolean.false
 interface public Number {
 
     // Natively-defined arithmetic operators.
-    var public extern + operator (other This) This
-    var public extern - operator (other This) This
-    var public extern / operator (other This) This
-    var public extern % operator (other This) This
-    var public extern * operator (other This) This
-    var public extern ** operator (other This) This
+    func public extern operator + (other This) This
+    func public extern operator - (other This) This
+    func public extern operator / (other This) This
+    func public extern operator % (other This) This
+    func public extern operator * (other This) This
+    func public extern operator ** (other This) This
 
     // Natively-defined bitwise operators.
-    var public extern & operator (other This) This
-    var public extern ^ operator (other This) This
-    var public extern bitnot() This
+    func public extern operator & (other This) This
+    func public extern operator ^ (other This) This
+    func public extern bitnot() This
 
-    var public extern < operator (other This) This
-    var public extern <= operator (other This) This
-    var public extern == operator (other This) This
-    var public extern != operator (other This) This
-    var public extern > operator (other This) This
-    var public extern >= operator (other This) This
+    func public extern operator < (other This) This
+    func public extern operator <= (other This) This
+    func public extern operator == (other This) This
+    func public extern operator != (other This) This
+    func public extern operator > (other This) This
+    func public extern operator >= (other This) This
 
-    var public negated = -> () This {
+    func public negated() This {
         /**
          * Negate a number; replaces the unary minus operator present in other
          * languages.
@@ -84,26 +83,26 @@ interface public Number {
     // Bitshift operators with angle brackets were moved out of built-in
     // operators and into extern methods to avoid the parsing ambiguity from
     // `<<` and `>>`.
-    public extern shr() Number
-    public extern shl() Number
+    func public extern shr() Number
+    func public extern shl() Number
 
-    var public doubled = -> () Number {
+    func public doubled() Number {
         this * 2
     }
 
-    var public tripled = -> () Number {
+    func public tripled() Number {
         this * 3
     }
 
-    var public quadrupled = -> () Number {
+    func public quadrupled() Number {
         this * 4
     }
 
-    var public quintupled = -> () Number {
+    func public quintupled() Number {
         this * 5
     }
 
-    var public to = -> <N: Number> (n N) List<N> {
+    func public to(n Number) List[Number] {
         list.generate(initial = 1) -> {
             if n < it {
                 list.generation.Finish
@@ -131,7 +130,7 @@ class public extern Float
 class public extern Double
 
 interface public ToString {
-    var public toString() String
+    func public toString() String
 }
 
 class public String {
@@ -142,18 +141,18 @@ class public Decimal {
     //
 }
 
-var public extern currentTask() Task
+func public extern currentTask() Task
 
 class AssertionError implements Exception {
 
-    var public override message = -> () String {
+    func public override message() String {
         "assertion failed"
     }
 }
 
 // TODO: this should really be a macro, but Sylan doesn't yet have a solid plan
 // for macros.
-var public assert = -> (predicate Boolean) Void {
+func public assert(predicate Boolean) {
     /**
      * Assert that predicate is true, otherwise throw an `AssertionError`.
      */
@@ -163,14 +162,14 @@ var public assert = -> (predicate Boolean) Void {
     }
 }
 
-var public extern print(message String) Void
+func public extern print(message String)
 
-var public println = -> (message String) Void {
+func public println(message String) {
     print(message)
     print("\n")
 }
 
-var public id = -> <T> (value T) T {
+func public id[T](value T) T {
     value
 }
 
