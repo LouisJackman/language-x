@@ -3,6 +3,6 @@
 set -o errexit
 set -o nounset
 
-curl -LSs "https://codecov.io/bash" >.codecov
+wget --output-file .codecov https://codecov.io/bash
 chmod +x .codecov
 

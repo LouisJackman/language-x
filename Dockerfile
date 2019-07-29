@@ -26,8 +26,11 @@ RUN make build-dev RUST_CHANNEL="$RUST_CHANNEL"
 
 FROM kcov/kcov as coverage
 
+# Installing wget instead of curl to do the HTTP donwload in
+# `install-coverage-tools.sh` means there is not a newly installed curl version
+# to clash with the exact one that the preinstalled kcov binary expects.
 RUN apt-get update --yes \
-    && apt-get install curl --yes \
+    && apt-get install wget --yes \
     && rm -fr /var/lib/apt/lists/*
 
 COPY --from=builder /opt/sylan/target/debug /opt/debug
