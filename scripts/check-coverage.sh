@@ -31,5 +31,9 @@ do
     fi
 done
 
+# A hack to workaround the fact that CodeCov requires curl, yet kcov breaks with
+# the default version that Debian now provides. Therefore, wait until kcov has
+# finished before installing it.
+apt-get install curl --yes --no-install-recommends
 ./.codecov -t "$CODECOV_TOKEN"
 

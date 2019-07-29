@@ -26,6 +26,8 @@ RUN make build-dev RUST_CHANNEL="$RUST_CHANNEL"
 
 FROM kcov/kcov:v36 as coverage
 
+ENV DEBIAN_FRONTEND noninteractive
+
 # Installing wget instead of curl to do the HTTP donwload in
 # `install-coverage-tools.sh` means there is not a newly installed curl version
 # to clash with the exact one that the preinstalled kcov binary expects.
