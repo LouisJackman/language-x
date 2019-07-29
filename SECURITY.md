@@ -31,11 +31,13 @@ See [my personal contact page](https://volatilethunk.com/pages/contact.html).
 If Sylan actually becomes more than an unheard of toy project, a more formal
 channel for reporting vulnerabilities will be set up.
 
-While I would appreciate [Responsible Disclosure](https://en.wikipedia.org/wiki/Responsible_disclosure) of ten days
+While I would appreciate [Coordinated
+Disclosure](https://en.wikipedia.org/wiki/Responsible_disclosure) of ten days
 via the private communication channels above, I firmly believe that developers
 should not feel entitled to demand disclosure timelines from security
 researchers.
 
-So I would still prefer [Full Disclosure](https://en.wikipedia.org/wiki/Full_disclosure_(computer_security))
+I would therefore still prefer [Full
+Disclosure](https://en.wikipedia.org/wiki/Full_disclosure_(computer_security))
 posted as a public GitHub issue over not being told about a vulnerability at
 all. As this is an opensource project, there are no bounty rewards or the like.
