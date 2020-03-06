@@ -26,50 +26,54 @@ enum public Boolean {
     True,
     False;
 
-    func public extern operator && (other This)
-    func public extern operator || (other This)
+    fun public extern operator && (other This)
+    fun public extern operator || (other This)
 }
+
+fun public extern !(b Boolean) Boolean
 
 class public extern Invokable[Result, Args...]
 
 extend class Invokable[Result, Args...] {
 
-    func public extern operator |> [T](other (Result) T) T
-    func public extern operator # [T](other (Result) T) (Args...) T
+    fun public extern operator |> [T](other (Result) T) T
+    fun public extern operator ~ [T](other (Result) T) (Args...) T
 }
-
-var public True = Boolean.true
-var public False = Boolean.false
 
 interface public Number {
 
     // Natively-defined arithmetic operators.
-    func public extern operator + (other This) This
-    func public extern operator - (other This) This
-    func public extern operator / (other This) This
-    func public extern operator % (other This) This
-    func public extern operator * (other This) This
-    func public extern operator ** (other This) This
+    fun public extern operator + (other This) This
+    fun public extern operator - (other This) This
+    fun public extern operator / (other This) This
+    fun public extern operator % (other This) This
+    fun public extern operator * (other This) This
+    fun public extern operator ** (other This) This
 
     // Natively-defined bitwise operators.
-    func public extern operator & (other This) This
-    func public extern operator ^ (other This) This
-    func public extern bitnot() This
+    fun public extern operator & (other This) This
+    fun public extern operator ^ (other This) This
 
-    func public extern operator < (other This) This
-    func public extern operator <= (other This) This
-    func public extern operator == (other This) This
-    func public extern operator != (other This) This
-    func public extern operator > (other This) This
-    func public extern operator >= (other This) This
+    fun public extern operator < (other This) This
+    fun public extern operator <= (other This) This
+    fun public extern operator == (other This) This
+    fun public extern operator != (other This) This
+    fun public extern operator > (other This) This
+    fun public extern operator >= (other This) This
 
-    func public negated() This {
+    // Bitshift operators with angle brackets were moved out of built-in
+    // operators and into extern methods to avoid the parsing ambiguity from
+    // `<<` and `>>`.
+    fun public extern shr Number
+    fun public extern shl Number
+
+    fun public negate This {
         /**
          * Negate a number; replaces the unary minus operator present in other
          * languages.
          *
          * ```
-         * assert(4.negated == (0 - 4))
+         * assert(4.negate == (0 - 4))
          * ```
          */
 
@@ -80,30 +84,24 @@ interface public Number {
         }
     }
 
-    // Bitshift operators with angle brackets were moved out of built-in
-    // operators and into extern methods to avoid the parsing ambiguity from
-    // `<<` and `>>`.
-    func public extern shr() Number
-    func public extern shl() Number
-
-    func public doubled() Number {
+    fun public double Number {
         this * 2
     }
 
-    func public tripled() Number {
+    fun public triple Number {
         this * 3
     }
 
-    func public quadrupled() Number {
+    fun public quadruple Number {
         this * 4
     }
 
-    func public quintupled() Number {
+    fun public quintuple Number {
         this * 5
     }
 
-    func public to(n Number) List[Number] {
-        list.generate(initial = 1) -> {
+    fun public to(n Number) List[Number] {
+        list.generate(initial: 1) -> {
             if n < it {
                 list.generation.Finish
             } else {
@@ -112,6 +110,8 @@ interface public Number {
         }
     }
 }
+
+fun public extern bitnot[N Number](n N) N
 
 // Built-in types, which look a bit like Java primitives except that they are
 // real OO-style types. These can't be defined in Sylan itself due to their
@@ -130,7 +130,7 @@ class public extern Float
 class public extern Double
 
 interface public ToString {
-    func public toString() String
+    fun public toString String
 }
 
 class public String {
@@ -141,18 +141,18 @@ class public Decimal {
     //
 }
 
-func public extern currentTask() Task
+fun public extern currentTask Task
 
 class AssertionError implements Exception {
 
-    func public override message() String {
+    fun public override message String {
         "assertion failed"
     }
 }
 
 // TODO: this should really be a macro, but Sylan doesn't yet have a solid plan
 // for macros.
-func public assert(predicate Boolean) {
+fun public assert(predicate Boolean) {
     /**
      * Assert that predicate is true, otherwise throw an `AssertionError`.
      */
@@ -162,14 +162,18 @@ func public assert(predicate Boolean) {
     }
 }
 
-func public extern print(message String)
+fun public extern print(message String)
 
-func public println(message String) {
+fun public println(message String) {
     print(message)
     print("\n")
 }
 
-func public id[T](value T) T {
+fun public id[T](value T) T {
     value
+}
+
+fun public constant[T](value T) () T {
+    -> { value }
 }
 

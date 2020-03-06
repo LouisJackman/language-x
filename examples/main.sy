@@ -15,20 +15,18 @@ import sylan.util.concurrency.Task
 import sylan.util.datetime.ZonedDateTime
 import sylan.util.optional.{Empty, Some}
 
-func fizzBuzz(n Int) Int {
+fun fizzBuzz(n Int) Int {
 
     // Sylan supports blocks, syntax for passing a lambda as a final argument to
     // an invocable. Note the use of `it` as a shorthand for one-argument
     // blocks.
-    1.upTo(n).forEach -> {
-        println(
-            switch {
-                0 == (it % 15) { "FizzBuzz" }
-                0 == (it % 5) { "Fizz" }
-                0 == (it % 3) { "Buzz" }
-                _ { it }
-            }
-        )
+    1.upTo(n).each -> {
+        switch {
+            0 == (it % 15) { "FizzBuzz" }
+            0 == (it % 5) { "Fizz" }
+            0 == (it % 3) { "Buzz" }
+            _ { it }
+        } |> println
     }
 }
 
@@ -36,25 +34,27 @@ fizzBuzz(100)
 
 /**
  * SyDocs can be written for code documentation.
+ *
+ * Parentheses can be dropped for zero-parameter functions and methods.
  */
-func demoIteration() {
+fun demoIteration {
 
     var highlight = -> s { $">> {s} <<" }
 
-    // The # operator composes invocables together.
+    // The ~ operator composes invocables together.
     1.upTo(5)
-        .map(::Number.doubled # ::ToString.toString # ::highlight)
-        .forEach(::println)
+        .map(Number::doubled ~ ToString::toString ~ ::highlight)
+        .each(::println)
 
     // Sylan supports field-looking getters and transparently upgrading an
-    // expression to a lazy computation, both of which mandate no parentheses
+    // expression to a computation, both of which mandate no parentheses
     // for no-argument invocables. Use the :: operator without a prefix to pick
     // up these invocables as first-class values. Combine it with the dot
     // operator to refer to a method of a type.
 
     // Lambdas can be passed outside of calling parentheses when they are the
     // final argument.
-    List(1, 2, 3).forEach -> n {
+    List { 1, 2, 3 }.each -> n {
 
         /*
          * Backquoted strings allow interpolation. Only single symbols can be
@@ -68,22 +68,22 @@ func demoIteration() {
 
     123456789
         |> ::quadruple
-        |> ::Object.toString
+        |> Object::toString
         |> ::highlight
         |> ::println
 
-    var map = HashMap(
+    var map = Map {
         "abc": 123,
         "def": 321,
         "ghi": 987,
-    )
-    map.forEach -> key, value {
+    }
+    map.each -> key, value {
         println($"{key}: {value}")
     }
 
     do -> {
         var counterService = using Task -> {
-            for n = 0 {
+            for var n = 0 {
                 var sender = select Task {
                     _ { it }
                 }
@@ -113,7 +113,7 @@ func demoIteration() {
      *
      * `for` is a cross between Java's enhanced-for loop and Scheme's named-let.
      */
-    var innerFactorial = for var n = 20, var result = 1 {
+    var innerFactorial = for var n = 20, result = 1 {
         if n <= 0 {
             result
         } else {
@@ -150,7 +150,7 @@ func demoIteration() {
  * As can be seen in this function and the previous, Sylan allows functions to
  * stand alone in packages without being tied to classes or interfaces.
  */
-func internal factorial(n Int) Int {
+fun internal factorial(n Int) Int {
     switch n {
         0, 1 {
             1
@@ -168,7 +168,7 @@ func internal factorial(n Int) Int {
     }
 }
 
-func internal ignorable printFactorial(n Int) Int {
+fun internal ignorable printFactorial(n Int) Int {
     /*
      * Sylan does not allow callers to throw away non-`Void` function or methods
      * results unless they're declared with the `ignorable` modifier.
@@ -191,12 +191,12 @@ func internal ignorable printFactorial(n Int) Int {
     result
 }
 
-func twice[N Number = int](n N, f (N) N) N {
+fun twice[N Number: int](n N, f (N) N) N {
     f(n) + f(n)
 }
 
-func doubled[N Add & ToString](n N) String {
-    (n + n).toString()
+fun doubled[N Add & ToString](n N) String {
+    (n + n).toString
 }
 
 /**
@@ -205,13 +205,13 @@ func doubled[N Add & ToString](n N) String {
  * interfaces using existential types. To get dynamic dispatch, use the virtual
  * keyword like so:
  *
- *     func printNumber(n virtual Number) Number {
+ *     fun printNumber(n virtual Number) Number {
  */
-func printNumber(n Number) {
+fun printNumber(n Number) {
     println($"{n}")
 }
 
-func demoContexts() Optional[Int] {
+fun demoContexts Optional[Int] {
 
     /*
      * Haskell developers will recognise this as the monadic do notation, which
@@ -221,13 +221,13 @@ func demoContexts() Optional[Int] {
      * validation code much cleaner.
      */
     with {
-        <-Some(5)
+        Some(5)->
         println("Doing something.")
 
         // All invocables can drop parentheses if calling with no arguments.
-        // This is actually how getters work behind the scenes and why Sylan
-        // needn't allow public fields as a feature.
-        var _ = <-Empty
+        // This allows fields to be transparently upgraded to getters without
+        // breaking API compatibility.
+        var _ = Empty->
 
         println("Will not be run.")
 
@@ -239,11 +239,11 @@ package counter {
 
     enum Message {
         Increment,
-        Reset(Int),
+        Reset[Int],
         Get,
     }
 
-    func public start(sender Task, n Int = 0) {
+    fun public start(sender Task, n Int: 0) {
         select Message {
             .Increment {
                 start(sender, n + 1)
@@ -273,22 +273,20 @@ package counter {
  * Like normal strings, they also support raw mode and custom delimiters.
  * Interpolation is obviously not supported, however.
  */
-func `test that addition works`() {
-    if (2 + 2) != 4 {
-        throw Exception("OK, I give up...")
-    }
+fun `test that addition works` {
+    assert((2 + 2) == 4)
 }
 
 interface Concatenate[T] {
-    func public concatenate(T) T
+    fun public concatenate(T) T
 }
 
 interface Equals[T] {
-    func public equals(T) Boolean
+    fun public equals(T) Boolean
 
     /*
      * Sylan's interface methods can have bodies like Java 8's defender methods.
-     * Unlike Java 8, private methods with bodies are also allowed with the.
+     * Unlike Java 8, private methods with bodies are also allowed with them.
      * Similar to C# but unlike Java, a default method body in an interface
      * can only be overridden if annotated with `virtual`.
      *
@@ -296,8 +294,8 @@ interface Equals[T] {
      * inheritance in Sylan means there is no other possible use case for them
      * except to be implemented by the implementor.
      */
-    func public virtual notEquals(other T) boolean {
-        !equals(other)
+    fun public virtual notEquals(other T) Boolean {
+        !(equals(other))
     }
 }
 
@@ -320,8 +318,13 @@ class Name {
  * generally causes more problems that it's worth and type embedding plus a
  * more powerful interface system makes up for the difference.
  */
-class Account implements ToString, Concatenate[This] {
+class Account(
+    firstName String,
+    lastName String,
+    var internal ageInYears Int,
+) implements ToString, Concatenate[This] {
 
+    println("instantiating an Account...")
 
     /*
      * Embedding a field hoists all of its _accessible_ methods into
@@ -341,34 +344,15 @@ class Account implements ToString, Concatenate[This] {
      * consistent with the MRO of inheritance. Therefore, changing the order of
      * embeds can change behaviour.
      */
-    var embed name Name
+    var embed name Name = Name(firstName, lastName)
 
-    var internal ageInYears Int
+    var expiry ZonedDateTime = ZonedDateTime.now + 1.year
 
-    var expiry ZonedDateTime = ZonedDateTime.now() + 1.year
-
-    constructor(firstName String, lastName String) {
-        println("instantiating an Account...")
-
-        /*
-         * Constructors are the only place in Sylan where assignments are
-         * allowed outside the context of a binding. Each field must be set
-         * once, and exactly once.
-         *
-         * Note that this class elsewhere uses the auto-generated getters for
-         * these fields but assignments in constructor must set the underlying
-         * fields via `this` directly.
-         */
-        this.name.firstName = firstName
-        this.name.lastName = lastName
-        this.ageInYears = 35
-    }
-
-    func public override toString() String {
+    fun public override toString String {
         $"{firstName} {lastName} is {ageInYears} years old"
     }
 
-    func public override concatenate(other This) This {
+    fun public override concatenate(other This) This {
         var firstName = firstName.concat(other.firstName)
         var lastName = lastName.concat(other.lastName)
 
@@ -385,23 +369,13 @@ class Account implements ToString, Concatenate[This] {
      * sugar. An important difference between Java getters and Sylan "getters"
      * is that Sylan's can replace fields transparently, allowing fields to be
      * "upgraded" to getters transparently without breaking API compatibility.
-     *
-     * Getters are automatically generated for fields with the same
-     * accessibility.
-     *
-     * Fields must always be accessed via `this`, but as even private fields
-     * autogenerate getter methods of the same accessibility, methods can use
-     * the getter in practice e.g. `name` rather than `this.name`.
-     *
-     * `this` is intended to only be used explicitly in explicit getter
-     * implementations or when assigning in constructors.
      */
 
-    func public name() String {
+    fun public name String {
         $"{firstName} {lastName}"
     }
 
-    func public locked() Boolean {
+    fun public locked Boolean {
         expiry < ZonedDateTime.now
     }
 }
@@ -413,18 +387,18 @@ class Account implements ToString, Concatenate[This] {
  * be two completely different implementations. This is a more disciplined
  * replacement for method overloading.
  */
-extend class Account implements Concatenate[This, Result = String] {
+extend class Account implements Concatenate[This, Result: String] {
 
-    func public override concatenate(that This) String {
+    fun public override concatenate(that This) String {
         $"{firstName} {that.firstName}"
     }
 }
 
-func demoPatternMatching() {
-    var account1 = Account(firstName = "Tom", lastName = "Smith")
+fun demoPatternMatching {
+    var account1 = Account(firstName: "Tom", lastName: "Smith")
     var matchingLastName = "Smith"
 
-    if var Account(firstName, lastName = .matchingLastName) as account
+    if var Account(firstName, lastName: .matchingLastName) as account
             = account1 {
         println($"Matching first name: {firstName}")
         println($"Matching account: {account}")
@@ -432,7 +406,7 @@ func demoPatternMatching() {
 
     switch account1 {
 
-        Account(locked = true), Account(firstName = "unlucky") {
+        Account(locked: True), Account(firstName: "unlucky") {
             println("LOCKED!")
         }
 
@@ -458,30 +432,31 @@ func demoPatternMatching() {
  * versioning where new major module versions are effectively different modules.
  */
 var counter2 = counter
-var Person = Account
-var Showable = ToString
-var factorial2 = factorial
+class Person = Account
+interface Showable = ToString
+fun factorial2 = factorial
+package innerMain = main
 
 var maxBound Int = 5
 
-func demoClosures() {
+fun demoClosures {
     var x = 5
 
     var account1 = Account(
-        firstName = "Tom",
-        lastName = "Smith",
-        ageInYears = 15,
+        firstName: "Tom",
+        lastName: "Smith",
+        ageInYears: 15,
     )
 
     var firstName = "Tom"
     var lastName = "Smith"
     var age = 25
-    var account2 = Account(.firstName, .lastName, ageInYears = age)
+    var account2 = Account(.firstName, .lastName, ageInYears: age)
 
     var f = -> { println(it.toString) }
 
     f(account1)
-    f(account2(firstName = "Emma"))
+    f(account2(firstName: "Emma"))
 
     var g = -> {
         println("returning a value")
@@ -513,23 +488,21 @@ class NumericLiteralsClass implements ToString {
     var l Float = 12f
     var m Double = 8f64
 
-    func public override toString() String {
+    fun public override toString String {
         $"{a}{b}{c}{d}{e}{f}{g}{h}{i}{j}{k}{l}{m}"
     }
 }
 
 class AutoCloseableDemo implements AutoCloseable {
 
-    constructor() {
-        println("Opened")
-    }
+    println("Opened")
 
-    func public override close() {
+    fun public override close {
         println("Closed")
     }
 }
 
-func demoAutoCloseables() {
+fun demoAutoCloseables {
 
     /*
      * Sylan, like Erlang and Go, strongly discourages catching exceptional
@@ -567,7 +540,7 @@ func demoAutoCloseables() {
     // Prints "Entering scope", "Opened", "Using closeable", "Closed", and finally "Leaving scope".
 }
 
-func demo() {
+fun demo {
     // As mentioned above, all invocables can omit parentheses if they have
     // zero parameters. This is primarily for getters, but should also be used
     // for Pascal-procedure-style invocations just for consistency. That
