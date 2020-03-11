@@ -7,33 +7,39 @@ use std::collections::{HashSet, LinkedList};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
-use common::multiphase::{Identifier, InterpolatedString, Shebang, SyDoc, SylanString};
+use common::multiphase::{
+    Accessibility, Identifier, InterpolatedString, OverloadableInfixOperator, PostfixOperator,
+    PseudoIdentifier, Shebang, SyDoc, SylanString,
+};
 use common::version::Version;
 
 /// Shebangs and source versions are special, which is why they're outside of
-/// the `FilePackage` in which all other items and expressions reside. Both
+/// the `PackageFile` in which all other items and expressions reside. Both
 /// shebangs must be completely resolved before anything else can be parsed,
 /// and the result of parsing version can completely change the lexing and
 /// parsing of all subsequent tokens.
 pub struct File {
     pub shebang: Option<Shebang>,
     pub version: Option<Version>,
-    pub package: FilePackage,
+    pub package: PackageFile,
+}
+
+/// Every node in Sylan is either an item or an expression, even the special
+/// shebang and version tokens (both of which are items).
+pub enum Node {
+    Item(Item),
+    Expression(Expression),
 }
 
 /// The declarations that make up the static structure of a Sylan program. Items
 /// can't be contained within expressions, with the exception of bindings.
-#[derive(Clone)]
 pub enum Item {
-    Package(Package),
-    Class(Class),
     Extension(Extension),
-    Interface(Interface),
+    Fun(Fun),
+    Import(SymbolLookup),
+    Package(Package),
     SyDoc(SyDoc),
-    ContextualIgnoral(ContextualIgnoral),
-    Alias(Alias),
-    Import(Import),
-    Func(Func),
+    Type(Type),
 
     // Unlike the previous variants, these can be arbitrarily nested within
     // expressions. This is to allow corecursion among other features.
@@ -45,38 +51,35 @@ pub enum Item {
 
 /// The expressions that allow Turing-complete computations, i.e. allowing
 /// Sylan to do actual useful work.
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Expression {
-    Identifier(Identifier),
-    Literal(Literal),
-    UnaryOperator(UnaryOperator, Box<Expression>),
-    BinaryOperator(BinaryOperator, Box<Expression>, Box<Expression>),
-    Switch(Switch),
-    Select(Select),
+    BranchingAndJumping(BranchingAndJumping),
     Context(Scope),
-    Using(Using),
-    If(If),
-    IfLet(IfLet),
-    Cond(Cond),
-    For(For),
-    Continue(Continue),
-    Call(Call),
-    Lookup(Lookup),
+    Literal(Literal),
+    Operator(Operator),
+    SymbolLookup(SymbolLookup),
     Throw(Throw),
-    While(Throw),
-    WhileLet(WhileLet),
+    Using(Using),
 }
 
-/// Every node in Sylan is either an item or an expression, even the special
-/// shebang and version tokens (both of which are technically items).
-pub enum Node {
-    Item(Item),
-    Expression(Expression),
+pub enum Operator {
+    InfixOperator(OverloadableInfixOperator, Box<Expression>, Box<Expression>),
+    PostfixOperator(PostfixOperator, Box<Expression>),
+}
+
+pub enum BranchingAndJumping {
+    Call(Call),
+    Cond(Cond),
+    For(For),
+    If(If),
+    IfLet(IfLet),
+    Select(Select),
+    Switch(Switch),
+    While(While),
+    WhileLet(WhileLet),
 }
 
 /// Packages only have items at top-level, with the exception of the main package that can also have
 /// executable code to simplify small scripts.
-#[derive(Clone)]
 pub struct Package {
     pub accessibility: Accessibility,
     pub name: Identifier,
@@ -88,102 +91,114 @@ pub struct MainPackage {
     pub code: Code,
 }
 
-pub enum FilePackage {
+pub enum PackageFile {
     EntryPoint(MainPackage),
-
-    // TODO: this needs to be removed; each package will be lexed and parsed individually
-    // and linked in a later phase, probably in the simplification but more likely one of the
-    // backends.
-    Imported(Package),
+    Dependency(Package),
 }
 
-#[derive(Clone)]
-pub struct Import {
-    pub lookup: Lookup,
+pub struct FunModifiers {
+    pub accessibility: Accessibility,
+    pub is_ignorable: bool,
+    pub is_extern: bool,
+    pub is_operator: bool,
 }
 
-// Funcs are ultimately just lambdas used in a binding, the syntactic equivalent of combining `var`
+// Funs are ultimately just lambdas used in a binding, the syntactic equivalent of combining `var`
 // with a lambda expression. However, this is only realised during the simplification stage; at
 // this stage they are still distinct.
 //
 // One notable difference is that omitting a return type on a lambda triggers type inference,
-// whereas it always means the `Void` type for `func`. Also, `Func` expects the lambda signature to
+// whereas it always means the `Void` type for `func`. Also, `Fun` expects the lambda signature to
 // explicitly type every parameter, and will quickly fail in a later stage if any type annotations
 // are missing. This is because `func` is intended to be used for top-level functions that define
 // the shape of the program or API, in which types should always be explicitly annotated anyway.
-#[derive(Clone)]
-pub struct Func {
+pub struct Fun {
     pub name: Identifier,
+    pub modifiers: FunModifiers,
     pub lambda: Lambda,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum Accessibility {
-    Public,
-    Internal,
-    Private,
-}
-
-#[derive(Clone)]
 pub enum DeclarationItem {
     Binding(Binding),
     Type(Type),
     Package(Package),
 }
 
-#[derive(Clone)]
 pub struct Declaration {
     pub accessibility: Accessibility,
     pub item: DeclarationItem,
 }
 
-/// Concrete classes that support implementing interfaces and embedding other
-/// classes, but cannot extend other classes directly.
-#[derive(Clone)]
+pub struct ClassModifiers {
+    accessibility: Accessibility,
+    is_extern: bool,
+}
+
+// Concrete classes that support implementing interfaces and embedding other
+// classes, but cannot extend other classes directly.
+
 pub struct Class {
-    pub implements: LinkedList<Type>,
+    pub implements: Vec<Type>,
     pub methods: HashSet<Method>,
+    pub fields: HashSet<Field>,
+
+    // Initialisation
+    pub value_parameters: Vec<ValueParameter>,
+    pub code: Code,
+}
+
+pub struct Enum {
+    pub implements: Vec<Type>,
+    pub methods: HashSet<Method>,
+    pub fields: HashSet<Field>,
+
+    // Initialisation
+    pub value_parameters: Vec<ValueParameter>,
+    pub code: Code,
 }
 
 /// Interfaces that support extending other interfaces, providing empty methods
 /// that implementors must implement, providing already-defined utility methods,
 /// and even allowing already-defined methods to be specialised via overriding
 /// in implementing classes.
-#[derive(Clone)]
 pub struct Interface {
-    pub extends: LinkedList<Type>,
+    pub extends: Vec<Type>,
     pub methods: HashSet<Method>,
 }
 
-#[derive(Clone)]
 pub enum TypeItem {
     Class(Class),
+    Enum(Enum),
     Interface(Interface),
 }
 
-#[derive(Clone)]
-pub enum Extension {
-    Class(Class),
-    Interface(Interface),
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Type {
     pub name: Identifier,
-    pub arguments: Vec<Argument<Type>>,
+    pub type_parameters: Vec<TypeParameter>,
+    pub item: TypeItem,
 }
 
-#[derive(Clone)]
-pub struct DeclarationModifiers {
-    accessibility: Accessibility,
+pub struct TypeSymbolLookup {
+    pub lookup: SymbolLookup,
+    pub type_arguments: Vec<TypeArgument>,
 }
 
-#[derive(Clone)]
+impl TypeSymbolLookup {
+    pub fn new(lookup: Vec<Identifier>) -> TypeSymbolLookup {
+        TypeSymbolLookup {
+            lookup: SymbolLookup(lookup),
+            type_arguments: vec![],
+        }
+    }
+}
+
+pub struct Extension(pub Type);
+
 pub struct MethodModifiers {
-    declaration: DeclarationModifiers,
+    fun_modifiers: FunModifiers,
     is_virtual: bool,
     overrides: bool,
-    default: bool,
+    has_a_default: bool,
 }
 
 /// Methods and just bindings in a class, which can be potentially abstract (i.e. with no initial
@@ -198,7 +213,6 @@ pub struct MethodModifiers {
 /// Type annotations are only optional in a special case: direct literals. This means a very common
 /// case, OOP-style methods, don't require spelling out type annotations twice as lambdas are
 /// literals.
-#[derive(Clone)]
 pub struct Method {
     pub name: Identifier,
     pub modifiers: MethodModifiers,
@@ -208,23 +222,20 @@ pub struct Method {
 
 /// Value parameters are for values at runtime and have identifiers and
 /// optional default values.
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ValueParameter {
     pub pattern: Pattern,
-    pub explicit_type_annotation: Option<Type>,
+    pub explicit_type_annotation: Option<TypeSymbolLookup>,
     pub default_value: Option<Expression>,
 }
 
 /// Type parameters are for types at compile-time and have optional upper
 /// bounds, identifiers, and optional default values.
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TypeParameter {
     pub name: Identifier,
-    pub upper_bounds: Vec<Type>,
-    pub default_value: Option<Type>,
+    pub upper_bounds: Vec<TypeSymbolLookup>,
+    pub default_value: Option<TypeSymbolLookup>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Argument<T> {
     pub value: T,
     pub identifier: Option<Identifier>,
@@ -240,7 +251,7 @@ type ValueArgument = Argument<Expression>;
 /// positional or keyword arguments; unlike other languages it is the choice of
 /// the caller rather than the definer. If passed as a keyword argument, an
 /// identifier is carried with it in the parse tree.
-type TypeArguments = Argument<Type>;
+type TypeArgument = Argument<Type>;
 
 // Sylan's "symbol tables" are just a collection of bindings in the current
 // scope. Parent scopes can be looked up to find bindings in outer closures,
@@ -249,34 +260,41 @@ type TypeArguments = Argument<Type>;
 /// Bindings are for execution-time values. Statically deducible values go via
 /// package and type definitions instead. (Note that "execution-time" can mean
 /// both "runtime" and "running within a compile-time macro.)
-#[derive(Clone, Debug, Eq)]
-pub struct Binding {
+///
+/// Local bindings do not have item declaration modifiers like access modifiers,
+/// whereas non-local bindings do. Non-local bindings are just bindings at the
+/// package level. Bindings in classes are called "fields" which are the same
+/// except they allow embedding of their values into the outer class.
+
+pub struct LocalBinding {
     pub pattern: Pattern,
     pub value: Box<Expression>,
-    pub explicit_type_annotation: Option<Type>,
+    pub explicit_type_annotation: Option<TypeSymbolLookup>,
 }
 
-impl PartialEq for Binding {
+pub struct Binding {
+    pub is_extern: bool,
+    pub accessibility: Accessibility,
+    pub binding: LocalBinding,
+}
+
+pub struct Field {
+    pub is_extern: bool,
+    pub is_embedded: bool,
+    pub accessibility: Accessibility,
+    pub binding: LocalBinding,
+}
+
+impl PartialEq for LocalBinding {
     fn eq(&self, other: &Self) -> bool {
         self.pattern == other.pattern
     }
 }
 
-impl Hash for Binding {
+impl Hash for LocalBinding {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.pattern.hash(state)
     }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Alias {
-    pub new: Identifier,
-    pub original: Lookup,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ContextualIgnoral {
-    pub value: Expression,
 }
 
 /// Expressions are seperate from bindings.
@@ -293,16 +311,15 @@ type Expressions = Vec<Expression>;
 ///
 /// In other words, these declarations are block scoped with a temporal dead
 /// zone rather than using scope hoisting.
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Code {
-    pub bindings: HashSet<Binding>,
+    pub bindings: Vec<LocalBinding>,
     pub expressions: Expressions,
 }
 
 impl Code {
     pub fn new() -> Self {
         Self {
-            bindings: HashSet::new(),
+            bindings: vec![],
             expressions: vec![],
         }
     }
@@ -313,7 +330,6 @@ impl Code {
 /// bindings but cannot declare new types or subpackages like packages can.
 ///
 /// All functions, methods, and lambdas have an attached scope.
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Scope {
     pub code: Code,
     pub parent: Option<Rc<Scope>>,
@@ -333,23 +349,28 @@ impl Scope {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LambdaSignature {
     pub type_parameters: Vec<TypeParameter>,
     pub value_parameters: Vec<ValueParameter>,
-    pub explicit_return_type_annotation: Option<Type>,
+    pub explicit_return_type_annotation: Option<TypeSymbolLookup>,
     pub ignorable: bool,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lambda {
     pub signature: LambdaSignature,
     pub scope: Scope,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+/// Parameterised modules are still being considered; until they're committed to, just a vector of
+/// identifiers is enough. This is a perk of static methods not existing; there's no need to support
+/// class-with-type-parameters components in the symbol lookup for now.
+///
+/// A lookup is an expression, but its information should be completely resolvable in the parsing
+/// and semantic analysis. It allows looking items up in static program structure, e.g. types and
+/// packages.
+pub struct SymbolLookup(pub Vec<Identifier>);
+
 pub enum Literal {
-    Boolean(bool),
     Char(char),
     InterpolatedString(InterpolatedString),
     Number(i64, u64),
@@ -357,116 +378,78 @@ pub enum Literal {
     Lambda(Lambda),
 }
 
-/// A lookup is an expression, but its information should be completely resolvable in the parsing
-/// and semantic analysis. It allows looking items up in static program structure, e.g. types and
-/// packages.
-pub type Lookup = Vec<Identifier>;
-
-/// Sylan allows defining operations but only binary ones. Unary ones are fixed in the language
-/// and cannot be used as names for identifiers.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum UnaryOperator {
-    InvocableHandle,
-    Not,
-    ContextualBind,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct BinaryOperator(Identifier);
-
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Switch {
     pub expression: Box<Expression>,
     pub cases: Vec<Case>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Timeout {
     pub nanoseconds: Box<Expression>,
     pub body: Scope,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Select {
-    pub message_type: Type,
+    pub message_type: TypeSymbolLookup,
     pub cases: Vec<Case>,
     pub timeout: Option<Timeout>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LambdaArgument {
     Normal(Argument<Expression>),
     Entry(Box<Expression>, Box<Expression>),
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Call {
     pub target: Box<Expression>,
     pub arguments: Vec<LambdaArgument>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Using(Box<Expression>);
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct If {
     pub condition: Box<Expression>,
     pub then: Scope,
     pub else_clause: Option<Scope>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct IfLet {
-    pub binding: Binding,
+    pub binding: LocalBinding,
     pub then: Scope,
     pub else_clause: Option<Scope>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CondCase {
     pub conditions: LinkedList<Expression>,
     pub then: Scope,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Cond(pub Vec<CondCase>);
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CaseMatch {
     pub pattern: Pattern,
     pub guard: Option<Expression>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Case {
     pub matches: LinkedList<CaseMatch>,
     pub body: Scope,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct For {
-    pub bindings: Vec<Binding>,
+    pub bindings: Vec<LocalBinding>,
     pub scope: Scope,
     pub label: Option<Identifier>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct While {
     pub condition: Box<Expression>,
     pub scope: Scope,
     pub label: Option<Identifier>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WhileLet {
-    pub binding: Binding,
+    pub binding: LocalBinding,
     pub scope: Scope,
-    pub label: Option<Identifier>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Continue {
-    pub bindings: Vec<Argument<Expression>>,
     pub label: Option<Identifier>,
 }
 
@@ -475,23 +458,19 @@ pub struct Continue {
 /// expression can be used. It can throw any expression that yields a type which
 /// implements the Exception interface. In "returns" the bottom type which
 /// allows it to be used anywhere.
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Throw(pub Box<Expression>);
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PatternGetter {
     pub identifier: Identifier,
     pub pattern: Pattern,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CompositePattern {
-    pub composite_type: Type,
+    pub composite_type: TypeSymbolLookup,
     pub getters: Vec<PatternGetter>,
     pub ignore_rest: bool,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PatternItem {
     Literal(Literal),
     Identifier(Identifier),
@@ -499,7 +478,6 @@ pub enum PatternItem {
     Ignored,
 }
 
-#[derive(Clone, Debug, Eq)]
 pub struct Pattern {
     pub item: PatternItem,
     pub bound_match: Option<Identifier>,

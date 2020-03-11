@@ -4,11 +4,17 @@ use std::io;
 use std::sync::mpsc::{channel, Receiver, RecvError, SendError};
 use std::thread::{self, JoinHandle};
 
-use common::multiphase::{self, Identifier, InterpolatedString, SylanString};
+use common::multiphase::{
+    self, Identifier, InterpolatedString, OverloadableInfixOperator, PostfixOperator,
+    PseudoIdentifier, SylanString,
+};
 use common::peekable_buffer::PeekableBuffer;
 use common::string_matches_char_slice;
 use common::version::Version;
-use lexing::tokens::Token;
+use lexing::tokens::{
+    Binding, BranchingAndJumping, DeclarationHead, Grouping, Literal, Modifier, ModuleDefinitions,
+    Token,
+};
 use lexing::{char_escapes, keywords, non_word_chars};
 use source::in_memory::Source;
 use source::Position;
@@ -45,7 +51,7 @@ pub struct Error {
 #[derive(Debug)]
 pub enum LexerTaskError {
     Lexer(Error),
-    Task(Box<Any + Send + 'static>),
+    Task(Box<dyn Any + Send + 'static>),
 }
 
 type TokenResult = Result<Token, Error>;
@@ -287,7 +293,7 @@ impl Lexer {
 
     fn lex_number(&mut self) -> TokenResult {
         self.lex_absolute_number()
-            .map(|(real, fractional)| Token::Number(real, fractional))
+            .map(|(real, fractional)| Token::Literal(Literal::Number(real, fractional)))
             .map(Ok)
             .unwrap_or_else(|_| self.fail("invalid number"))
     }
@@ -446,7 +452,7 @@ impl Lexer {
     fn lex_string(&mut self, escaping: bool) -> TokenResult {
         self.source.discard();
         let string = self.lex_string_content('"', 1, escaping)?;
-        Ok(Token::String(SylanString::from(string)))
+        Ok(Token::Literal(Literal::String(SylanString::from(string))))
     }
 
     fn lex_quoted_identifier(&mut self, escaping: bool) -> TokenResult {
@@ -459,7 +465,7 @@ impl Lexer {
         self.source.discard();
         self.source.discard();
         let string = self.lex_interpolated_string_content('"', 1, escaping)?;
-        Ok(Token::InterpolatedString(string))
+        Ok(Token::Literal(Literal::InterpolatedString(string)))
     }
 
     fn lex_string_with_custom_delimiter(&mut self, escaping: bool) -> TokenResult {
@@ -474,7 +480,7 @@ impl Lexer {
         }
 
         let string = self.lex_string_content('"', additional_delimiter_count + 3, escaping)?;
-        Ok(Token::String(SylanString::from(string)))
+        Ok(Token::Literal(Literal::String(SylanString::from(string))))
     }
 
     fn lex_quoted_identifier_with_custom_delimiter(&mut self, escaping: bool) -> TokenResult {
@@ -506,7 +512,7 @@ impl Lexer {
 
         let string =
             self.lex_interpolated_string_content('"', additional_delimiter_count + 3, escaping)?;
-        Ok(Token::InterpolatedString(string))
+        Ok(Token::Literal(Literal::InterpolatedString(string)))
     }
 
     fn lex_char(&mut self, escaping: bool) -> TokenResult {
@@ -515,10 +521,11 @@ impl Lexer {
         match self.source.peek() {
             Some(&c) => {
                 let result = if escaping && (c == '\\') {
-                    self.lex_escape_char_in_string_or_char().map(Token::Char)
+                    self.lex_escape_char_in_string_or_char()
+                        .map(|c| Token::Literal(Literal::Char(c)))
                 } else {
                     self.source.discard();
-                    Ok(Token::Char(c))
+                    Ok(Token::Literal(Literal::Char(c)))
                 };
 
                 // Discard the closing '.
@@ -588,14 +595,10 @@ impl Lexer {
         }
     }
 
-    fn lex_boolean_or_keyword_or_identifier(&self, word: String) -> Token {
-        match &word[..] {
-            "true" => Token::Boolean(true),
-            "false" => Token::Boolean(false),
-            _ => match self.keywords.get(&word[..]) {
-                Some(token) => token.clone(),
-                None => Token::Identifier(multiphase::Identifier::from(word)),
-            },
+    fn lex_keyword_or_identifier(&self, word: String) -> Token {
+        match self.keywords.get(&word[..]) {
+            Some(token) => token.clone(),
+            None => Token::Identifier(multiphase::Identifier::from(word)),
         }
     }
 
@@ -652,6 +655,95 @@ impl Lexer {
         }
     }
 
+    fn lex_symbolic(&mut self) -> TokenResult {
+        if let Some(c) = self.source.peek().cloned() {
+            match c {
+                // The Infix Operators
+                ':' => Ok(self.lex_with_leading_colon()),
+                '.' => Ok(self.lex_with_leading_dot()),
+                '<' => Ok(self.lex_with_leading_left_angle_bracket()),
+                '=' => Ok(self.lex_with_leading_equals()),
+                '&' => Ok(self.lex_with_leading_ampersand()),
+                '|' => Ok(self.lex_with_leading_pipe()),
+                '^' => Ok(self.lex_with_leading_caret()),
+                '/' => Ok(Token::OverloadableInfixOperator(
+                    OverloadableInfixOperator::Divide,
+                )),
+                '~' => Ok(Token::OverloadableInfixOperator(
+                    OverloadableInfixOperator::Compose,
+                )),
+                '>' => Ok(self.lex_with_leading_right_angle_bracket()),
+                '%' => Ok(Token::OverloadableInfixOperator(
+                    OverloadableInfixOperator::Modulo,
+                )),
+                '*' => Ok(self.lex_with_leading_astericks()),
+                '!' => self.lex_with_leading_exclamation_mark(),
+                '@' => self.lex_with_leading_at(),
+
+                ',' => {
+                    self.source.discard();
+                    Ok(Token::SubItemSeparator)
+                }
+
+                // The minus symbol, which can be either the start of a lambda arrow or a
+                // negationnumeric prefix. If the lexer has got here, it is assumed that their use
+                // as numeric prefixes has already been ruled out.
+                //
+                // Note that `-` or `+` are either parts of a number literal or
+                // binary operators but are _not_ unary operators. This allows
+                // the lexer to avoid distinguishing unary and binary `-` and
+                // `+ `solely by whitespace. For negating a variable, use the
+                // `Number#negate` method instead.
+                '-' => Ok(Token::OverloadableInfixOperator(
+                    OverloadableInfixOperator::Subtract,
+                )),
+                '+' => Ok(Token::OverloadableInfixOperator(
+                    OverloadableInfixOperator::Add,
+                )),
+
+                // Grouping tokens.
+                '{' => {
+                    self.source.discard();
+                    Ok(Token::Grouping(Grouping::OpenBrace))
+                }
+                '}' => {
+                    self.source.discard();
+                    Ok(Token::Grouping(Grouping::CloseBrace))
+                }
+                '(' => {
+                    self.source.discard();
+                    Ok(Token::Grouping(Grouping::OpenParentheses))
+                }
+                ')' => {
+                    self.source.discard();
+                    Ok(Token::Grouping(Grouping::CloseParentheses))
+                }
+                '[' => {
+                    self.source.discard();
+                    Ok(Token::Grouping(Grouping::OpenSquareBracket))
+                }
+                ']' => {
+                    self.source.discard();
+                    Ok(Token::Grouping(Grouping::CloseSquareBracket))
+                }
+
+                _ => Ok(self.lex_identifier()),
+            }
+        } else {
+            self.fail("file ended before an operator could be read")
+        }
+    }
+
+    fn lex_with_leading_colon(&mut self) -> Token {
+        self.source.discard();
+        if self.source.next_is(':') {
+            self.source.discard();
+            Token::PostfixOperator(PostfixOperator::InvocableHandle)
+        } else {
+            Token::Colon
+        }
+    }
+
     fn lex_with_leading_dot(&mut self) -> Token {
         self.source.discard();
         if self.source.next_is('.') && self.source.nth_is(1, '.') {
@@ -663,130 +755,137 @@ impl Lexer {
         }
     }
 
-    fn lex_symbolic(&mut self) -> TokenResult {
-        if let Some(c) = self.source.peek().cloned() {
-            Ok(match c {
-                // The sole unary operation, which is why identifiers cannot start with an
-                // exclamation mark.
-                '!' => self.lex_with_leading_exclamation_mark(),
-
-                // Built-in Binary Operators or Identifier.
-                ':' => self.lex_with_leading_colon(),
-                '.' => self.lex_with_leading_dot(),
-                '<' => self.lex_with_leading_left_angle_bracket(),
-                '=' => self.lex_with_leading_equals(),
-                ',' => {
-                    self.source.discard();
-                    Token::SubItemSeparator
-                }
-
-                // The minus symbol, which can be either the start of a lambda arrow or a
-                // negationnumeric prefix. If the lexer has got here, it is assumed that their use
-                // as numeric prefixes has already been ruled out.
-                //
-                // Note that `-` or `+` are either parts of a number literal or
-                // binary operators but are _not_ unary operators. This allows
-                // the lexer to avoid distinguishing unary and binary `-` and
-                // `+ `solely by whitespace. For negating a variable, use the
-                // `Number#negated` method instead.
-                '-' => self.lex_with_leading_minus(),
-
-                // Grouping tokens.
-                '{' => {
-                    self.source.discard();
-                    Token::OpenBrace
-                }
-                '}' => {
-                    self.source.discard();
-                    Token::CloseBrace
-                }
-                '(' => {
-                    self.source.discard();
-                    Token::OpenParentheses
-                }
-                ')' => {
-                    self.source.discard();
-                    Token::CloseParentheses
-                }
-                '[' => {
-                    self.source.discard();
-                    Token::OpenSquareBracket
-                }
-                ']' => {
-                    self.source.discard();
-                    Token::CloseSquareBracket
-                }
-
-                _ => self.lex_identifier(),
-            })
-        } else {
-            self.fail("file ended before an operator could be read")
-        }
-    }
-
-    /// Assume that - as the first character of a numeric literal has already been ruled out at
-    /// this point.
-    fn lex_with_leading_minus(&mut self) -> Token {
-        if self.source.next_is('>') {
-            self.source.discard();
-            Token::LambdaArrow
-        } else {
-            self.lex_identifier()
-        }
-    }
-
     fn lex_with_leading_left_angle_bracket(&mut self) -> Token {
-        if let Some('-') = self.source.peek_nth(1).cloned() {
+        self.source.discard();
+        if self.source.next_is('<') {
             self.source.discard();
             self.source.discard();
-            Token::Bind
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::LeftShift)
+        } else if self.source.next_is('=') {
+            self.source.discard();
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::LessThanOrEqual)
         } else {
-            self.lex_identifier()
+            self.source.discard();
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::LessThan)
         }
     }
 
     fn lex_with_leading_equals(&mut self) -> Token {
-        if self
-            .source
-            .peek()
-            .cloned()
-            .filter(|c| !c.is_whitespace())
-            .is_some()
-        {
-            self.lex_identifier()
-        } else {
+        self.source.discard();
+        if self.source.next_is('=') {
             self.source.discard();
-            Token::Assign
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::Equals)
+        } else {
+            Token::Binding(Binding::Assign)
         }
     }
 
-    fn lex_with_leading_exclamation_mark(&mut self) -> Token {
-        if self
-            .source
-            .peek_nth(1)
-            .cloned()
-            .filter(|c| !c.is_whitespace())
-            .is_some()
-        {
-            self.lex_identifier()
-        } else {
+    fn lex_with_leading_ampersand(&mut self) -> Token {
+        self.source.discard();
+        if self.source.next_is('&') {
             self.source.discard();
-            Token::Not
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::And)
+        } else {
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::Ampersand)
         }
     }
 
-    fn lex_with_leading_colon(&mut self) -> Token {
-        if self.source.next_is(':') {
+    fn lex_with_leading_pipe(&mut self) -> Token {
+        self.source.discard();
+        if self.source.next_is('>') {
             self.source.discard();
-            Token::InvocableHandle
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::Pipe)
+        } else if self.source.next_is('|') {
+            self.source.discard();
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::Or)
         } else {
-            Token::Colon
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::BitwiseOr)
+        }
+    }
+
+    fn lex_with_leading_caret(&mut self) -> Token {
+        self.source.discard();
+        if self.source.next_is('^') {
+            self.source.discard();
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::Xor)
+        } else {
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::BitwiseXor)
+        }
+    }
+
+    fn lex_with_leading_right_angle_bracket(&mut self) -> Token {
+        self.source.discard();
+        if self.source.next_is('>') {
+            self.source.discard();
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::RightShift)
+        } else if self.source.next_is('=') {
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::GreaterThanOrEqual)
+        } else {
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::GreaterThan)
+        }
+    }
+
+    fn lex_with_leading_astericks(&mut self) -> Token {
+        self.source.discard();
+        if self.source.next_is('*') {
+            self.source.discard();
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::Power)
+        } else {
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::Multiply)
+        }
+    }
+
+    fn lex_with_leading_exclamation_mark(&mut self) -> TokenResult {
+        self.expect_and_discard('=')
+            .map(|_| Token::OverloadableInfixOperator(OverloadableInfixOperator::NotEqual))
+    }
+
+    fn lex_with_leading_at(&mut self) -> TokenResult {
+        match self.source.read() {
+            Some(token) => match token {
+                '+' => {
+                    self.source.discard();
+                    Ok(Token::OverloadableInfixOperator(
+                        OverloadableInfixOperator::VectorAdd,
+                    ))
+                }
+                '/' => {
+                    self.source.discard();
+
+                    Ok(Token::OverloadableInfixOperator(
+                        OverloadableInfixOperator::VectorDivide,
+                    ))
+                }
+                '*' => {
+                    self.source.discard();
+                    if self.source.next_is('*') {
+                        self.source.discard();
+                        Ok(Token::OverloadableInfixOperator(
+                            OverloadableInfixOperator::VectorPower,
+                        ))
+                    } else {
+                        Ok(Token::OverloadableInfixOperator(
+                            OverloadableInfixOperator::VectorMultiply,
+                        ))
+                    }
+                }
+                '-' => {
+                    self.source.discard();
+                    Ok(Token::OverloadableInfixOperator(
+                        OverloadableInfixOperator::VectorSubtract,
+                    ))
+                }
+                c => self.unexpected(c),
+            },
+            None => Err(self.premature_eof()),
         }
     }
 
     fn lex_placeholder_identifier(&mut self) -> TokenResult {
         self.source.discard();
-        Ok(Token::PlaceholderIdentifier)
+        Ok(Token::PseudoIdentifier(
+            PseudoIdentifier::PlaceholderIdentifier,
+        ))
     }
 
     fn lex_non_trivia(&mut self) -> TokenResult {
@@ -906,7 +1005,7 @@ impl Lexer {
                                     } else if c.is_alphabetic() {
                                         let mut rest = String::new();
                                         self.lex_rest_of_word(&mut rest);
-                                        Ok(self.lex_boolean_or_keyword_or_identifier(rest))
+                                        Ok(self.lex_keyword_or_identifier(rest))
                                     } else if c.is_digit(10)
                                         || (self.source.match_nth(1, |c| c.is_digit(10))
                                             && ((c == '+') || (c == '-')))
@@ -1083,36 +1182,62 @@ mod tests {
     #[test]
     fn placeholder_identifier() {
         let mut lexer = test_lexer("   \t _ \r      ");
-        assert_next(&mut lexer, &Token::PlaceholderIdentifier);
+        assert_next(
+            &mut lexer,
+            &Token::PseudoIdentifier(PseudoIdentifier::PlaceholderIdentifier),
+        );
+    }
+
+    #[test]
+    fn groupings() {
+        let mut lexer = test_lexer("   \t ( { [ \r   } ] )  ");
+        assert_next(&mut lexer, &Token::Grouping(Grouping::OpenParentheses));
+        assert_next(&mut lexer, &Token::Grouping(Grouping::OpenBrace));
+        assert_next(&mut lexer, &Token::Grouping(Grouping::OpenSquareBracket));
+        assert_next(&mut lexer, &Token::Grouping(Grouping::CloseBrace));
+        assert_next(&mut lexer, &Token::Grouping(Grouping::CloseSquareBracket));
+        assert_next(&mut lexer, &Token::Grouping(Grouping::CloseParentheses));
     }
 
     #[test]
     fn keywords() {
-        let mut lexer = test_lexer("    class\t  \r\n  abc var with");
-        assert_next(&mut lexer, &Token::Class);
+        let mut lexer = test_lexer(" if   class\t  \r\n  abc var reject with  ignorable");
+        assert_next(
+            &mut lexer,
+            &Token::BranchingAndJumping(BranchingAndJumping::If),
+        );
+        assert_next(&mut lexer, &Token::DeclarationHead(DeclarationHead::Class));
         assert_next(&mut lexer, &Token::Identifier(Identifier::from("abc")));
-        assert_next(&mut lexer, &Token::Var);
+        assert_next(&mut lexer, &Token::Binding(Binding::Var));
+        assert_next(
+            &mut lexer,
+            &Token::ModuleDefinitions(ModuleDefinitions::Reject),
+        );
         assert_next(&mut lexer, &Token::With);
+        assert_next(&mut lexer, &Token::Modifier(Modifier::Ignorable));
     }
 
     #[test]
     fn numbers() {
         let mut lexer = test_lexer("    23  \t  -34   \t\t\n   23   +32 0.32    \t123123123.32");
-        assert_next(&mut lexer, &Token::Number(23, 0));
-        assert_next(&mut lexer, &Token::Number(-34, 0));
-        assert_next(&mut lexer, &Token::Number(23, 0));
-        assert_next(&mut lexer, &Token::Number(32, 0));
-        assert_next(&mut lexer, &Token::Number(0, 32));
-        assert_next(&mut lexer, &Token::Number(123_123_123, 32));
+        assert_next(&mut lexer, &Token::Literal(Literal::Number(23, 0)));
+        assert_next(&mut lexer, &Token::Literal(Literal::Number(-34, 0)));
+        assert_next(&mut lexer, &Token::Literal(Literal::Number(23, 0)));
+        assert_next(&mut lexer, &Token::Literal(Literal::Number(32, 0)));
+        assert_next(&mut lexer, &Token::Literal(Literal::Number(0, 32)));
+        assert_next(
+            &mut lexer,
+            &Token::Literal(Literal::Number(123_123_123, 32)),
+        );
     }
 
     #[test]
     fn chars() {
         let mut lexer = test_lexer("  'a' '\\r'  \t \n\r\n 'd'    '/'");
-        assert_next(&mut lexer, &Token::Char('a'));
-        assert_next(&mut lexer, &Token::Char('\r'));
-        assert_next(&mut lexer, &Token::Char('d'));
-        assert_next(&mut lexer, &Token::Char('/'));
+        assert_next(&mut lexer, &Token::Literal(Literal::Char('a')));
+        assert_next(&mut lexer, &Token::Literal(Literal::Char('\r')));
+        assert_next(&mut lexer, &Token::Literal(Literal::Char('d')));
+        assert_next(&mut lexer, &Token::Literal(Literal::Char('/')));
     }
 
     #[test]
@@ -1157,18 +1282,37 @@ mod tests {
 
     #[test]
     fn built_in_operators_and_identifiers() {
-        let mut lexer = test_lexer("   <= \t  \r\n ~ ! ^ - <  >> [ != |> # :: ");
-        assert_next(&mut lexer, &Token::Identifier(Identifier::from("<=")));
-        assert_next(&mut lexer, &Token::Identifier(Identifier::from("~")));
-        assert_next(&mut lexer, &Token::Not);
-        assert_next(&mut lexer, &Token::Identifier(Identifier::from("^")));
-        assert_next(&mut lexer, &Token::Identifier(Identifier::from("-")));
-        assert_next(&mut lexer, &Token::Identifier(Identifier::from("<")));
-        assert_next(&mut lexer, &Token::Identifier(Identifier::from(">>")));
+        let mut lexer = test_lexer("   <= \t  \r\n ~ ! ^ ^^ - <  [ != |> :: ");
+        assert_next(
+            &mut lexer,
+            &Token::OverloadableInfixOperator(OverloadableInfixOperator::LessThanOrEqual),
+        );
+        assert_next(
+            &mut lexer,
+            &Token::OverloadableInfixOperator(OverloadableInfixOperator::Compose),
+        );
+        assert_next(&mut lexer, &Token::Identifier(Identifier::from("!")));
+        assert_next(
+            &mut lexer,
+            &Token::OverloadableInfixOperator(OverloadableInfixOperator::BitwiseXor),
+        );
+        assert_next(
+            &mut lexer,
+            &Token::OverloadableInfixOperator(OverloadableInfixOperator::Subtract),
+        );
+        assert_next(
+            &mut lexer,
+            &Token::OverloadableInfixOperator(OverloadableInfixOperator::LessThan),
+        );
         assert_next(&mut lexer, &Token::OpenSquareBracket);
-        assert_next(&mut lexer, &Token::Identifier(Identifier::from("!=")));
-        assert_next(&mut lexer, &Token::Identifier(Identifier::from("|>")));
-        assert_next(&mut lexer, &Token::Identifier(Identifier::from("#")));
+        assert_next(
+            &mut lexer,
+            &Token::OverloadableInfixOperator(OverloadableInfixOperator::NotEqual),
+        );
+        assert_next(
+            &mut lexer,
+            &Token::OverloadableInfixOperator(OverloadableInfixOperator::Pipe),
+        );
         assert_next(&mut lexer, &Token::InvocableHandle);
     }
 
@@ -1186,11 +1330,9 @@ mod tests {
 
     #[test]
     fn booleans() {
-        let mut lexer = test_lexer("  true false   \n\t   /*   */ false true");
-        assert_next(&mut lexer, &Token::Boolean(true));
-        assert_next(&mut lexer, &Token::Boolean(false));
-        assert_next(&mut lexer, &Token::Boolean(false));
-        assert_next(&mut lexer, &Token::Boolean(true));
+        let mut lexer = test_lexer("  true false   \n\t   /*   */ False True");
+        assert_next(&mut lexer, &Token::Identifier(Identifier::from("True")));
+        assert_next(&mut lexer, &Token::Identifier(Identifier::from("False")));
     }
 
     #[test]

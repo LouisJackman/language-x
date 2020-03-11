@@ -5,52 +5,84 @@
 
 use std::collections::HashMap;
 
-use lexing::tokens::Token;
+use common::multiphase::PseudoIdentifier;
+use lexing::tokens::{
+    Binding, BranchingAndJumping, DeclarationHead, Modifier, ModuleDefinitions, Token,
+};
 
 pub fn new() -> HashMap<&'static str, Token> {
     let mut map = HashMap::new();
     map.extend(vec![
-        ("_", Token::PlaceholderIdentifier),
-        ("as", Token::As),
-        ("class", Token::Class),
-        ("constructor", Token::Constructor),
-        ("continue", Token::Continue),
-        ("else", Token::Else),
-        ("embed", Token::Embed),
-        ("extend", Token::Extend),
-        ("exports", Token::Exports),
-        ("extern", Token::Extern),
-        ("for", Token::For),
-        ("func", Token::Func),
-        ("if", Token::If),
-        ("it", Token::ReservedKeyword),
-        ("ignorable", Token::Ignorable),
-        ("import", Token::Import),
-        ("internal", Token::Internal),
-        ("interface", Token::Interface),
-        ("module", Token::Module),
-        ("operator", Token::Operator),
-        ("override", Token::Override),
-        ("package", Token::Package),
-        ("public", Token::Public),
-        ("reject", Token::Reject),
-        ("requires", Token::Requires),
-        ("select", Token::Select),
-        ("super", Token::Super),
-        ("switch", Token::Switch),
-        ("try", Token::Try),
-        ("this", Token::This),
+        (
+            "_",
+            Token::PseudoIdentifier(PseudoIdentifier::PlaceholderIdentifier),
+        ),
+        ("as", Token::Binding(Binding::As)),
+        ("class", Token::DeclarationHead(DeclarationHead::Class)),
+        (
+            "continue",
+            Token::PseudoIdentifier(PseudoIdentifier::Continue),
+        ),
+        (
+            "else",
+            Token::BranchingAndJumping(BranchingAndJumping::Else),
+        ),
+        ("embed", Token::Modifier(Modifier::Embed)),
+        ("extend", Token::DeclarationHead(DeclarationHead::Extend)),
+        (
+            "exports",
+            Token::ModuleDefinitions(ModuleDefinitions::Exports),
+        ),
+        ("extern", Token::Modifier(Modifier::Extern)),
+        ("for", Token::BranchingAndJumping(BranchingAndJumping::For)),
+        ("fun", Token::DeclarationHead(DeclarationHead::Fun)),
+        ("if", Token::BranchingAndJumping(BranchingAndJumping::If)),
+        ("it", Token::PseudoIdentifier(PseudoIdentifier::It)),
+        ("ignorable", Token::Modifier(Modifier::Ignorable)),
+        ("import", Token::DeclarationHead(DeclarationHead::Import)),
+        ("internal", Token::Modifier(Modifier::Internal)),
+        (
+            "interface",
+            Token::DeclarationHead(DeclarationHead::Interface),
+        ),
+        ("module", Token::DeclarationHead(DeclarationHead::Module)),
+        ("operator", Token::Modifier(Modifier::Operator)),
+        ("override", Token::Modifier(Modifier::Override)),
+        ("package", Token::DeclarationHead(DeclarationHead::Package)),
+        ("public", Token::Modifier(Modifier::Public)),
+        (
+            "reject",
+            Token::ModuleDefinitions(ModuleDefinitions::Reject),
+        ),
+        (
+            "requires",
+            Token::ModuleDefinitions(ModuleDefinitions::Requires),
+        ),
+        (
+            "select",
+            Token::BranchingAndJumping(BranchingAndJumping::Select),
+        ),
+        ("super", Token::PseudoIdentifier(PseudoIdentifier::Super)),
+        (
+            "switch",
+            Token::BranchingAndJumping(BranchingAndJumping::Switch),
+        ),
+        ("this", Token::PseudoIdentifier(PseudoIdentifier::This)),
         ("throw", Token::Throw),
         ("timeout", Token::Timeout),
         ("using", Token::Using),
-        ("var", Token::Var),
-        ("virtual", Token::Virtual),
+        ("var", Token::Binding(Binding::Var)),
+        ("virtual", Token::Modifier(Modifier::Virtual)),
         ("with", Token::With),
-        ("while", Token::While),
+        (
+            "while",
+            Token::BranchingAndJumping(BranchingAndJumping::While),
+        ),
         //
         // Reserved but not used.
         //
         ("asm", Token::ReservedKeyword),
+        ("alias", Token::ReservedKeyword),
         ("align", Token::ReservedKeyword),
         ("arena", Token::ReservedKeyword),
         ("atom", Token::ReservedKeyword),
@@ -58,6 +90,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("case", Token::ReservedKeyword),
         ("catch", Token::ReservedKeyword),
         ("co", Token::ReservedKeyword),
+        ("constructor", Token::ReservedKeyword),
         ("checked", Token::ReservedKeyword),
         ("derives", Token::ReservedKeyword),
         ("diverging", Token::ReservedKeyword),
@@ -81,6 +114,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("macro", Token::ReservedKeyword),
         ("mut", Token::ReservedKeyword),
         ("mutating", Token::ReservedKeyword),
+        ("never", Token::ReservedKeyword),
         ("nogc", Token::ReservedKeyword),
         ("noyield", Token::ReservedKeyword),
         ("pack", Token::ReservedKeyword),
@@ -100,6 +134,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("throws", Token::ReservedKeyword),
         ("total", Token::ReservedKeyword),
         ("transient", Token::ReservedKeyword),
+        ("try", Token::ReservedKeyword),
         ("unary", Token::ReservedKeyword),
         ("unchecked", Token::ReservedKeyword),
         ("unsafe", Token::ReservedKeyword),

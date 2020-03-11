@@ -1,85 +1,111 @@
-use common::multiphase::{Identifier, InterpolatedString, Shebang, SyDoc, SylanString};
+use common::multiphase::{
+    Accessibility, Identifier, InterpolatedString, OverloadableInfixOperator, PostfixOperator,
+    PseudoIdentifier, Shebang, SyDoc, SylanString,
+};
 use common::version::Version;
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum Literal {
+    Char(char),
+    InterpolatedString(InterpolatedString),
+    String(SylanString),
+
+    // TODO: reimplement using a variable-width numerics library, like GMP but not GPL licenced.
+    Number(i64, u64),
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum BranchingAndJumping {
+    If,
+    Else,
+    While,
+    For,
+    Switch,
+    Select,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum DeclarationHead {
+    Class,
+    Extend,
+    Fun,
+    Interface,
+    Module,
+    Import,
+    Package,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum Grouping {
+    CloseBrace,
+    CloseParentheses,
+    CloseSquareBracket,
+    OpenBrace,
+    OpenParentheses,
+    OpenSquareBracket,
+}
+
+/// Unlike other languages, modifiers always come _after_ declaration heads.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum Modifier {
+    Accessibility(Accessibility),
+
+    Embed,
+    Extern,
+    Ignorable,
+    Internal,
+    Operator,
+    Override,
+    Public,
+    Virtual,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum ModuleDefinitions {
+    Exports,
+    Reject,
+    Requires,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum Binding {
+    As,
+    Assign,
+    Var,
+}
 
 /// All tokens that can currently exist in all version of a Sylan program source.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Token {
-    Boolean(bool),
-    Char(char),
     Identifier(Identifier),
-    InterpolatedString(InterpolatedString),
-
-    // TODO: reimplement using a variable-width numerics library, like GMP but not GPL licenced.
-    Number(i64, u64),
-
+    Literal(Literal),
     Shebang(Shebang),
-    String(SylanString),
     SyDoc(SyDoc),
     Version(Version),
-    Ampersand,
-    As,
-    Assign,
-    Bind,
-    Class,
-    CloseBrace,
-    CloseParentheses,
-    CloseSquareBracket,
+
+    Binding(Binding),
+    BranchingAndJumping(BranchingAndJumping),
+    DeclarationHead(DeclarationHead),
+    Grouping(Grouping),
+    Modifier(Modifier),
+    ModuleDefinitions(ModuleDefinitions),
+    OverloadableInfixOperator(OverloadableInfixOperator),
+    PostfixOperator(PostfixOperator),
+    PseudoIdentifier(PseudoIdentifier),
+
     Colon,
-    Constructor,
-    Continue,
     Dot,
-    Else,
     Eof,
-    Embed,
-    Extend,
-    Extends,
-    Exports,
-    For,
-    Func,
-    Extern,
-    If,
-    It,
-    Ignorable,
-    TypeConstraint,
-    Import,
-    InvocableHandle,
-    Interface,
-    Internal,
     LambdaArrow,
-    Module,
-    Not,
-    OpenBrace,
-    OpenParentheses,
-    OpenSquareBracket,
-    Operator,
-    Override,
-    Package,
-
-    // A dummy identifier that has different meanings in different contexts. In bindings it allows
-    // discarding values.
-    PlaceholderIdentifier,
-
-    Public,
+    Rest,
+    SubItemSeparator,
+    Throw,
+    Timeout,
+    Using,
 
     /// Does nothing but reserves keywords for future use.
     ReservedKeyword,
-
-    Reject,
-    Requires,
-    Rest,
-    Select,
-    SubItemSeparator,
-    Super,
-    Switch,
-    This,
-    Throw,
-    Timeout,
-    Try,
-    Using,
-    Var,
-    Virtual,
     With,
-    While,
 }
 
 /// EOF is a special type of token because it simplifies logic over handling it
