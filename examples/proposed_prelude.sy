@@ -28,9 +28,12 @@ enum public Boolean {
 
     fun public extern operator && (other This)
     fun public extern operator || (other This)
+    fun public extern negate(other This)
 }
 
-fun public extern !(b Boolean) Boolean
+fun public not(b Boolean) Boolean {
+    b.negate
+}
 
 class public extern Invokable[Result, Args...]
 
@@ -52,6 +55,7 @@ interface public Number {
 
     // Natively-defined bitwise operators.
     fun public extern operator & (other This) This
+    fun public extern operator | (other This) This
     fun public extern operator ^ (other This) This
 
     fun public extern operator < (other This) This
@@ -61,11 +65,9 @@ interface public Number {
     fun public extern operator > (other This) This
     fun public extern operator >= (other This) This
 
-    // Bitshift operators with angle brackets were moved out of built-in
-    // operators and into extern methods to avoid the parsing ambiguity from
-    // `<<` and `>>`.
-    fun public extern shr Number
-    fun public extern shl Number
+    fun public extern operator << Number
+    fun public extern operator >> Number
+    fun public extern operator <<< Number
 
     fun public negate This {
         /**
@@ -157,7 +159,7 @@ fun public assert(predicate Boolean) {
      * Assert that predicate is true, otherwise throw an `AssertionError`.
      */
 
-    if !predicate {
+    if not(predicate) {
         throw AssertionError
     }
 }

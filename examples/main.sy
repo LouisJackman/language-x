@@ -43,8 +43,8 @@ fun demoIteration {
 
     // The ~ operator composes invocables together.
     1.upTo(5)
-        .map(Number::doubled ~ ToString::toString ~ ::highlight)
-        .each(::println)
+        .map(Number.doubled:: ~ ToString.toString:: ~ highlight::)
+        .each(println::)
 
     // Sylan supports field-looking getters and transparently upgrading an
     // expression to a computation, both of which mandate no parentheses
@@ -295,7 +295,7 @@ interface Equals[T] {
      * except to be implemented by the implementor.
      */
     fun public virtual notEquals(other T) Boolean {
-        !(equals(other))
+        not(equals(other))
     }
 }
 
@@ -359,7 +359,7 @@ class Account(
         Account(
             .firstName,
             .lastName,
-            ageInYears = ageInYears + other.ageInYears,
+            ageInYears: ageInYears + other.ageInYears,
         )
     }
 
