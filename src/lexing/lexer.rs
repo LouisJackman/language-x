@@ -666,17 +666,31 @@ impl Lexer {
                 '&' => Ok(self.lex_with_leading_ampersand()),
                 '|' => Ok(self.lex_with_leading_pipe()),
                 '^' => Ok(self.lex_with_leading_caret()),
-                '/' => Ok(Token::OverloadableInfixOperator(
-                    OverloadableInfixOperator::Divide,
-                )),
-                '~' => Ok(Token::OverloadableInfixOperator(
-                    OverloadableInfixOperator::Compose,
-                )),
+
+                '/' => {
+                    self.source.discard();
+                    Ok(Token::OverloadableInfixOperator(
+                        OverloadableInfixOperator::Divide,
+                    ))
+                }
+                '~' => {
+                    self.source.discard();
+                    Ok(Token::OverloadableInfixOperator(
+                        OverloadableInfixOperator::Compose,
+                    ))
+                }
                 '>' => Ok(self.lex_with_leading_right_angle_bracket()),
-                '%' => Ok(Token::OverloadableInfixOperator(
-                    OverloadableInfixOperator::Modulo,
-                )),
-                '*' => Ok(self.lex_with_leading_astericks()),
+
+                '%' => {
+                    self.source.discard();
+                    Ok(Token::OverloadableInfixOperator(
+                        OverloadableInfixOperator::Modulo,
+                    ))
+                }
+                '*' => {
+                    self.source.discard();
+                    Ok(self.lex_with_leading_astericks())
+                }
                 '!' => self.lex_with_leading_exclamation_mark(),
                 '@' => self.lex_with_leading_at(),
 
@@ -694,12 +708,18 @@ impl Lexer {
                 // the lexer to avoid distinguishing unary and binary `-` and
                 // `+ `solely by whitespace. For negating a variable, use the
                 // `Number#negate` method instead.
-                '-' => Ok(Token::OverloadableInfixOperator(
-                    OverloadableInfixOperator::Subtract,
-                )),
-                '+' => Ok(Token::OverloadableInfixOperator(
-                    OverloadableInfixOperator::Add,
-                )),
+                '-' => {
+                    self.source.discard();
+                    Ok(Token::OverloadableInfixOperator(
+                        OverloadableInfixOperator::Subtract,
+                    ))
+                }
+                '+' => {
+                    self.source.discard();
+                    Ok(Token::OverloadableInfixOperator(
+                        OverloadableInfixOperator::Add,
+                    ))
+                }
 
                 // Grouping tokens.
                 '{' => {
@@ -836,6 +856,7 @@ impl Lexer {
     }
 
     fn lex_with_leading_exclamation_mark(&mut self) -> TokenResult {
+        self.source.discard();
         self.expect_and_discard('=')
             .map(|_| Token::OverloadableInfixOperator(OverloadableInfixOperator::NotEqual))
     }
@@ -1243,15 +1264,27 @@ mod tests {
     #[test]
     fn strings() {
         let mut lexer = test_lexer("  \"abc\\ndef\"   \t \n\n\n\"\"\"\"'123'\"\"\"\"");
-        assert_next(&mut lexer, &Token::String(SylanString::from("abc\ndef")));
-        assert_next(&mut lexer, &Token::String(SylanString::from("'123'")));
+        assert_next(
+            &mut lexer,
+            &Token::Literal(Literal::String(SylanString::from("abc\ndef"))),
+        );
+        assert_next(
+            &mut lexer,
+            &Token::Literal(Literal::String(SylanString::from("'123'"))),
+        );
     }
 
     #[test]
     fn raw_strings() {
         let mut lexer = test_lexer("  r\"abc\\ndef\"   \t \n\n\nr\"\"\"\"'123'\"\"\"\"");
-        assert_next(&mut lexer, &Token::String(SylanString::from("abc\\ndef")));
-        assert_next(&mut lexer, &Token::String(SylanString::from("'123'")));
+        assert_next(
+            &mut lexer,
+            &Token::Literal(Literal::String(SylanString::from("abc\\ndef"))),
+        );
+        assert_next(
+            &mut lexer,
+            &Token::Literal(Literal::String(SylanString::from("'123'"))),
+        );
     }
 
     #[test]
@@ -1262,27 +1295,27 @@ mod tests {
 
         assert_next(
             &mut lexer,
-            &Token::InterpolatedString(InterpolatedString {
+            &Token::Literal(Literal::InterpolatedString(InterpolatedString {
                 string_fragments: vec!["1".to_owned(), "{{23".to_owned()],
                 interpolations: vec![Identifier::from("x")],
-            }),
+            })),
         );
 
         assert_next(
             &mut lexer,
-            &Token::InterpolatedString(InterpolatedString {
+            &Token::Literal(Literal::InterpolatedString(InterpolatedString {
                 string_fragments: vec![
                     "ab{{notInterpolated}}c\"\"\t".to_owned(),
                     r#"""" "#.to_owned(),
                 ],
                 interpolations: vec![Identifier::from("foobar")],
-            }),
+            })),
         );
     }
 
     #[test]
     fn built_in_operators_and_identifiers() {
-        let mut lexer = test_lexer("   <= \t  \r\n ~ ! ^ ^^ - <  [ != |> :: ");
+        let mut lexer = test_lexer("   <= \t  \r\n ~ ab! ^ ^^ - <  [ != |> :: ");
         assert_next(
             &mut lexer,
             &Token::OverloadableInfixOperator(OverloadableInfixOperator::LessThanOrEqual),
@@ -1291,10 +1324,14 @@ mod tests {
             &mut lexer,
             &Token::OverloadableInfixOperator(OverloadableInfixOperator::Compose),
         );
-        assert_next(&mut lexer, &Token::Identifier(Identifier::from("!")));
+        assert_next(&mut lexer, &Token::Identifier(Identifier::from("ab!")));
         assert_next(
             &mut lexer,
             &Token::OverloadableInfixOperator(OverloadableInfixOperator::BitwiseXor),
+        );
+        assert_next(
+            &mut lexer,
+            &Token::OverloadableInfixOperator(OverloadableInfixOperator::Xor),
         );
         assert_next(
             &mut lexer,
@@ -1304,7 +1341,7 @@ mod tests {
             &mut lexer,
             &Token::OverloadableInfixOperator(OverloadableInfixOperator::LessThan),
         );
-        assert_next(&mut lexer, &Token::OpenSquareBracket);
+        assert_next(&mut lexer, &Token::Grouping(Grouping::OpenSquareBracket));
         assert_next(
             &mut lexer,
             &Token::OverloadableInfixOperator(OverloadableInfixOperator::NotEqual),
@@ -1313,7 +1350,10 @@ mod tests {
             &mut lexer,
             &Token::OverloadableInfixOperator(OverloadableInfixOperator::Pipe),
         );
-        assert_next(&mut lexer, &Token::InvocableHandle);
+        assert_next(
+            &mut lexer,
+            &Token::PostfixOperator(PostfixOperator::InvocableHandle),
+        );
     }
 
     #[test]
@@ -1330,7 +1370,7 @@ mod tests {
 
     #[test]
     fn booleans() {
-        let mut lexer = test_lexer("  true false   \n\t   /*   */ False True");
+        let mut lexer = test_lexer("  True False   \n\t   /* ");
         assert_next(&mut lexer, &Token::Identifier(Identifier::from("True")));
         assert_next(&mut lexer, &Token::Identifier(Identifier::from("False")));
     }
@@ -1382,12 +1422,12 @@ mod tests {
         let mut lexer2 = test_lexer("#!/usr/bin sylan\r\ntrue false");
         let shebang2 = Token::Shebang(Shebang::from("/usr/bin sylan"));
         assert!(start_is_shebang(&mut lexer2, &shebang2));
-        assert_next(&mut lexer2, &Token::Boolean(true));
+        assert_next(&mut lexer2, &Token::Identifier(Identifier::from("true")));
 
         let mut lexer3 = test_lexer("#!/usr/local/bin/env sylan\n123 321");
         let shebang3 = Token::Shebang(Shebang::from("/usr/local/bin/env sylan"));
         assert!(start_is_shebang(&mut lexer3, &shebang3));
-        assert_next(&mut lexer3, &Token::Number(123, 0));
+        assert_next(&mut lexer3, &Token::Literal(Literal::Number(123, 0)));
 
         let mut failing_lexer = test_lexer("/usr/local/bin/env sylan\n123 321");
         let shebang3 = Token::Shebang(Shebang::from("/usr/local/bin/env sylan"));

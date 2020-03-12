@@ -162,7 +162,7 @@ mod tests {
     use std::fmt::Debug;
 
     use common::multiphase::Identifier;
-    use lexing::tokens::Token;
+    use lexing::tokens::{Grouping, Literal, Token};
     use source::in_memory::Source;
 
     use super::*;
@@ -215,8 +215,8 @@ mod tests {
             },
             &vec![
                 Token::Identifier(Identifier::from("List")),
-                Token::OpenParentheses,
-                Token::Number(1, 0),
+                Token::Grouping(Grouping::OpenParentheses),
+                Token::Literal(Literal::Number(1, 0)),
                 Token::SubItemSeparator,
             ],
         )
@@ -242,7 +242,7 @@ mod tests {
                 tokens.peek().unwrap();
                 tokens.read().unwrap().token
             },
-            &Token::Number(1, 0),
+            &Token::Literal(Literal::Number(1, 0)),
         )
     }
 
@@ -259,7 +259,7 @@ mod tests {
             &vec![
                 Token::Dot,
                 Token::Identifier(Identifier::from("forEach")),
-                Token::OpenParentheses,
+                Token::Grouping(Grouping::OpenParentheses),
             ],
         )
     }
@@ -274,7 +274,7 @@ mod tests {
                 tokens.discard();
                 tokens.read().unwrap().token
             },
-            &Token::Number(2, 0),
+            &Token::Literal(Literal::Number(2, 0)),
         )
     }
 
@@ -291,7 +291,10 @@ mod tests {
 
     #[test]
     fn match_nth() {
-        test(|tokens| assert!(tokens.match_nth(3, |lexed| lexed.token == Token::Number(1, 0),)))
+        test(|tokens| {
+            assert!(tokens.match_nth(3, |lexed| lexed.token
+                == Token::Literal(Literal::Number(1, 0))))
+        })
     }
 
     #[test]
