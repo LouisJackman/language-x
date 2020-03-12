@@ -7,18 +7,17 @@
 **Warning: this project is still early stage and is a long way from completion.
 See the "Done so Far" section for more details.**
 
-Sylan is a Java-like, statically typed, functional, object-oriented, generic,
-meta-programmable, and natively-compiled programming language with lightweight
-concurrency and parallelism, transparently non-blocking IO, and extensive compile-time
-programming.
+Sylan is a work-in-progress programming language aiming to mix transparently
+distributed programming, compile-time meta-programming, easy distribution, and a
+powerful type system with an approachable syntax.
 
-It is an application language designed for web applications, network services,
-command line programs, developer tooling, and scripting.
+It aims to be an application language designed for web applications, network
+services, command line programs, developer tooling, and scripting.
 
 It is intended to scale from small scripts to large codebases, remove footguns,
 and prioritise large-scale software engineering concerns over interesting
-computer science concepts. It takes versioning and backwards compatibility
-seriously and eases distribution by producing single, statically-linked
+computer science concepts. It should take versioning and backwards compatibility
+seriously and ease distribution by producing single, statically-linked
 executables with no required runtimes.
 
 ## Contents
