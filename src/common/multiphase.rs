@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-macro_rules! multiphase_string_type {
+macro_rules! multiphase_string_types {
     ( $( $type: ident ),* ) => {
         $(
             #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -26,7 +26,7 @@ macro_rules! multiphase_string_type {
     }
 }
 
-multiphase_string_type![Identifier, Shebang, SylanString, SyDoc];
+multiphase_string_types![Identifier, Shebang, SylanString, SyDoc];
 
 /// Interpolations are interleaved with string fragments, ready to be glued
 /// together when the runtime knows what the interpolated identifiers resolve
@@ -48,7 +48,7 @@ pub enum Accessibility {
 //
 // * Stops developers from  creating "ASCII-art operators", increasing maintainability.
 // * Fixes parsing ambiguities due the inability to distinguish three seperate expressions from a
-// * single expression using an infix operator (without introducing whitespace-sensitive lexing of
+//   single expression using an infix operator (without introducing whitespace-sensitive lexing of
 //   seperate expressions.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum OverloadableInfixOperator {
