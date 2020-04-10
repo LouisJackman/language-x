@@ -71,7 +71,7 @@ impl Position {
         self.line += 1;
     }
 
-    fn update_all(&mut self, chars: CharReadMany) {
+    fn update_all(&mut self, chars: CharReadMany<'_>) {
         let mut skip_next = false;
         let CharReadMany(char_slice) = chars;
         for (index, current) in char_slice.iter().enumerate() {
@@ -104,8 +104,8 @@ impl Default for Position {
 
 #[cfg(test)]
 mod tests {
-    use common::peekable_buffer::PeekableBuffer;
-    use source::in_memory::Source;
+    use crate::common::peekable_buffer::PeekableBuffer;
+    use crate::source::in_memory::Source;
 
     use super::*;
 

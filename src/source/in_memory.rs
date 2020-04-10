@@ -7,8 +7,8 @@
 //! in the future to support lazily streaming sources as lexing and parsing
 //! commences on already-streamed fragments without breaking compatibility.
 
-use common::peekable_buffer::PeekableBuffer;
-use source::{CharReadMany, Position};
+use crate::common::peekable_buffer::PeekableBuffer;
+use crate::source::{CharReadMany, Position};
 
 pub struct Source {
     content: Vec<char>,

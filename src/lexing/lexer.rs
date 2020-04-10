@@ -4,20 +4,20 @@ use std::io;
 use std::sync::mpsc::{channel, Receiver, RecvError, SendError};
 use std::thread::{self, JoinHandle};
 
-use common::multiphase::{
+use crate::common::multiphase::{
     self, Identifier, InterpolatedString, OverloadableInfixOperator, PostfixOperator,
     PseudoIdentifier, SylanString,
 };
-use common::peekable_buffer::PeekableBuffer;
-use common::string_matches_char_slice;
-use common::version::Version;
-use lexing::tokens::{
+use crate::common::peekable_buffer::PeekableBuffer;
+use crate::common::string_matches_char_slice;
+use crate::common::version::Version;
+use crate::lexing::tokens::{
     Binding, BranchingAndJumping, DeclarationHead, Grouping, Literal, Modifier, ModuleDefinitions,
     Token,
 };
-use lexing::{char_escapes, keywords, non_word_chars};
-use source::in_memory::Source;
-use source::Position;
+use crate::lexing::{char_escapes, keywords, non_word_chars};
+use crate::source::in_memory::Source;
+use crate::source::Position;
 
 const LEXER_THREAD_NAME: &str = "Sylan Lexer";
 
@@ -1137,7 +1137,7 @@ impl Lexer {
 
 #[cfg(test)]
 mod tests {
-    use common::multiphase::{Identifier, InterpolatedString, Shebang, SyDoc};
+    use crate::common::multiphase::{Identifier, InterpolatedString, Shebang, SyDoc};
 
     use super::*;
 
@@ -1387,7 +1387,7 @@ mod tests {
             }),
         ));
 
-        let mut failing_lexer_1 = test_lexer("10.23");
+        test_lexer("10.23");
         assert!(!check_version_or_next_non_trivial(
             &mut lexer,
             &Token::Version(Version {

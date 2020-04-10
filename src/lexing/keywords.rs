@@ -5,8 +5,8 @@
 
 use std::collections::HashMap;
 
-use common::multiphase::PseudoIdentifier;
-use lexing::tokens::{
+use crate::common::multiphase::PseudoIdentifier;
+use crate::lexing::tokens::{
     Binding, BranchingAndJumping, DeclarationHead, Modifier, ModuleDefinitions, Token,
 };
 

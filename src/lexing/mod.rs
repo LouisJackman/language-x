@@ -16,8 +16,8 @@
 use std::io;
 use std::ops::Index;
 
-use common::peekable_buffer::PeekableBuffer;
-use lexing::lexer::{LexedToken, Lexer, LexerTask, LexerTaskError};
+use crate::common::peekable_buffer::PeekableBuffer;
+use crate::lexing::lexer::{LexedToken, Lexer, LexerTask, LexerTaskError};
 
 mod char_escapes;
 mod keywords;
@@ -161,9 +161,9 @@ impl<'a> PeekableBuffer<'a, LexedToken, LexedTokenReadMany> for Tokens {
 mod tests {
     use std::fmt::Debug;
 
-    use common::multiphase::Identifier;
-    use lexing::tokens::{Grouping, Literal, Token};
-    use source::in_memory::Source;
+    use crate::common::multiphase::Identifier;
+    use crate::lexing::tokens::{Grouping, Literal, Token};
+    use crate::source::in_memory::Source;
 
     use super::*;
 

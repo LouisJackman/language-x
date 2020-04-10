@@ -7,11 +7,11 @@ use std::collections::{HashSet, LinkedList};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
-use common::multiphase::{
+use crate::common::multiphase::{
     Accessibility, Identifier, InterpolatedString, OverloadableInfixOperator, PostfixOperator,
-    PseudoIdentifier, Shebang, SyDoc, SylanString,
+    Shebang, SyDoc, SylanString,
 };
-use common::version::Version;
+use crate::common::version::Version;
 
 /// Shebangs and source versions are special, which is why they're outside of
 /// the `PackageFile` in which all other items and expressions reside. Both

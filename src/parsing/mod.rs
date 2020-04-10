@@ -49,18 +49,18 @@ use std::rc::Rc;
 use std::result;
 use std::sync::Arc;
 
-use common::multiphase::{
-    self, Accessibility, Identifier, OverloadableInfixOperator, PostfixOperator, PseudoIdentifier,
+use crate::common::multiphase::{
+    self, Accessibility, Identifier, OverloadableInfixOperator, PseudoIdentifier,
 };
-use common::peekable_buffer::PeekableBuffer;
-use common::version::Version;
-use lexing::lexer::{self, LexedToken};
-use lexing::tokens::{
+use crate::common::peekable_buffer::PeekableBuffer;
+use crate::common::version::Version;
+use crate::lexing::lexer::{self, LexedToken};
+use crate::lexing::tokens::{
     self, Binding, BranchingAndJumping, DeclarationHead, Grouping, Literal, Modifier, Token,
 };
-use lexing::Tokens;
-use parsing::modifier_sets::{AccessibilityModifierExtractor, ModifierSets};
-use parsing::nodes::{
+use crate::lexing::Tokens;
+use crate::parsing::modifier_sets::{AccessibilityModifierExtractor, ModifierSets};
+use crate::parsing::nodes::{
     Case, CaseMatch, Class, Code, CompositePattern, Cond, CondCase, Expression, Extension, For,
     Fun, FunModifiers, If, Item, Lambda, LambdaSignature, MainPackage, Method, Node, Operator,
     Package, PackageFile, Pattern, PatternGetter, PatternItem, Scope, Select, Switch, Throw,

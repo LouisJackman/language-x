@@ -1,8 +1,8 @@
-use common::multiphase::{
+use crate::common::multiphase::{
     Accessibility, Identifier, InterpolatedString, OverloadableInfixOperator, PostfixOperator,
     PseudoIdentifier, Shebang, SyDoc, SylanString,
 };
-use common::version::Version;
+use crate::common::version::Version;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Literal {

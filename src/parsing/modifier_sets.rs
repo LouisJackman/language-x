@@ -10,10 +10,9 @@
 //!
 //! TODO: reevaluate the purity modifiers once effect-tracking is investigated more thoroughly.
 
-use common::multiphase::Accessibility;
-use lexing::tokens::{
-    Modifier::{self, Embed, Extern, Ignorable, Internal, Operator, Override, Public, Virtual},
-    Token,
+use crate::common::multiphase::Accessibility;
+use crate::lexing::tokens::Modifier::{
+    self, Embed, Extern, Ignorable, Internal, Operator, Override, Public, Virtual,
 };
 use std::collections::{HashMap, HashSet};
 
