@@ -176,6 +176,8 @@ fun public id[T](value T) T {
 }
 
 fun public constant[T](value T) () T {
-    -> { value }
+    -> {
+        value
+    }
 }
 
