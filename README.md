@@ -97,12 +97,12 @@ import sylan.util.concurrency.Task
 import sylan.util.datetime.ZonedDateTime
 import sylan.util.optional.{Empty, Some}
 
-fun fizzBuzz(n Int) Int {
+fun fizzBuzz(_ n Int) Int {
 
     // Sylan supports blocks, syntax for passing a lambda as a final argument to
     // an invocable. Note the use of `it` as a shorthand for one-argument
     // blocks.
-    1.upTo(n).each -> {
+    1.up(to: n).each -> {
         switch {
             0 == (it % 15) { "FizzBuzz" }
             0 == (it % 5) { "Fizz" }
@@ -124,9 +124,9 @@ fun demoIteration {
     var highlight = -> s { $">> {s} <<" }
 
     // The ~ operator composes invocables together.
-    1.upTo(5)
-        .map(Number::doubled ~ ToString::toString ~ ::highlight)
-        .each(::println)
+    1.up(to: 5)
+        .map(Number.doubled:: ~ ToString.toString:: ~ highlight::)
+        .each(println::)
 
     // Sylan supports field-looking getters and transparently upgrading an
     // expression to a computation, both of which mandate no parentheses
@@ -167,13 +167,15 @@ fun demoIteration {
         var counterService = using Task -> {
             for var n = 0 {
                 var sender = select Task {
-                    _ { it }
+                    _ {
+                        it
+                    }
                 }
                 if n < 5 {
-                    sender.send(Some(n))
+                    send(Some(n), to: sender)
                     continue(n + 1)
                 } else {
-                    sender.send(Empty)
+                    send(Empty, to: sender)
                     continue(n)
                 }
             }
@@ -182,7 +184,11 @@ fun demoIteration {
         5.times -> {
             counterService.send(currentTask)
         }
-        while var Some(n) = select int { _ { it } } {
+        while var Some(n) = select int {
+            _ {
+                it
+            }
+        } {
             println($"{n}")
         }
     }
@@ -203,7 +209,7 @@ fun demoIteration {
             // Continue, like `it`, is a keyword representing an implicit
             // variable. In this case it stands for the inner-most
             // unlabelled for loop.
-            continue(n - 1, n * result)
+            continue(n: n - 1, result: n * result)
         }
     }
 
@@ -232,7 +238,7 @@ fun demoIteration {
  * As can be seen in this function and the previous, Sylan allows functions to
  * stand alone in packages without being tied to classes or interfaces.
  */
-fun internal factorial(n Int) Int {
+fun internal factorial(of n Int) Int {
     switch n {
         0, 1 {
             1
@@ -250,7 +256,7 @@ fun internal factorial(n Int) Int {
     }
 }
 
-fun internal ignorable printFactorial(n Int) Int {
+fun internal ignorable printFactorial(_ n Int) Int {
     /*
      * Sylan does not allow callers to throw away non-`Void` function or methods
      * results unless they're declared with the `ignorable` modifier.
@@ -261,7 +267,7 @@ fun internal ignorable printFactorial(n Int) Int {
      * operation NOPs or the like.
      */
 
-    var result = factorial(n)
+    var result = factorial(of: n)
     println(result)
 
     /*
@@ -273,27 +279,29 @@ fun internal ignorable printFactorial(n Int) Int {
     result
 }
 
-fun twice[N Number: int](n N, f (N) N) N {
+fun twice[N Number: int](_ n N, do f (N) N) N {
     f(n) + f(n)
 }
 
-fun doubled[N Add & ToString](n N) String {
+fun double[N Add & ToString](_ n N) String {
     (n + n).toString
 }
 
 /**
- * Sylan uses concrete implementations of interfaces by default when they're
- * used as typed directly, and uses concrete implementations of return type
- * interfaces using existential types. To get dynamic dispatch, use the virtual
- * keyword like so:
+ * Sylan uses concrete implementations of interfaces only. Dynamic dispatch
+ * does not exist in Sylan because it overlaps too much with sum types, a.k.a
+ * discriminated unions or enhanced enums.
  *
- *     fun printNumber(n virtual Number) Number {
+ * In this way, Sylan's interfaces are close to Haskell's typeclasses than
+ * traditional interfaces.
  */
-fun printNumber(n Number) {
+fun printNumber(_ n Number) {
     println($"{n}")
 }
 
 fun demoContexts Optional[Int] {
+
+    println("Demoing contexts...")
 
     /*
      * Haskell developers will recognise this as the monadic do notation, which
@@ -325,17 +333,20 @@ package counter {
         Get,
     }
 
-    fun public start(sender Task, n Int: 0) {
+    fun public start(channel Task, n Int: 0) {
         select Message {
             .Increment {
-                start(sender, n + 1)
+
+                // Labelled arguments can omit labels _if the local variable
+                // passed in has the same name_.
+                start(channel, n + 1)
             }
             .Reset(n) {
-                start(sender, n)
+                start(channel, n)
             }
             .Get {
-                sender.send(n)
-                start(sender, n)
+                send(n, to: sender)
+                start(channel, n)
             }
             timeout 10.seconds {
                 throw Exception("timed out!")
@@ -360,24 +371,18 @@ fun `test that addition works` {
 }
 
 interface Concatenate[T] {
-    fun public concatenate(T) T
+    fun public concatenate(withEnd that T) T
 }
 
 interface Equals[T] {
-    fun public equals(T) Boolean
+    fun public equal(to that T) Boolean
 
     /*
      * Sylan's interface methods can have bodies like Java 8's defender methods.
      * Unlike Java 8, private methods with bodies are also allowed with them.
-     * Similar to C# but unlike Java, a default method body in an interface
-     * can only be overridden if annotated with `virtual`.
-     *
-     * `virtual` is default for non-default methods since the lack of concrete
-     * inheritance in Sylan means there is no other possible use case for them
-     * except to be implemented by the implementor.
      */
-    fun public virtual notEquals(other T) Boolean {
-        !(equals(other))
+    fun public notEqual(to that T) Boolean {
+        not(equal(to: that))
     }
 }
 
@@ -426,7 +431,7 @@ class Account(
      * consistent with the MRO of inheritance. Therefore, changing the order of
      * embeds can change behaviour.
      */
-    var embed name Name = Name(firstName, lastName)
+    var embed name Name = Name(first: firstName, last: lastName)
 
     var expiry ZonedDateTime = ZonedDateTime.now + 1.year
 
@@ -434,14 +439,14 @@ class Account(
         $"{firstName} {lastName} is {ageInYears} years old"
     }
 
-    fun public override concatenate(other This) This {
-        var firstName = firstName.concat(other.firstName)
-        var lastName = lastName.concat(other.lastName)
+    fun public override concatenate(withEnd that This) This {
+        var firstName = firstName.concatenate(withEnd: that.firstName)
+        var lastName = lastName.concatenate(withEnd: that.lastName)
 
         Account(
-            .firstName,
-            .lastName,
-            ageInYears = ageInYears + other.ageInYears,
+            firstName,
+            lastName,
+            ageInYears: ageInYears + that.ageInYears,
         )
     }
 
@@ -471,7 +476,7 @@ class Account(
  */
 extend class Account implements Concatenate[This, Result: String] {
 
-    fun public override concatenate(that This) String {
+    fun public override concatenate(withEnd: that This) String {
         $"{firstName} {that.firstName}"
     }
 }
@@ -533,9 +538,11 @@ fun demoClosures {
     var firstName = "Tom"
     var lastName = "Smith"
     var age = 25
-    var account2 = Account(.firstName, .lastName, ageInYears: age)
+    var account2 = Account(firstName, lastName, ageInYears: age)
 
-    var f = -> { println(it.toString) }
+    var f = -> {
+        println(it.toString)
+    }
 
     f(account1)
     f(account2(firstName: "Emma"))
@@ -547,7 +554,9 @@ fun demoClosures {
 
     var z = g(account1)
 
-    var n = twice(3) -> { it * 2 }
+    var n = twice(3) -> {
+        it * 2
+    }
     println($"n == {n}")
 }
 
@@ -631,7 +640,7 @@ fun demo {
     demoIteration
 
     printFactorial(42)
-    var x = twice(4, ::doubled)
+    var x = twice(4, do: ::doubled)
     println($"{x}")
 
     demoContexts
@@ -658,17 +667,23 @@ if var Some(s) = optionalString {
     println(s)
 }
 
-var c = Task -> { counter.start(currentTask) }
-5.times -> { c.send(counter.Message.Increment) }
+var c = Task -> {
+    counter.start(channel: currentTask)
+}
+5.times -> {
+    send(counter.Message.Increment, to: c)
+}
 
-c.send(counter.Message.Get)
-c.send(counter.Message.Increment)
-c.send(counter.Message.Get)
+send(counter.Message.Get, to: c)
+send(counter.Message.Increment, to: c)
+send(counter.Message.Get, to: c)
 
 // Should print 5 and then 6.
 2.times -> {
     var n = select Int {
-        _ { it }
+        _ {
+            it
+        }
     }
     println($"{n}")
 }
