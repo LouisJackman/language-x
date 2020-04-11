@@ -63,7 +63,7 @@ pub enum Expression {
 
 pub enum Operator {
     InfixOperator(OverloadableInfixOperator, Box<Expression>, Box<Expression>),
-    PostfixOperator(PostfixOperator, Box<Expression>),
+    PostfixOperator(Box<Expression>, PostfixOperator),
 }
 
 pub enum BranchingAndJumping {

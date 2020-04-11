@@ -8,12 +8,16 @@ package main
 // Most of those imports are already in the prelude and thus already imported:
 // `sylan.lang`. They are explicitly imported here to give an idea of the standard
 // package structure.
-import sylan.io.println
-import sylan.util.toString.ToString
-import sylan.util.collections.{HashMap, List}
-import sylan.util.concurrency.Task
-import sylan.util.datetime.ZonedDateTime
-import sylan.util.optional.{Empty, Some}
+import sylan.{
+    io.println,
+    uil.{
+        toString.ToString,
+        collections.{HashMap, List},
+        concurrency.Task,
+        datetime.ZonedDateTime,
+        optional.{Empty, Some},
+    },
+}
 
 fun fizzBuzz(_ n Int) Int {
 
