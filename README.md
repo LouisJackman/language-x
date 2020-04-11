@@ -915,10 +915,10 @@ case of native compilation.
 * Methods are namespaced to their types, although just deeper in the namespacing
   hierarchy rather than in a completely different standalone global namespace.
 * Shadowing is not allowed except for pseudoidentifiers, which use keywords.
-* There are five psuedoidentifiers: `_`, `continue`, `it`, `this`, and `super`.
-  `continue` and `it` are _almost_ dynamically scoped, changing implicitly
-  throughout scopes based on the context. `continue` binds to the innermost
-  non-labelled `for` iteration function, `it` is the innermost
+* There are six psuedoidentifiers: `...`, `_`, `continue`, `it`, `this`, and
+  `super`. `continue` and `it` are _almost_ dynamically scoped, changing
+  implicitly throughout scopes based on the context. `continue` binds to the
+  innermost non-labelled `for` iteration function, `it` is the innermost
   syntactically-zero-parameter lambda's sole parameter, and `_` is an ignored
   value in a binding and a partial-application notation for the innermost
   invocation.

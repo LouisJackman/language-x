@@ -34,12 +34,12 @@ fun public not(_ b Boolean) Boolean {
     b.negate
 }
 
-class public extern Invokable[Result, Args...]
+class public extern Invokable[Result, Args..]
 
-extend class Invokable[Result, Args...] {
+extend class Invokable[Result, Args..] {
 
     fun public extern operator |> [T](other (Result) T) T
-    fun public extern operator ~ [T](other (Result) T) (Args...) T
+    fun public extern operator ~ [T](other (Result) T) (Args..) T
 }
 
 interface public Number {

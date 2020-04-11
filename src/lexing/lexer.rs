@@ -765,10 +765,14 @@ impl Lexer {
 
     fn lex_with_leading_dot(&mut self) -> Token {
         self.source.discard();
-        if self.source.next_is('.') && self.source.nth_is(1, '.') {
+        if self.source.next_is('.') {
             self.source.discard();
-            self.source.discard();
-            Token::Rest
+            if self.source.nth_is(1, '.') {
+                self.source.discard();
+                Token::PseudoIdentifier(PseudoIdentifier::Ellipsis)
+            } else {
+                Token::Rest
+            }
         } else {
             Token::Dot
         }
@@ -1214,7 +1218,7 @@ mod tests {
 
     #[test]
     fn psuedo_identifiers() {
-        let mut lexer = test_lexer(" super    this  \t _ \r  it  continue  ");
+        let mut lexer = test_lexer(" super    this  \t _ \r  it  continue ... ");
         assert_next(
             &mut lexer,
             &Token::PseudoIdentifier(PseudoIdentifier::Super),
@@ -1228,6 +1232,10 @@ mod tests {
         assert_next(
             &mut lexer,
             &Token::PseudoIdentifier(PseudoIdentifier::Continue),
+        );
+        assert_next(
+            &mut lexer,
+            &Token::PseudoIdentifier(PseudoIdentifier::Ellipsis),
         );
     }
 

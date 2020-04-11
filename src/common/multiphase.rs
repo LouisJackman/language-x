@@ -102,6 +102,7 @@ pub enum PseudoIdentifier {
     It,
     Super,
     This,
+    Ellipsis,
 
     // A dummy identifier that has different meanings in different contexts. In bindings it allows
     // discarding values.
