@@ -866,6 +866,7 @@ impl Lexer {
     }
 
     fn lex_with_leading_at(&mut self) -> TokenResult {
+        self.source.discard();
         match self.source.read() {
             Some(token) => match token {
                 '+' => {
