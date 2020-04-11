@@ -692,21 +692,17 @@ impl Lexer {
                     Ok(Token::SubItemSeparator)
                 }
 
-                // The minus symbol, which can be either the start of a lambda arrow or a
-                // negationnumeric prefix. If the lexer has got here, it is assumed that their use
-                // as numeric prefixes has already been ruled out.
+                // The minus symbol is a negationnumeric prefix. If the lexer
+                // has got here, it is assumed that their use as numeric
+                // prefixes has already been ruled out.
                 //
                 // Note that `-` or `+` are either parts of a number literal or
                 // binary operators but are _not_ unary operators. This allows
-                // the lexer to avoid distinguishing unary and binary `-` and
-                // `+ `solely by whitespace. For negating a variable, use the
+                // the lexer to avoid distinguishing unary and binary `-` and `+
+                // `solely by whitespace. For negating a variable, use the
                 // `Number#negate` method instead.
-                '-' => {
-                    self.source.discard();
-                    Ok(Token::OverloadableInfixOperator(
-                        OverloadableInfixOperator::Subtract,
-                    ))
-                }
+                '-' => Ok(self.lex_with_leading_hyphen()),
+
                 '+' => {
                     self.source.discard();
                     Ok(Token::OverloadableInfixOperator(
@@ -830,7 +826,12 @@ impl Lexer {
         self.source.discard();
         if self.source.next_is('>') {
             self.source.discard();
-            Token::OverloadableInfixOperator(OverloadableInfixOperator::RightShift)
+            if self.source.next_is('>') {
+                self.source.discard();
+                Token::OverloadableInfixOperator(OverloadableInfixOperator::UnsignedRightShift)
+            } else {
+                Token::OverloadableInfixOperator(OverloadableInfixOperator::RightShift)
+            }
         } else if self.source.next_is('=') {
             Token::OverloadableInfixOperator(OverloadableInfixOperator::GreaterThanOrEqual)
         } else {
@@ -892,6 +893,16 @@ impl Lexer {
                 c => self.unexpected(c),
             },
             None => Err(self.premature_eof()),
+        }
+    }
+
+    fn lex_with_leading_hyphen(&mut self) -> Token {
+        self.source.discard();
+        if self.source.next_is('>') {
+            self.source.discard();
+            Token::PostfixOperator(PostfixOperator::Bind)
+        } else {
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::Subtract)
         }
     }
 
@@ -1175,7 +1186,7 @@ mod tests {
     #[test]
     fn identifier() {
         let mut lexer = test_lexer(
-            "  foobar324  \t  `foobarbaz`  \r  `abc\\ndef` r`abc\\ndef`  ```abc``def```    abc",
+            "  foobar324  \t  `foobarbaz`  \r  `abc\\ndef` r`abc\\ndef`  ```abc``\ndef```    abc",
         );
 
         assert_next(
@@ -1191,16 +1202,29 @@ mod tests {
             &mut lexer,
             &Token::Identifier(Identifier::from("abc\\ndef")),
         );
-        assert_next(&mut lexer, &Token::Identifier(Identifier::from("abc``def")));
+        assert_next(
+            &mut lexer,
+            &Token::Identifier(Identifier::from("abc``\ndef")),
+        );
         assert_next(&mut lexer, &Token::Identifier(Identifier::from("abc")));
     }
 
     #[test]
-    fn placeholder_identifier() {
-        let mut lexer = test_lexer("   \t _ \r      ");
+    fn psuedo_identifiers() {
+        let mut lexer = test_lexer(" super    this  \t _ \r  it  continue  ");
+        assert_next(
+            &mut lexer,
+            &Token::PseudoIdentifier(PseudoIdentifier::Super),
+        );
+        assert_next(&mut lexer, &Token::PseudoIdentifier(PseudoIdentifier::This));
         assert_next(
             &mut lexer,
             &Token::PseudoIdentifier(PseudoIdentifier::PlaceholderIdentifier),
+        );
+        assert_next(&mut lexer, &Token::PseudoIdentifier(PseudoIdentifier::It));
+        assert_next(
+            &mut lexer,
+            &Token::PseudoIdentifier(PseudoIdentifier::Continue),
         );
     }
 

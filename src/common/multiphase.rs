@@ -58,7 +58,6 @@ pub enum OverloadableInfixOperator {
     Ampersand,
 
     And,
-    Apply,
     BitwiseOr,
     BitwiseXor,
     Compose,
@@ -76,7 +75,7 @@ pub enum OverloadableInfixOperator {
     Pipe,
     Power,
     RightShift,
-    RightSignedShift,
+    UnsignedRightShift,
     Subtract,
     VectorAdd,
     VectorDivide,
