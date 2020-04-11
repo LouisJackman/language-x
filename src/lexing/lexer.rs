@@ -11,10 +11,7 @@ use crate::common::multiphase::{
 use crate::common::peekable_buffer::PeekableBuffer;
 use crate::common::string_matches_char_slice;
 use crate::common::version::Version;
-use crate::lexing::tokens::{
-    Binding, BranchingAndJumping, DeclarationHead, Grouping, Literal, Modifier, ModuleDefinitions,
-    Token,
-};
+use crate::lexing::tokens::{Binding, Grouping, Literal, Token};
 use crate::lexing::{char_escapes, keywords, non_word_chars};
 use crate::source::in_memory::Source;
 use crate::source::Position;
@@ -85,10 +82,6 @@ impl LexerTask {
 
 fn is_start_of_literal_with_escapes(c: char) -> bool {
     (c == '\'') || (c == '"') || (c == '$') || (c == '`')
-}
-
-fn confirmed_identifier(word: String) -> Token {
-    Token::Identifier(multiphase::Identifier::from(word))
 }
 
 /// A lexer that is used by a `LexerTask` to produce a stream of tokens. Each lexer has a source
@@ -1137,9 +1130,11 @@ impl Lexer {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::multiphase::{Identifier, InterpolatedString, Shebang, SyDoc};
-
     use super::*;
+    use crate::common::multiphase::{Identifier, InterpolatedString, Shebang, SyDoc};
+    use crate::lexing::tokens::{
+        BranchingAndJumping, DeclarationHead, Modifier, ModuleDefinitions,
+    };
 
     fn test_lexer(s: &str) -> Lexer {
         let source_chars = s.chars().collect::<Vec<char>>();
