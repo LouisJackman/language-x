@@ -51,7 +51,15 @@ pub enum Modifier {
     Accessibility(Accessibility),
 
     Embed,
+
+    // Extern means quite different things depending on whether it refers to a
+    // bindings, functions, a type. For bindings and functions, it means they
+    // are defined in another compiled artefact, perhaps written in a different
+    // language. For types, it means that it is defined by Sylan itself. Types
+    // cannot be defined outside of Sylan, only the _operations_ and _runtime
+    // values_ of said types.
     Extern,
+
     Ignorable,
     Operator,
     Override,
