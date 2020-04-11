@@ -869,39 +869,41 @@ impl Lexer {
         self.source.discard();
         match self.source.read() {
             Some(token) => match token {
+                '@' => {
+                    self.source.discard();
+                    Ok(Token::OverloadableInfixOperator(
+                        OverloadableInfixOperator::MatrixTranspose,
+                    ))
+                }
                 '+' => {
                     self.source.discard();
                     Ok(Token::OverloadableInfixOperator(
-                        OverloadableInfixOperator::VectorAdd,
+                        OverloadableInfixOperator::MatrixAdd,
                     ))
                 }
                 '/' => {
                     self.source.discard();
 
                     Ok(Token::OverloadableInfixOperator(
-                        OverloadableInfixOperator::VectorDivide,
+                        OverloadableInfixOperator::MatrixDivide,
                     ))
                 }
                 '*' => {
                     self.source.discard();
-                    if self.source.next_is('*') {
-                        self.source.discard();
-                        Ok(Token::OverloadableInfixOperator(
-                            OverloadableInfixOperator::VectorPower,
-                        ))
-                    } else {
-                        Ok(Token::OverloadableInfixOperator(
-                            OverloadableInfixOperator::VectorMultiply,
-                        ))
-                    }
+                    self.expect_and_discard('*');
+                    Ok(Token::OverloadableInfixOperator(
+                        OverloadableInfixOperator::MatrixPower,
+                    ))
                 }
                 '-' => {
                     self.source.discard();
                     Ok(Token::OverloadableInfixOperator(
-                        OverloadableInfixOperator::VectorSubtract,
+                        OverloadableInfixOperator::MatrixSubtract,
                     ))
                 }
-                c => self.unexpected(c),
+                c => Ok(Token::OverloadableInfixOperator(
+                    OverloadableInfixOperator::MatrixMultiply,
+                )),
             },
             None => Err(self.premature_eof()),
         }
@@ -1336,7 +1338,7 @@ mod tests {
 
     #[test]
     fn infix_operators() {
-        let mut lexer = test_lexer("   <= \t  \r\n ~ ^ ^^ @* - < @-  [ != |> :: ");
+        let mut lexer = test_lexer("   <= \t  \r\n ~ ^ ^^ @ - < @-  @@ [ != |> :: ");
         assert_next(
             &mut lexer,
             &Token::OverloadableInfixOperator(OverloadableInfixOperator::LessThanOrEqual),
@@ -1355,7 +1357,7 @@ mod tests {
         );
         assert_next(
             &mut lexer,
-            &Token::OverloadableInfixOperator(OverloadableInfixOperator::VectorMultiply),
+            &Token::OverloadableInfixOperator(OverloadableInfixOperator::MatrixMultiply),
         );
         assert_next(
             &mut lexer,
@@ -1367,7 +1369,11 @@ mod tests {
         );
         assert_next(
             &mut lexer,
-            &Token::OverloadableInfixOperator(OverloadableInfixOperator::VectorSubtract),
+            &Token::OverloadableInfixOperator(OverloadableInfixOperator::MatrixSubtract),
+        );
+        assert_next(
+            &mut lexer,
+            &Token::OverloadableInfixOperator(OverloadableInfixOperator::MatrixTranspose),
         );
         assert_next(&mut lexer, &Token::Grouping(Grouping::OpenSquareBracket));
         assert_next(

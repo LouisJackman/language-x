@@ -77,11 +77,12 @@ pub enum OverloadableInfixOperator {
     RightShift,
     UnsignedRightShift,
     Subtract,
-    VectorAdd,
-    VectorDivide,
-    VectorMultiply,
-    VectorPower,
-    VectorSubtract,
+    MatrixAdd,
+    MatrixDivide,
+    MatrixMultiply,
+    MatrixPower,
+    MatrixSubtract,
+    MatrixTranspose,
     Xor,
 }
 
