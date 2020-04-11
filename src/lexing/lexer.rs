@@ -1335,7 +1335,7 @@ mod tests {
 
     #[test]
     fn infix_operators() {
-        let mut lexer = test_lexer("   <= \t  \r\n ~ ^ ^^ - <  [ != |> :: ");
+        let mut lexer = test_lexer("   <= \t  \r\n ~ ^ ^^ @* - < @-  [ != |> :: ");
         assert_next(
             &mut lexer,
             &Token::OverloadableInfixOperator(OverloadableInfixOperator::LessThanOrEqual),
@@ -1354,11 +1354,19 @@ mod tests {
         );
         assert_next(
             &mut lexer,
+            &Token::OverloadableInfixOperator(OverloadableInfixOperator::VectorMultiply),
+        );
+        assert_next(
+            &mut lexer,
             &Token::OverloadableInfixOperator(OverloadableInfixOperator::Subtract),
         );
         assert_next(
             &mut lexer,
             &Token::OverloadableInfixOperator(OverloadableInfixOperator::LessThan),
+        );
+        assert_next(
+            &mut lexer,
+            &Token::OverloadableInfixOperator(OverloadableInfixOperator::VectorSubtract),
         );
         assert_next(&mut lexer, &Token::Grouping(Grouping::OpenSquareBracket));
         assert_next(
