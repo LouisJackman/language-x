@@ -11,9 +11,7 @@
 //! TODO: reevaluate the purity modifiers once effect-tracking is investigated more thoroughly.
 
 use crate::common::multiphase::Accessibility;
-use crate::lexing::tokens::Modifier::{
-    self, Embed, Extern, Ignorable, Internal, Operator, Override, Public, Virtual,
-};
+use crate::lexing::tokens::Modifier::{self, Embed, Extern, Ignorable, Operator, Override};
 use std::collections::{HashMap, HashSet};
 
 pub struct ModifierSets {
@@ -85,50 +83,83 @@ impl Default for ModifierSets {
 
 fn new_package_modifier_set() -> HashSet<Modifier> {
     let mut set = HashSet::new();
-    set.extend(vec![Modifier::Public, Internal]);
+    set.extend(vec![
+        Modifier::Accessibility(Accessibility::Public),
+        Modifier::Accessibility(Accessibility::Internal),
+    ]);
     set
 }
 
 fn new_interface_modifier_set() -> HashSet<Modifier> {
     let mut set = HashSet::new();
-    set.extend(vec![Public, Internal]);
+    set.extend(vec![
+        Modifier::Accessibility(Accessibility::Public),
+        Modifier::Accessibility(Accessibility::Internal),
+    ]);
     set
 }
 
 fn new_class_and_enum_modifier_set() -> HashSet<Modifier> {
     let mut set = HashSet::new();
-    set.extend(vec![Public, Internal, Extern]);
+    set.extend(vec![
+        Modifier::Accessibility(Accessibility::Public),
+        Modifier::Accessibility(Accessibility::Internal),
+        Extern,
+    ]);
     set
 }
 
 fn new_function_modifier_set() -> HashSet<Modifier> {
     let mut set = HashSet::new();
-    set.extend(vec![Public, Internal, Ignorable, Extern, Operator]);
+    set.extend(vec![
+        Modifier::Accessibility(Accessibility::Public),
+        Modifier::Accessibility(Accessibility::Internal),
+        Ignorable,
+        Extern,
+        Operator,
+    ]);
     set
 }
 
 fn new_method_modifier_set() -> HashSet<Modifier> {
     let mut set = HashSet::new();
     set.extend(vec![
-        Public, Internal, Ignorable, Virtual, Override, Extern, Operator,
+        Modifier::Accessibility(Accessibility::Public),
+        Modifier::Accessibility(Accessibility::Internal),
+        Ignorable,
+        Override,
+        Extern,
+        Operator,
     ]);
     set
 }
 
 fn new_binding_modifier_set() -> HashSet<Modifier> {
     let mut set = HashSet::new();
-    set.extend(vec![Public, Internal, Extern]);
+    set.extend(vec![
+        Modifier::Accessibility(Accessibility::Public),
+        Modifier::Accessibility(Accessibility::Internal),
+        Extern,
+    ]);
     set
 }
 
 fn new_field_modifier_set() -> HashSet<Modifier> {
     let mut set = HashSet::new();
-    set.extend(vec![Public, Internal, Embed, Extern]);
+    set.extend(vec![
+        Modifier::Accessibility(Accessibility::Public),
+        Modifier::Accessibility(Accessibility::Internal),
+        Embed,
+        Extern,
+    ]);
     set
 }
 
 fn new_class_extension_modifier_set() -> HashSet<Modifier> {
     let mut set = HashSet::new();
-    set.extend(vec![Public, Internal]);
+    set.extend(vec![
+        Modifier::Accessibility(Accessibility::Public),
+        Modifier::Accessibility(Accessibility::Internal),
+    ]);
     set
 }

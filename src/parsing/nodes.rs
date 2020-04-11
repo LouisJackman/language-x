@@ -196,13 +196,12 @@ pub struct Extension(pub Type);
 
 pub struct MethodModifiers {
     fun_modifiers: FunModifiers,
-    is_virtual: bool,
     overrides: bool,
     has_a_default: bool,
 }
 
 /// Methods and just bindings in a class, which can be potentially abstract (i.e. with no initial
-/// value) in interfaces, can be overridable and virtual in interfaces, and must be tied to either
+/// value) in interfaces, can be overridable in interfaces, and must be tied to either
 /// a class an interface. There is no meaningful distintion between a method and an attribute: a
 /// `method` is just a binding in a class and it works like a traditional OOP method
 /// when that binding contains a lambda.

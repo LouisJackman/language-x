@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use crate::common::multiphase::PseudoIdentifier;
+use crate::common::multiphase::{Accessibility, PseudoIdentifier};
 use crate::lexing::tokens::{
     Binding, BranchingAndJumping, DeclarationHead, Modifier, ModuleDefinitions, Token,
 };
@@ -40,7 +40,10 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("it", Token::PseudoIdentifier(PseudoIdentifier::It)),
         ("ignorable", Token::Modifier(Modifier::Ignorable)),
         ("import", Token::DeclarationHead(DeclarationHead::Import)),
-        ("internal", Token::Modifier(Modifier::Internal)),
+        (
+            "internal",
+            Token::Modifier(Modifier::Accessibility(Accessibility::Internal)),
+        ),
         (
             "interface",
             Token::DeclarationHead(DeclarationHead::Interface),
@@ -49,7 +52,10 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("operator", Token::Modifier(Modifier::Operator)),
         ("override", Token::Modifier(Modifier::Override)),
         ("package", Token::DeclarationHead(DeclarationHead::Package)),
-        ("public", Token::Modifier(Modifier::Public)),
+        (
+            "public",
+            Token::Modifier(Modifier::Accessibility(Accessibility::Public)),
+        ),
         (
             "reject",
             Token::ModuleDefinitions(ModuleDefinitions::Reject),
@@ -72,7 +78,6 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("timeout", Token::Timeout),
         ("using", Token::Using),
         ("var", Token::Binding(Binding::Var)),
-        ("virtual", Token::Modifier(Modifier::Virtual)),
         ("with", Token::With),
         (
             "while",
@@ -142,6 +147,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("unllvm", Token::ReservedKeyword),
         ("yield", Token::ReservedKeyword),
         ("value", Token::ReservedKeyword),
+        ("virtual", Token::ReservedKeyword),
         ("where", Token::ReservedKeyword),
     ]);
     map

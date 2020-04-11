@@ -53,11 +53,8 @@ pub enum Modifier {
     Embed,
     Extern,
     Ignorable,
-    Internal,
     Operator,
     Override,
-    Public,
-    Virtual,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
