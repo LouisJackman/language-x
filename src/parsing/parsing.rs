@@ -17,9 +17,9 @@
 //! top-level code.
 //!
 //! Statements don't really exist in Sylan. The closest equivalent is an
-//! expression that returns Sylan's unit type `void` or an `ignorable`
+//! expression that returns Sylan's unit type `Void` or an `ignorable`
 //! expression that throws away an `ignoreable`  method's or function's
-//! non-`void` return value. That said, the only item allowed inside expressions
+//! non-`Void` return value. That said, the only item allowed inside expressions
 //! (e.g. within the body of a lambda in the middle of an outer expression),
 //! variable bindings with `var`, pretty much look and feel like statements from
 //! other languages.
@@ -29,10 +29,11 @@
 //! strict, non-pure language, can just execute sequentially at runtime without
 //! needing monads or uniqueness types to enforce the order.
 //!
-//! There are three keywords that work effectively like predefined identifiers:
-//! `it`, `continue`, and `_`. They are also the only keywords that are allowed
-//! to be shadowed; user-defined symbols will fail to bind if a binding of the
-//! same name already exists in the same or outer scope.
+//! There are six keywords that work effectively like predefined identifiers:
+//! `...`, `it`, `continue`, `this`, `super`, and `_`. They are also the only keywords
+//! that are allowed ! to be shadowed; user-defined symbols will fail to bind if
+//! a binding of the ! same name already exists in the same or outer scope. They
+//! are called _pseudoidentifiers_.
 //!
 //! A simplification step is performed before giving the AST to the backend as
 //! a jump is needed from Sylan's pragmatic, large syntax to the much smaller,
@@ -63,8 +64,8 @@ use crate::parsing::modifier_sets::{AccessibilityModifierExtractor, ModifierSets
 use crate::parsing::nodes::{
     Case, CaseMatch, Class, Code, CompositePattern, Cond, CondCase, Expression, Extension, For,
     Fun, FunModifiers, If, Item, Lambda, LambdaSignature, MainPackage, Method, Node, Operator,
-    Package, PackageFile, Pattern, PatternGetter, PatternItem, Scope, Select, Switch, Throw,
-    Timeout, Type, TypeParameter, TypeSymbolLookup, ValueParameter,
+    Package, Pattern, PatternGetter, PatternItem, Scope, Select, Switch, Throw, Timeout, Type,
+    TypeParameter, TypeSymbolLookup, ValueParameter,
 };
 
 mod modifier_sets;

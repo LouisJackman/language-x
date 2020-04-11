@@ -25,7 +25,7 @@ use crate::common::version::Version;
 pub struct File {
     pub shebang: Option<Shebang>,
     pub version: Option<Version>,
-    pub package: PackageFile,
+    pub package: Package,
 }
 
 /// Every node in Sylan is either an item or an expression, even the special
@@ -96,11 +96,6 @@ pub struct MainPackage {
     pub code: Code,
 }
 
-pub enum PackageFile {
-    EntryPoint(MainPackage),
-    Dependency(Package),
-}
-
 pub struct FunModifiers {
     pub accessibility: Accessibility,
     pub is_ignorable: bool,
@@ -153,7 +148,15 @@ pub struct Class {
     pub code: Code,
 }
 
+pub struct EnumVariant {
+    pub name: Identifier,
+    pub type_parameters: Vec<TypeParameter>,
+    pub item: Class,
+    pub sydoc: Option<SyDoc>,
+}
+
 pub struct Enum {
+    pub variants: Vec<EnumVariant>,
     pub implements: Vec<Type>,
     pub methods: HashSet<Method>,
     pub fields: HashSet<Field>,
@@ -199,12 +202,17 @@ impl TypeSymbolLookup {
     }
 }
 
-pub struct Extension(pub Type);
+pub struct Extension {
+    pub name: Identifier,
+    pub extension_parameters: Vec<TypeParameter>,
+    pub type_parameters: Vec<TypeParameter>,
+    pub item: Class,
+    pub sydoc: Option<SyDoc>,
+}
 
 pub struct MethodModifiers {
     fun_modifiers: FunModifiers,
     overrides: bool,
-    has_a_default: bool,
 }
 
 /// Methods and just bindings in a class, which can be potentially abstract (i.e. with no initial
@@ -224,6 +232,8 @@ pub struct Method {
     pub modifiers: MethodModifiers,
     pub type_annotation: Option<Type>,
     pub non_abstract_value: Option<Expression>,
+    pub sydoc: Option<SyDoc>,
+    pub lambda: Lambda,
 }
 
 /// Value parameters are for values at runtime and have identifiers and
