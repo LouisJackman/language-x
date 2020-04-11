@@ -1241,7 +1241,7 @@ mod tests {
 
     #[test]
     fn keywords() {
-        let mut lexer = test_lexer(" if   class\t  \r\n  abc var reject with  ignorable");
+        let mut lexer = test_lexer(" if   class\t  \r\n  abc var reject final with  ignorable");
         assert_next(
             &mut lexer,
             &Token::BranchingAndJumping(BranchingAndJumping::If),
@@ -1253,6 +1253,7 @@ mod tests {
             &mut lexer,
             &Token::ModuleDefinitions(ModuleDefinitions::Reject),
         );
+        assert_next(&mut lexer, &Token::Binding(Binding::Final));
         assert_next(&mut lexer, &Token::With);
         assert_next(&mut lexer, &Token::Modifier(Modifier::Ignorable));
     }

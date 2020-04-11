@@ -68,6 +68,7 @@ pub enum ModuleDefinitions {
 pub enum Binding {
     As,
     Assign,
+    Final,
     Var,
 }
 
@@ -102,6 +103,7 @@ pub enum Token {
 
     /// Does nothing but reserves keywords for future use.
     ReservedKeyword,
+
     With,
 }
 

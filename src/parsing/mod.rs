@@ -634,6 +634,7 @@ impl Parser {
             name,
             lambda,
             modifiers,
+            sydoc: None,
         })
     }
 
@@ -649,10 +650,11 @@ impl Parser {
             accessibility: Accessibility::Public,
             name,
             items,
+            sydoc: None,
         })
     }
 
-    fn parse_local_binding(&mut self) -> Result<nodes::LocalBinding> {
+    fn parse_local_binding(&mut self) -> Result<nodes::Binding> {
         self.tokens.discard();
         let pattern = self.parse_pattern()?;
 
@@ -665,7 +667,7 @@ impl Parser {
 
         let value = self.parse_expression()?;
 
-        Ok(nodes::LocalBinding {
+        Ok(nodes::Binding {
             pattern,
             value: Box::new(value),
             explicit_type_annotation,
@@ -696,13 +698,9 @@ impl Parser {
         let value = self.parse_expression()?;
 
         Ok(nodes::Binding {
-            accessibility,
-            is_extern: declaration_modifiers.contains(&Modifier::Extern),
-            binding: nodes::LocalBinding {
-                pattern,
-                value: Box::new(value),
-                explicit_type_annotation,
-            },
+            pattern,
+            value: Box::new(value),
+            explicit_type_annotation,
         })
     }
 
@@ -735,7 +733,7 @@ impl Parser {
             accessibility,
             is_embedded: declaration_modifiers.contains(&Modifier::Embed),
             is_extern,
-            binding: nodes::LocalBinding {
+            binding: nodes::Binding {
                 pattern,
                 value: Box::new(value),
                 explicit_type_annotation,
@@ -1176,6 +1174,7 @@ impl Parser {
             items,
             accessibility: Accessibility::Public,
             name: Identifier(Arc::new(String::from("main"))),
+            sydoc: None,
         };
 
         Ok(MainPackage {

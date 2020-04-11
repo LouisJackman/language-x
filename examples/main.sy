@@ -457,13 +457,22 @@ fun demoPatternMatching {
  * refactoring. Any item in any module can be aliased, which can ease module
  * versioning where new major module versions are effectively different modules.
  */
-var counter2 = counter
+package counter2 = counter
 class Person = Account
 interface Showable = ToString
 fun factorial2 = factorial
-package innerMain = main
 
-var maxBound Int = 5
+final maxBound Int = 5
+/**
+ * Constants are allowed in the top-level of a package, and can have SyDocs
+ * underneath as well as the usual modifiers. Their values must be evaluatable
+ * at compile-time.
+ *
+ * Unlike vars, their types must be explicitly typed out and cannot be
+ * inferred.
+ *
+ * Local bindings with var can occur too, but only in the main package.
+ */
 
 fun demoClosures {
     var x = 5
@@ -595,10 +604,11 @@ fun demo {
  * Top-level code is allowed, but only in the main package within the main
  * module. Code in other packages must be in functions or methods.
  *
- * Top-level declarations must usually be explicitly typed, but type inference
- * with `var` is allowed for the main package, in which case they are just
- * type-inferred local variables for the top-level program which are private
- * to the `main` package.
+ * Top-level declarations must usually be explicitly typed and be evaluatable
+ * in constant-time when loading the package, but `var` is allowed for the main
+ * package meaning that type inference can be used here. They are just
+ * type-inferred local variables for the top-level program which are private to
+ * the `main` package.
  */
 
 var optionalString = Some("test string")

@@ -34,6 +34,7 @@ pub fn new() -> HashMap<&'static str, Token> {
             Token::ModuleDefinitions(ModuleDefinitions::Exports),
         ),
         ("extern", Token::Modifier(Modifier::Extern)),
+        ("final", Token::Binding(Binding::Final)),
         ("for", Token::BranchingAndJumping(BranchingAndJumping::For)),
         ("fun", Token::DeclarationHead(DeclarationHead::Fun)),
         ("if", Token::BranchingAndJumping(BranchingAndJumping::If)),

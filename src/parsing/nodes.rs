@@ -2,6 +2,10 @@
 //! expressions are executed and yield values. Such values can be the void value
 //! for expressions executed solely for side-effects. "Statements" can be approximated by stacking
 //! expressions one after the other and discarding their values.
+//!
+//! Items are guaranteed to be evaluatable in constant-time. Importing a
+//! package should never take an indefinite amount of time due to side effects
+//! being invoked. That guarantee is not upheld for _compiling_ them, however.
 
 use std::collections::{HashSet, LinkedList};
 use std::hash::{Hash, Hasher};
@@ -38,8 +42,8 @@ pub enum Item {
     Fun(Fun),
     Import(SymbolLookup),
     Package(Package),
-    SyDoc(SyDoc),
     Type(Type),
+    Final(Final),
 
     // Unlike the previous variants, these can be arbitrarily nested within
     // expressions. This is to allow corecursion among other features.
@@ -84,6 +88,7 @@ pub struct Package {
     pub accessibility: Accessibility,
     pub name: Identifier,
     pub items: Vec<Item>,
+    pub sydoc: Option<SyDoc>,
 }
 
 pub struct MainPackage {
@@ -116,6 +121,7 @@ pub struct Fun {
     pub name: Identifier,
     pub modifiers: FunModifiers,
     pub lambda: Lambda,
+    pub sydoc: Option<SyDoc>,
 }
 
 pub enum DeclarationItem {
@@ -176,6 +182,7 @@ pub struct Type {
     pub name: Identifier,
     pub type_parameters: Vec<TypeParameter>,
     pub item: TypeItem,
+    pub sydoc: Option<SyDoc>,
 }
 
 pub struct TypeSymbolLookup {
@@ -256,41 +263,48 @@ type TypeArgument = Argument<Type>;
 // scope. Parent scopes can be looked up to find bindings in outer closures,
 // which is how lexical scoping is implemented.
 
-/// Bindings are for execution-time values. Statically deducible values go via
-/// package and type definitions instead. (Note that "execution-time" can mean
-/// both "runtime" and "running within a compile-time macro.)
+/// There are three types of variable: local bindings, fields, and constants.
 ///
-/// Local bindings do not have item declaration modifiers like access modifiers,
-/// whereas non-local bindings do. Non-local bindings are just bindings at the
-/// package level. Bindings in classes are called "fields" which are the same
-/// except they allow embedding of their values into the outer class.
+/// Local bindings don't have modifiers or SyDocs, whereas fields and constants
+/// can. Constants appear in the top-level of non-main packages, but fields and
+/// local bindings cannot.
+///
+/// Constants can only have compile-time values; they guarantee no runtime hit.
+/// By extension, this means that all package imports are guaranteed to be
+/// constant-time and have no side-effects.
+///
+/// Bindings are for execution-time values. Statically deducible values go via
+/// package, types definitions, and constants instead. (Note that
+/// "execution-time" can mean both "runtime" and "running within a compile-time
+/// macro.)
 
-pub struct LocalBinding {
+pub struct Binding {
     pub pattern: Pattern,
     pub value: Box<Expression>,
     pub explicit_type_annotation: Option<TypeSymbolLookup>,
 }
 
-pub struct Binding {
+pub struct Final {
     pub is_extern: bool,
     pub accessibility: Accessibility,
-    pub binding: LocalBinding,
+    pub binding: Binding,
+    pub sydoc: Option<SyDoc>,
 }
 
 pub struct Field {
     pub is_extern: bool,
     pub is_embedded: bool,
     pub accessibility: Accessibility,
-    pub binding: LocalBinding,
+    pub binding: Binding,
 }
 
-impl PartialEq for LocalBinding {
+impl PartialEq for Binding {
     fn eq(&self, other: &Self) -> bool {
         self.pattern == other.pattern
     }
 }
 
-impl Hash for LocalBinding {
+impl Hash for Binding {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.pattern.hash(state)
     }
@@ -311,7 +325,7 @@ type Expressions = Vec<Expression>;
 /// In other words, these declarations are block scoped with a temporal dead
 /// zone rather than using scope hoisting.
 pub struct Code {
-    pub bindings: Vec<LocalBinding>,
+    pub bindings: Vec<Binding>,
     pub expressions: Expressions,
 }
 
@@ -412,7 +426,7 @@ pub struct If {
 }
 
 pub struct IfLet {
-    pub binding: LocalBinding,
+    pub binding: Binding,
     pub then: Scope,
     pub else_clause: Option<Scope>,
 }
@@ -435,7 +449,7 @@ pub struct Case {
 }
 
 pub struct For {
-    pub bindings: Vec<LocalBinding>,
+    pub bindings: Vec<Binding>,
     pub scope: Scope,
     pub label: Option<Identifier>,
 }
@@ -447,7 +461,7 @@ pub struct While {
 }
 
 pub struct WhileLet {
-    pub binding: LocalBinding,
+    pub binding: Binding,
     pub scope: Scope,
     pub label: Option<Identifier>,
 }
