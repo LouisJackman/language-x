@@ -24,7 +24,7 @@ RUN make build-dev RUST_CHANNEL="$RUST_CHANNEL"
 
 
 
-FROM kcov/kcov:v36 as coverage
+FROM kcov/kcov:v38 as coverage
 
 ENV DEBIAN_FRONTEND noninteractive
 
