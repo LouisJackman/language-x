@@ -7,9 +7,9 @@
 **Warning: this project is still early stage and is a long way from completion.
 See the "Done so Far" section for more details.**
 
-Sylan is a work-in-progress programming language aiming to mix transparently
-distributed programming, compile-time meta-programming, easy distribution, and a
-powerful type system with an approachable syntax.
+Sylan is a work-in-progress programming language aiming to mix
+transparently-distributed programming, compile-time meta-programming, easy
+distribution, and a powerful type system with an approachable syntax.
 
 It aims to be an application language designed for web applications, network
 services, command line programs, developer tooling, and scripting.
@@ -18,7 +18,7 @@ It is intended to scale from small scripts to large codebases, remove footguns,
 and prioritise large-scale software engineering concerns over interesting
 computer science concepts. It should take versioning and backwards compatibility
 seriously and ease distribution by producing single, statically-linked
-executables with no required runtimes.
+executables with no required external runtimes.
 
 ## Contents
 
@@ -55,11 +55,14 @@ development release. You can then find the resulting `sylan` executable in the
 
 If you'd rather run the build and the resulting Sylan executable in a container,
 you can create a Docker image with `docker build -t sylan .` and then run Sylan
-with invocations like `docker run --rm sylan main.sy`.
+with invocations like `docker run -it --rm -v "$PWD":/home/user sylan
+examples/main.sy`.
 
-Sylan, being written in Rust, uses standard Rust tooling such as cargo for
+Sylan, being written in Rust, uses standard Rust tooling such as Cargo for
 development.  If you're familiar with it, use it as you would with any other
-Rust project.
+Rust project. Cargo can be installed by [installing Rust
+itself](https://www.rust-lang.org/tools/install), and its available commands
+can be enumerated by running `cargo help`.
 
 If not and you'd rather use `make`, run `make help` to see the available tasks
 that can be run.
@@ -163,7 +166,7 @@ case of native compilation.
 * Programs must be in a `main` module and a `main` package, but libraries must
   have their own unique modules names.
 * Modules, unlike packages, are versioned.
-* They declare which packages they depend on.
+* They declare which modules they depend on.
 * Only items that are public and all of whose parents are also public are
   exposed.
 * The `internal` accessibility modifier allows making something public to other
@@ -204,19 +207,22 @@ case of native compilation.
   expression.
 * Infix operators are supported, but only a limited set of known operators
   exist. This is to avoid parsing ambiguities and to avoid disambiguating with
-  whitespace. There are no unary operators. Despite being a limited set, each
-  can be overridden by user libraries.
+  whitespace. There are no prefix operators, but there are two non-overriddable
+  postfix operators. Despite being a limited set, each can be overridden by
+  user libraries.
 
 ### Types
 
-* Built-ins and user-defined.
+* Externs and user-defined.
 * No difference between them from the user's perspective except for some of them
-  having literals baked into the language  and built-ins being predefined by the
-  compiler and runtime. No Java-like primitive vs object distinction.
+  having literals baked into the language  and externs being predefined by the
+  compiler and runtime. No Java-like primitive vs object distinction. This is
+  different to bindings and functions, which can be `extern` and can _not_
+  defined by Sylan itself but instead by an external artefact.
 * Constructors are special; this is done to allow invocable-style instantiations
   while avoiding things like statics, needing to detach constructors from class
   definitions, or having a more complicated initialisation syntax.
-* `void` is an actual type, like `()` in Haskell.  Defining a function or method
+* `Void` is an actual type, like `()` in Haskell.  Defining a function or method
   as returning `void` is a special-case that discards the result of final
   non-void expression and returns the void value instead. Every function,
   method, and lambda returning a value, rather than having "procedures" without
@@ -239,13 +245,14 @@ case of native compilation.
 * Types should start with capital letters, and values with lowercase letters.
 * Methods are namespaced to their types, although just deeper in the namespacing
   hierarchy rather than in a completely different standalone global namespace.
-* Shadowing is not allowed except for keyword identifiers.
-* There are three keyword identifiers: `_`, `continue`, and `it`. `continue` and
-  `it` are _almost_ dynamically scoped, changing implicitly throughout scopes
-  based on the context. `continue` binds to the innermost non-labelled `for`
-  iteration function, `it` is the innermost syntactically-zero-parameter
-  lambda's sole parameter, and `_` is an ignored value in a binding and a
-  partial-application notation for the innermost invocation.
+* Shadowing is not allowed except for pseudoidentifiers, which use keywords.
+* There are five psuedoidentifiers: `_`, `continue`, `it`, `this`, and `super`.
+  `continue` and `it` are _almost_ dynamically scoped, changing implicitly
+  throughout scopes based on the context. `continue` binds to the innermost
+  non-labelled `for` iteration function, `it` is the innermost
+  syntactically-zero-parameter lambda's sole parameter, and `_` is an ignored
+  value in a binding and a partial-application notation for the innermost
+  invocation.
 * Types and variables can both be thought of as "bindings", just one at
   compile-time and another at runtime. Never the twain shall meet, at least
   until Sylan designs how they should interoperate if at all. This will depend
@@ -271,7 +278,9 @@ case of native compilation.
 * There is no method resolution order such as Dylan- and Python 3-inspired MRO.
   Dynamic dispatch does not exist, since all runtime polymorphism should be done
   via enums instead. Interfaces are more like Haskell typeclasses than Java's
-  interfaces in this regard.
+  interfaces in this regard. The ability to statically extend types with new
+  interface implementations in different packages covers a lot of
+  dynamic-dispatches's use cases.
 
 ### Type Embedding
 
@@ -298,7 +307,8 @@ case of native compilation.
   declared items in classes and packages must always be explicitly typed. This
   includes package functions, class methods, constructors, and class fields.
   There's no choice a developer must make about whether or not to use type
-  inference.
+  inference. Also, all `var`s must infer types whereas `final`s must spell
+  them out explicitly.
 * This ensures APIs and program structure is rigid and explicitly typed while
   expressions are concise and with little boilerplate.
 * This philosophy extends to lambdas; as lambdas are used locally and not for
@@ -328,12 +338,12 @@ case of native compilation.
   instance bundled in their closure.
 * `::` is used to pick something up without invoking it; by default, with no
   parentheses, Sylan will invoke something with zero-arguments.
-* `Class::method` is a shorthand for `::(Class.method)`. Likewise,
-  `package::function` is a shorthand for `::(package.function)`.
+* Invocations look like `Class.method::`, `package.function::`, and
+  `object.method::`.
 * As methods and functions are both higher-order, invoked the same way, and have
   the same type when passed around, there is no real loss of composability from
   being different constructs. They can be composed together easily: `var
-  printDouble = Number::double # ToString::toString # ::println`.
+  printDouble = Number.double:: # ToString.toString:: # println::`.
 
 ### Pattern Matching
 
@@ -357,35 +367,46 @@ case of native compilation.
 * Both have `default` clauses as a fallback "match all" clause.
 * `switch` is exhaustive: a compiler error happens if not all cases are covered.
 * `select` is non-exhaustive, sending non-matching messages to the `noReceiver`
-  task's mailbox (whose behaviour can be manually overridden).
+  task's mailbox (whose behaviour can be manually overridden). When `receive`
+  happens, all non-matching messages are redirected to the noReceiver mailbox
+  until a matching message is encountered. If the mailbox is empty, it waits
+  until messages are sent, repeating the same behaviour until a matching message
+  is encountered.
 * `select` blocks the current task until someone sends the process a message of
   the specified type with a match. `timeout` clauses are available.
 
 ### Invocations
 
-* Methods, lambdas, functions, classes, and objects can be invoked with `()`.
-* They can all be invoked by just referring to them alone too.
+* Methods, lambdas, functions, classes, and objects can be invoked with `()`,
+  except nullary invocables which are invoked by just referring to them
+  directly.
 * Any of those are referred to "invocables" when used like that.
+* Passing a nullary invocable without invoking it is done with the invocable
+  handle posfix operator: `::`.
 * Invoking a method, lambda, or a function does as one would expect; invoking a
   class constructs an instance; invoking an object allows non-destructive
   updates, which is why just referring to an object directly works, as there's
-  no distiction between a no-change update and the identity of an object.
+  no distinction between a no-change update and the identity of an immutable
+  object.
 * Arguments can have default values.
-* Any argument can be invoked as either positional or keyword; it's up to the
-  caller.
+* Arguments have labels, like Swift. Like Swift, the label is the same as the
+  parameter if omitted, and the `_` label allows callers to drop it.
 * Two special parameter types exist: variadic and variadic entry. The former
   allows an variable amount of arguments, whereas the latter allows a variable
   amount of `sylan.lang.Entry` arguments with syntactical sugar.  The latter is
   primarily for providing a good syntax for constructing map types that
   user-defined types can use.
-* Prefixing an argument with a dot is a shortcut for assigning a keyword
-  argument from a binding of the same name, e.g.  `Account(.firstName)` is
-  `Account(firstName = firstName)`.
+* The compiler knows whether an argument is positional or labelled based on the
+  `_` label; one parameter can't be both. This means the compiler, if seeing a
+  unexpected positional argument with a variable name matching a keyword
+  argument, can automatically convert it into a keyword argument.
 * Passing `_` for one or more arguments partially applies the invocation,
   returning a new function value with the non-underscore arguments evaluated and
   partially applied to the result. This allows, for example, partially-applying
   a non-destructive object update, partially applying a function, or
   partially-applying the instantiation of a class.
+* Passing `_` to a labelled argument transforms it into a partially applied
+ . positional argument, to assist with functional operations.
 
 ### Compile-time Metaprogramming
 

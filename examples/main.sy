@@ -75,10 +75,10 @@ fun demoIteration {
     var quadruple = -> { it.doubled.doubled }
 
     123456789
-        |> ::quadruple
-        |> Object::toString
-        |> ::highlight
-        |> ::println
+        |> quadruple::
+        |> Object.toString::
+        |> highlight::
+        |> println::
 
     var map = Map {
         "abc": 123,
@@ -588,7 +588,7 @@ fun demo {
     demoIteration
 
     printFactorial(42)
-    var x = twice(4, do: ::doubled)
+    var x = twice(4, do: doubled::)
     println($"{x}")
 
     demoContexts
