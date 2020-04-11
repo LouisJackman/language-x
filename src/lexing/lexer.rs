@@ -659,6 +659,8 @@ impl Lexer {
                 '&' => Ok(self.lex_with_leading_ampersand()),
                 '|' => Ok(self.lex_with_leading_pipe()),
                 '^' => Ok(self.lex_with_leading_caret()),
+                '!' => self.lex_with_leading_exclamation_mark(),
+                '@' => self.lex_with_leading_at(),
 
                 '/' => {
                     self.source.discard();
@@ -684,12 +686,15 @@ impl Lexer {
                     self.source.discard();
                     Ok(self.lex_with_leading_astericks())
                 }
-                '!' => self.lex_with_leading_exclamation_mark(),
-                '@' => self.lex_with_leading_at(),
 
                 ',' => {
                     self.source.discard();
                     Ok(Token::SubItemSeparator)
+                }
+
+                '?' => {
+                    self.source.discard();
+                    Ok(Token::PostfixOperator(PostfixOperator::Bind))
                 }
 
                 // The minus symbol is a negationnumeric prefix. If the lexer
@@ -701,7 +706,12 @@ impl Lexer {
                 // the lexer to avoid distinguishing unary and binary `-` and `+
                 // `solely by whitespace. For negating a variable, use the
                 // `Number#negate` method instead.
-                '-' => Ok(self.lex_with_leading_hyphen()),
+                '-' => {
+                    self.source.discard();
+                    Ok(Token::OverloadableInfixOperator(
+                        OverloadableInfixOperator::Subtract,
+                    ))
+                }
 
                 '+' => {
                     self.source.discard();
@@ -893,16 +903,6 @@ impl Lexer {
                 c => self.unexpected(c),
             },
             None => Err(self.premature_eof()),
-        }
-    }
-
-    fn lex_with_leading_hyphen(&mut self) -> Token {
-        self.source.discard();
-        if self.source.next_is('>') {
-            self.source.discard();
-            Token::PostfixOperator(PostfixOperator::Bind)
-        } else {
-            Token::OverloadableInfixOperator(OverloadableInfixOperator::Subtract)
         }
     }
 
@@ -1333,8 +1333,8 @@ mod tests {
     }
 
     #[test]
-    fn built_in_operators_and_identifiers() {
-        let mut lexer = test_lexer("   <= \t  \r\n ~ ab! ^ ^^ - <  [ != |> :: ");
+    fn infix_operators() {
+        let mut lexer = test_lexer("   <= \t  \r\n ~ ^ ^^ - <  [ != |> :: ");
         assert_next(
             &mut lexer,
             &Token::OverloadableInfixOperator(OverloadableInfixOperator::LessThanOrEqual),
@@ -1343,7 +1343,6 @@ mod tests {
             &mut lexer,
             &Token::OverloadableInfixOperator(OverloadableInfixOperator::Compose),
         );
-        assert_next(&mut lexer, &Token::Identifier(Identifier::from("ab!")));
         assert_next(
             &mut lexer,
             &Token::OverloadableInfixOperator(OverloadableInfixOperator::BitwiseXor),
@@ -1373,6 +1372,23 @@ mod tests {
             &mut lexer,
             &Token::PostfixOperator(PostfixOperator::InvocableHandle),
         );
+    }
+
+    #[test]
+    fn postfix_operators() {
+        let mut lexer = test_lexer("   ?     ::   ");
+        assert_next(&mut lexer, &Token::PostfixOperator(PostfixOperator::Bind));
+        assert_next(
+            &mut lexer,
+            &Token::PostfixOperator(PostfixOperator::InvocableHandle),
+        );
+    }
+
+    #[test]
+    fn identifiers() {
+        let mut lexer = test_lexer(" FOObar  ab!    ");
+        assert_next(&mut lexer, &Token::Identifier(Identifier::from("FOObar")));
+        assert_next(&mut lexer, &Token::Identifier(Identifier::from("ab!")));
     }
 
     #[test]

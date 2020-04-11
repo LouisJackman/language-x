@@ -963,8 +963,8 @@ impl Parser {
         {
             self.tokens.discard();
             Ok(Expression::Operator(nodes::Operator::PostfixOperator(
-                operator,
                 Box::new(expression),
+                operator,
             )))
         } else {
             Ok(expression)
@@ -1023,8 +1023,8 @@ impl Parser {
         {
             self.tokens.discard();
             Ok(Expression::Operator(nodes::Operator::PostfixOperator(
-                operator,
                 Box::new(expression),
+                operator,
             )))
         } else {
             Ok(expression)
