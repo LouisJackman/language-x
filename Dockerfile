@@ -46,11 +46,13 @@ CMD ["/opt/debug"]
 
 FROM debian:buster-slim
 
-COPY --from=builder /opt/sylan/target/release/sylan /opt/sylan
+COPY --from=builder /opt/sylan/target/release/sylan /usr/local/bin/sylan
+RUN ["chmod", "ugo+x", "/usr/local/bin/sylan"]
 
-RUN ["chown", "nobody", "/opt/sylan"]
-USER nobody
+RUN ["useradd", "-m", "user"]
+USER user
+WORKDIR /home/user
 
-WORKDIR /opt
-ENTRYPOINT ["/opt/sylan"]
+VOLUME /home/user
+ENTRYPOINT ["/usr/local/bin/sylan"]
 
