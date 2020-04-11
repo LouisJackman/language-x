@@ -21,9 +21,9 @@ import sylan.{
 
 fun fizzBuzz(_ n Int) Int {
 
-    // Sylan supports blocks, syntax for passing a lambda as a final argument to
-    // an invocable. Note the use of `it` as a shorthand for one-argument
-    // blocks.
+    // Sylan supports blocks, syntactical sugar for passing a lambda as a final
+    // argument to an invocable. Note the use of `it` as a shorthand for
+    // one-argument lambdas.
     1.up(to: n).each -> {
         switch {
             0 == (it % 15) { "FizzBuzz" }
@@ -36,12 +36,16 @@ fun fizzBuzz(_ n Int) Int {
 
 fizzBuzz(100)
 
-/**
- * SyDocs can be written for code documentation.
- *
- * Parentheses can be dropped for zero-parameter functions and methods.
- */
+// Parentheses can be dropped for zero-parameter functions and methods.
 fun demoIteration {
+    /**
+     * SyDocs can be written for code documentation.
+     *
+     * SyDocs, unlike JavaDocs, go _inside_ the method, class, or function it refers
+     * to. This means the most important information, the header, is upfront.
+     *
+     * They go _after_ top-level package variable definitions.
+     */
 
     var highlight = -> s { $">> {s} <<" }
 
@@ -106,7 +110,7 @@ fun demoIteration {
         5.times -> {
             counterService.send(currentTask)
         }
-        while var Some(n) = select int {
+        while var Some(n) = select Optional[int] {
             _ {
                 it
             }
@@ -197,6 +201,10 @@ fun internal ignorable printFactorial(_ n Int) Int {
      * including loops and `if`s. Therefore, the last value is returned by
      * default. The lack of explicit `return`s means there is always a single
      * exit point from a function or method: the last expression.
+     *
+     * Having a guaranteed single exit point from a function makes it easier to
+     * reason about, which is presumably why Niklaus Wirth had a preference for
+     * it in structured programming. 
      */
     result
 }
@@ -210,12 +218,16 @@ fun double[N Add & ToString](_ n N) String {
 }
 
 /**
- * Sylan uses concrete implementations of interfaces only. Dynamic dispatch
- * does not exist in Sylan because it overlaps too much with sum types, a.k.a
- * discriminated unions or enhanced enums.
+ * Sylan uses concrete implementations of interfaces only, such as `Number`
+ * here. Dynamic dispatch does not exist in Sylan because it overlaps too much
+ * with sum types, a.k.a discriminated unions or enhanced enums.
+ * 
+ * In this way, Sylan's interfaces are closer to Haskell's typeclasses than
+ * Java 8's enhanced interfaces.
+ * 
+ * Extension classes give the ability for packages to statically add operations
+ * to other package's types. This is still not using dynamic dispatch, however.
  *
- * In this way, Sylan's interfaces are close to Haskell's typeclasses than
- * traditional interfaces.
  */
 fun printNumber(_ n Number) {
     println($"{n}")
@@ -226,20 +238,25 @@ fun demoContexts Optional[Int] {
     println("Demoing contexts...")
 
     /*
-     * Haskell developers will recognise this as the monadic do notation, which
-     * Sylan calls "contexts". Haskell programmers already know the benefits of
-     * this construct; non-Haskell programmers will be glad to know that this
-     * feature can make tangled code such as optionality-checking chains and
-     * validation code much cleaner.
+     * Haskell developers will recognise this as the applicative do notation,
+     * which Sylan calls "contexts". Haskell programmers already know the
+     * benefits of this construct; non-Haskell programmers will be glad to know
+     * that this feature can make tangled code such as optionality-checking
+     * chains, error-handling, and validation code much cleaner.
+     *
+     * Developers from other languages like Swift and JavaScript might
+     * recognise the question mark here; the difference is that Sylan allows it
+     * for any applicative type, not just optional types.
      */
+
     with {
-        Some(5)->
+        Some(5)?.map
         println("Doing something.")
 
         // All invocables can drop parentheses if calling with no arguments.
         // This allows fields to be transparently upgraded to getters without
         // breaking API compatibility.
-        var _ = Empty->
+        var _ = Empty?
 
         println("Will not be run.")
 

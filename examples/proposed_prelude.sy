@@ -1,3 +1,4 @@
+package sylan.lang
 /**
  * This is the proposed prelude file, which serves as an example of what Sylan
  * should look like and also shows what utilities are available everywhere.
@@ -10,8 +11,6 @@
  * extern, which is essentially a placeholder until how built-in types are
  * fully worked out.
  */
-
-package sylan.lang
 
 import sylan.util.collections.list as list
 
@@ -28,10 +27,10 @@ enum public Boolean {
 
     fun public extern operator && (other This)
     fun public extern operator || (other This)
-    fun public extern negate(other This)
+    fun public extern negate()
 }
 
-fun public not(b Boolean) Boolean {
+fun public not(_ b Boolean) Boolean {
     b.negate
 }
 
@@ -67,7 +66,7 @@ interface public Number {
 
     fun public extern operator << Number
     fun public extern operator >> Number
-    fun public extern operator <<< Number
+    fun public extern operator >>> Number
 
     fun public negate This {
         /**
@@ -102,7 +101,7 @@ interface public Number {
         this * 5
     }
 
-    fun public to(n Number) List[Number] {
+    fun public up(to n Number) List[Number] {
         list.generate(initial: 1) -> {
             if n < it {
                 list.generation.Finish
@@ -154,7 +153,7 @@ class AssertionError implements Exception {
 
 // TODO: this should really be a macro, but Sylan doesn't yet have a solid plan
 // for macros.
-fun public assert(predicate Boolean) {
+fun public assert(that predicate Boolean) {
     /**
      * Assert that predicate is true, otherwise throw an `AssertionError`.
      */
@@ -164,20 +163,19 @@ fun public assert(predicate Boolean) {
     }
 }
 
-fun public extern print(message String)
+fun public extern print(_ message String)
 
-fun public println(message String) {
+fun public println(_ message String) {
     print(message)
     print("\n")
 }
 
-fun public id[T](value T) T {
+fun public id[T](of value T) T {
     value
 }
 
-fun public constant[T](value T) () T {
+fun public constant[T](of value T) () T {
     -> {
         value
     }
 }
-
