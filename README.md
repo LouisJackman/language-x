@@ -141,32 +141,34 @@ fun demoIteration {
      * They go _after_ top-level package variable definitions and final variables.
      */
 
-    var highlight = -> s { $">> {s} <<" }
+    var highlight = -> s {
+        $">> {s} <<"
+    }
 
-    // The ~ operator composes invocables together.
+    // The ~ operator composes invocables together, from left to right.
     1.up(to: 5)
         .map(Number.doubled:: ~ ToString.toString:: ~ highlight::)
         .each(println::)
 
     // Sylan supports field-looking getters and transparently upgrading an
     // expression to a computation, both of which mandate no parentheses
-    // for no-argument invocables. Use the :: operator without a prefix to pick
-    // up these invocables as first-class values. Combine it with the dot
-    // operator to refer to a method of a type.
+    // for no-argument invocables. Use the :: postfix operator to pick up these
+    // invocables as first-class values. Combine it with the dot operator to
+    // refer to a method of a type.
 
-    // Lambdas can be passed outside of calling parentheses when they are the
-    // final argument.
     List { 1, 2, 3 }.each -> n {
 
         /*
-         * Backquoted strings allow interpolation. Only single symbols can be
-         * interpolated; interpolating arbitrary expressions was purposely
+         * Dollar-prefixed strings allow interpolation. Only single symbols can
+         * be interpolated; interpolating arbitrary expressions was purposely
          * omitted due to its ability to create cryptic one-liners.
          */
         println($"{n}")
     }
 
-    var quadruple = -> { it.doubled.doubled }
+    var quadruple = -> {
+        it.doubled.doubled
+    }
 
     123456789
         |> quadruple::
@@ -202,7 +204,7 @@ fun demoIteration {
         }
 
         5.times -> {
-            counterService.send(currentTask)
+            send(currentTask, to: counterService)
         }
 
         // `while var`, like `if var`, can handle multiple refutable patterns
@@ -221,16 +223,11 @@ fun demoIteration {
     }
 
     /*
-     * Sylan does not allow scope within blocks. As functions are just
-     * variables of a "function type", `factorial` would clash with the
-     * top-level `factorial` function defined later on, hence the disambiguating
-     * name `innerFactorial`.
-     *
      * `for` is a cross between Java's enhanced-for loop and Scheme's named-let.
      * It looks similar to `while let`, but takes irrefutable bindings rather
      * than refuttable ones.
      */
-    var innerFactorial = for var n = 20, result = 1 {
+    var factorial = for var n = 20, result = 1 {
         if n <= 0 {
             result
         } else {
@@ -259,10 +256,9 @@ fun demoIteration {
 }
 
 /*
- * All variables (including functions), packages, classes
- * and methods are private unless explicitly opened up with the `public`
- * keyword. If the developer wants to expose them openly but only to
- * its own module, they can use the `internal` keyword.
+ * All packages, classes, methods, and finals are private unless explicitly
+ * opened up with the `public` keyword. If the developer wants to expose them
+ * openly but only to its own module, they can use the `internal` keyword.
  *
  * As can be seen in this function and the previous, Sylan allows functions to
  * stand alone in packages without being tied to classes or interfaces.
@@ -356,13 +352,8 @@ fun demoContexts Optional[Int] {
         Some(5)?.map
         println("Doing something.")
 
-        // All invocables can drop parentheses if calling with no arguments.
-        // This allows fields to be transparently upgraded to getters without
-        // breaking API compatibility.
         var _ = Empty?
-
         println("Will not be run.")
-
         Empty
     }
 }
@@ -423,12 +414,12 @@ package counter {
             // Putting a dot before a switch or select case is syntactical
             // sugar for an enum variant of the selected or switched type.
             .Increment {
+                start(channel, n: n + 1)
+            }
+            .Reset(n) {
 
                 // Labelled arguments can omit labels _if the local variable
                 // passed in has the same name_.
-                start(channel, n + 1)
-            }
-            .Reset(n) {
                 start(channel, n)
             }
             .Get {
@@ -444,11 +435,12 @@ package counter {
 
 /**
  * Backquotes can be used to allow any character in an identifier name. This is
- * designed for two cases:
+ * designed for these cases:
  *
  *  * Allowing fluent sentence-like test cases like below.
  *  * Easing interoperability with foreign APIs that use different naming
  *    contentions.
+ *  * Using Sylan keywords as symbols.
  *
  * Like normal strings, they also support raw mode and custom delimiters.
  * Interpolation is obviously not supported, however.
@@ -595,14 +587,6 @@ class Account(
         )
     }
 
-    /*
-     * Methods without any arguments can be called without parentheses,
-     * effectively making them readonly properties or getters with syntactical
-     * sugar. An important difference between Java getters and Sylan "getters"
-     * is that Sylan's can replace fields transparently, allowing fields to be
-     * "upgraded" to getters transparently without breaking API compatibility.
-     */
-
     fun public name String {
         $"{firstName} {lastName}"
     }
@@ -672,7 +656,8 @@ final maxBound Int = 5
 /**
  * Constants are allowed in the top-level of a package, and can have SyDocs
  * underneath as well as the usual modifiers. Their values must be evaluatable
- * at compile-time.
+ * at compile-time, meaning that package imports never trigger arbirary
+ * computations.
  *
  * Unlike vars, their types must be explicitly typed out and cannot be
  * inferred.
