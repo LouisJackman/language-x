@@ -561,9 +561,7 @@ pub struct Case {
 // * https://docs.racket-lang.org/guide/let.html#%28part._.Named_let%29
 // * https://docs.oracle.com/javase/tutorial/java/nutsandbolts/branch.html
 //
-// for loops will halt unless continue or a label is called. If a label misses
-// out bindings as parameters, they are defaulted to reevaluating the
-// initialiser again.
+// For loops will halt unless continue or a label is called.
 //
 // `if var`, `while var`, and `for while` all allow multiple `var` bindings,
 // separated with commas. `if var` and a `while var` expect _all_ bindings to
