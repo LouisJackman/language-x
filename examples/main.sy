@@ -310,7 +310,9 @@ enum List[of Element](
                 next.each(do)
             }
 
-            Nil => Void,
+            Nil {
+                Void
+            }
         }
     }
 }

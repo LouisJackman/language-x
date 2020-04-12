@@ -395,7 +395,9 @@ enum List[of Element](
                 next.each(do)
             }
 
-            Nil => Void,
+            Nil {
+                Void
+            }
         }
     }
 }
@@ -501,6 +503,18 @@ class Account(
     // for passing a normal parameter and assigning it to a new field in a class
     // body. It also solves the inconvenience of shadowing between parameters
     // and declared fields.
+    //
+    // Fields are, on the surface, accessible directly. Actually, they are only
+    // available via the `this.` sigil which cannot be used outside the class.
+    // Classes only expose methods. However, fields autogenerate getter methods
+    // with the same accessibility and with the aforementioned syntactical sugar
+    // of dropping parentheses for no arguments. These can be overridden at a
+    // future date by a developer to transparently upgrade a simple field to a
+    // getter with additional logic.
+    //
+    // This also means that interfaces can mandate "fields"; as all fields are
+    // ultimately getter methods from an external viewpoint, they can also be
+    // defined and defaulted in interfaces.
     var internal ageInYears Int,
     
 ) implements ToString, Concatenate[to: This] {
@@ -553,6 +567,18 @@ class Account(
     var embed name Name = Name(first: firstName, last: lastName)
 
     var expiry ZonedDateTime = ZonedDateTime.now + 1.year
+
+    // Automatically generated field getters can be overridden with custom
+    // implementations like the following, which can then access the original
+    // field with `this.`.
+    //
+    // Note that all access to a field without the `this.` sigil, even from
+    // inside the class itself, is going via the getter methods.
+    fun public expiry ZonedDateTime {
+        println($"the original expiry was {this.expiry}")
+
+        this.expiry + 1.year  // Ultimately yields now plus two years
+    }
 
     fun public override toString String {
         $"{firstName} {lastName} is {ageInYears} years old"
@@ -922,7 +948,7 @@ case of native compilation.
 * Encourage compile-time metaprogramming over runtime annotation and reflection;
   design it to scale in the large without becoming cryptic.
 * Be mostly expression-based and with decent pattern matching.
-* Guarantee tail-call elimination with shadow stacks to aid debugging.
+* Guarantee tail-call elimination with Safari-like shadow stacks to aid debugging.
 
 ## Details
 
@@ -1015,7 +1041,12 @@ case of native compilation.
 * Types should start with capital letters, and values with lowercase letters.
 * Methods are namespaced to their types, although just deeper in the namespacing
   hierarchy rather than in a completely different standalone global namespace.
-* Shadowing is not allowed except for pseudoidentifiers, which use keywords.
+* Shadowing is not allowed in the same block except for pseudoidentifiers, which
+  use keyphrases. Shadowing is allowed between packages and their subpackages
+  and classes in the same file though; a particular example is methods being
+  able to shadow package-wide functions of the same name. Explicitly specifying
+  the package lets subpackages and classes disambiguate which identifier they
+  mean, which the `this.package` pseudoidentifier can help with.
 * There are nine psuedoidentifiers: `...`, `_`, `continue`, `it`, `this`, `This`
   `this.module`, `this.package`, and `super`. `continue` and `it` are _almost_
   dynamically scoped, changing implicitly throughout scopes based on the
@@ -1045,8 +1076,8 @@ case of native compilation.
   not deal with concrete class inheritance.
 * Interfaces can provide default method implementations, which can be overridden
   in implementing classes. `override` on a method makes such overrides clear.
-  Shadowing does not exist; if it has the same name, it must override, and the
-  developer must explicitly state that with `override`.
+  Method shadowing does not exist; if it has the same name, it must override,
+  and the developer must explicitly state that with `override`.
 * There is no method resolution order such as Dylan- and Python 3-inspired MRO.
   Dynamic dispatch does not exist, since all runtime polymorphism should be done
   via enums instead. Interfaces are more like Haskell typeclasses than Java's
