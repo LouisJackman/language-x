@@ -60,7 +60,13 @@ pub enum OverloadableInfixOperator {
     And,
     BitwiseOr,
     BitwiseXor,
+
+    // See: https://dart.dev/guides/language/language-tour#cascade-notation-
+    Cascade,
+
+    // See: https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/functions/#function-composition-and-pipelining
     Compose,
+
     Divide,
     Equals,
     GreaterThan,
@@ -72,18 +78,75 @@ pub enum OverloadableInfixOperator {
     Multiply,
     NotEqual,
     Or,
+
+    // See: https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/functions/#function-composition-and-pipelining
     Pipe,
+
     Power,
     RightShift,
+
+    // See: https://docs.oracle.com/javase/tutorial/java/nutsandbolts/op3.html
     UnsignedRightShift,
+
     Subtract,
+
+    // Inspired by Python's dedicated Matrix operator: https://www.python.org/dev/peps/pep-0465/
     MatrixAdd,
     MatrixDivide,
     MatrixMultiply,
     MatrixPower,
     MatrixSubtract,
     MatrixTranspose,
+
+    // Like bitwise-or, but for booleans.
     Xor,
+}
+
+/// How slicing is interpreted is totally up the implementor of the operator.
+/// This especially applies to the `...` pseudoidentifier, which resolves
+/// statically to the `sylan.lang.slice.SliceFragment.Ellipsis` enum data
+/// constructor which any API can use, but it is handled specially by the
+/// overloadable slice operator. This syntactical sugar transforms invocations
+/// like `[|1 : 2 : 3, ..., 1 :]` into these arguments passed variadically into
+/// the overloaded operator:
+///
+/// ```
+/// (
+///     SliceFragment::Slice(from: 1, stepping: 2, to: 3),
+///     SliceFragment::Ellipsis,
+///     SliceFragment::Slice(from: 1),
+/// )
+/// ```
+///
+/// The signature of overloaded operator looks like:
+///
+/// `fun public operator [||] (sliceFragments ..SliceFragment) { }`
+///
+/// `SliceFragment` is defined as:
+///
+/// ```
+/// enum public Slice(
+///     Start(from start Optional[Number]),
+///     Step(stepping step Optional[Number]),
+///     End(to end Optional[Number]),
+/// )
+///
+/// enum public SliceFragment(
+///     Ellipsis,
+///     Slice(_ slice Slice),
+/// )
+/// ```
+///
+/// Examples:
+///
+/// * `list[|1 : 3|]` from the first element to the 3rd, semi-inclusive, and
+///    considering Sylan's 0-based indexing.
+/// * `list[|: -1 : -2|]` reverses from antepenultimate element to the first.
+/// * `list
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum OverloadableSliceOperator {
+    Open,
+    Close,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -96,15 +159,31 @@ pub enum PostfixOperator {
 ///
 /// * They can be shadowed.
 /// * They cannot be defined by user code.
+/// * They can only be referred to directly, not via package lookups with dots.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum PseudoIdentifier {
     Continue,
     It,
     Super,
     This,
+
+    /// Similar to Python's ellipsis, it's a variable that can be checked
+    /// against and interpreted accordingly by data-oriented APIs when
+    /// slicing. Unlike Python, Sylan is statically-typed and compiles away all
+    /// types at compile-time, so it cannot just be a singleton type. It instead
+    /// refers to an enum variant of `SliceFragment` rather than a whole type:
+    /// `sylan.lang.slice.SliceFragment.Ellipsis`.
+    ///
+    /// It, along with numbers, are the only values that can be used within the
+    /// slice notation. Unlike numbers, it must be used directly inline and not
+    /// merely as an expression that eventually yields a value of the correct
+    /// type.
+    ///
+    /// See [OverloadableSliceOperator] for more details about how this is used.
     Ellipsis,
 
-    // A dummy identifier that has different meanings in different contexts. In bindings it allows
-    // discarding values.
+    /// A dummy identifier that has different meanings in different contexts. In
+    /// bindings it allows discarding values; as an argument to invocables, it
+    /// transforms an invocation into a partial application.
     PlaceholderIdentifier,
 }

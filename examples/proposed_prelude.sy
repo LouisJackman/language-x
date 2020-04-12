@@ -14,17 +14,16 @@ package sylan.lang
 
 import sylan.util.collections.list as list
 
-class public Void {
-    /**
-     * The unit-type, a.k.a. `void`. It can be instantiated, but contains
-     * nothing.
-     */
-}
+class public Void
+/**
+ * The unit-type, a.k.a. `void`. It can be instantiated, but contains
+ * nothing.
+ */
 
-enum public Boolean {
+enum public Boolean(
     True,
-    False;
-
+    False,
+) {
     fun public extern operator && (other This)
     fun public extern operator || (other This)
     fun public extern negate()
@@ -101,7 +100,7 @@ interface public Number {
         this * 5
     }
 
-    fun public up(to n Number) List[Number] {
+    fun public up(to n Number) List[of Number] {
         list.generate(initial: 1) -> {
             if n < it {
                 list.generation.Finish
@@ -170,11 +169,11 @@ fun public println(_ message String) {
     print("\n")
 }
 
-fun public id[T](of value T) T {
+fun public id[of T](of value T) T {
     value
 }
 
-fun public constant[T](of value T) () T {
+fun public constant[of T](of value T) () T {
     -> {
         value
     }

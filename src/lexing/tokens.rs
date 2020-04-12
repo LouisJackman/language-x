@@ -1,6 +1,6 @@
 use crate::common::multiphase::{
-    Accessibility, Identifier, InterpolatedString, OverloadableInfixOperator, PostfixOperator,
-    PseudoIdentifier, Shebang, SyDoc, SylanString,
+    Accessibility, Identifier, InterpolatedString, OverloadableInfixOperator,
+    OverloadableSliceOperator, PostfixOperator, PseudoIdentifier, Shebang, SyDoc, SylanString,
 };
 use crate::common::version::Version;
 
@@ -96,6 +96,7 @@ pub enum Token {
     Modifier(Modifier),
     ModuleDefinitions(ModuleDefinitions),
     OverloadableInfixOperator(OverloadableInfixOperator),
+    OverloadableSliceOperator(OverloadableSliceOperator),
     PostfixOperator(PostfixOperator),
     PseudoIdentifier(PseudoIdentifier),
 

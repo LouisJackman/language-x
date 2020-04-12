@@ -129,7 +129,7 @@ fun demoIteration {
      * SyDocs, unlike JavaDocs, go _inside_ the method, class, or function it refers
      * to. This means the most important information, the header, is upfront.
      *
-     * They go _after_ top-level package variable definitions.
+     * They go _after_ top-level package variable definitions and final variables.
      */
 
     var highlight = -> s { $">> {s} <<" }
@@ -195,6 +195,13 @@ fun demoIteration {
         5.times -> {
             counterService.send(currentTask)
         }
+
+        // `while var`, like `if var`, can handle multiple refutable patterns
+        // seperated by commas. In this case, all patterns must match to
+        // continue into the block.
+        //
+        // Unlike `for`, `while var` and `if var` take refuttable patterns
+        // rather than irrefuttable ones.
         while var Some(n) = select Optional[int] {
             _ {
                 it
@@ -211,6 +218,8 @@ fun demoIteration {
      * name `innerFactorial`.
      *
      * `for` is a cross between Java's enhanced-for loop and Scheme's named-let.
+     * It looks similar to `while let`, but takes irrefutable bindings rather
+     * than refuttable ones.
      */
     var innerFactorial = for var n = 20, result = 1 {
         if n <= 0 {
@@ -349,16 +358,59 @@ fun demoContexts Optional[Int] {
     }
 }
 
-package counter {
+enum List[Element](
 
-    enum Message {
-        Increment,
-        Reset[Int],
-        Get,
+    // Enum variants mirror normal functions, and are called like them too.
+    // The names of the elements become important for pattern matching.
+    Node(of element Element, next This),
+
+    Nil,
+) {
+    fun each(do (element Element)) {
+        switch this {
+
+            // Pattern matching follows similar rules to function parameter
+            // lists. In particular, if a matched field matches a parameter
+            // name, an explicit label is not needed. Furthermore, a label is
+            // implicitly the same as a parameter name if omitted. In fact,
+            // _most_ pattern matches are expected to use both of these
+            // shortcuts combined.
+            //
+            // Utilising both of them makes pattern matching appear similar to
+            // other functional languages while retaining consistency with
+            // function calls. This is important because Sylan unifies function
+            // calls and type instantiations rather than using a separate syntax
+            // for both.
+            Node(element, next) {
+                do(element)
+                next.each(do)
+            }
+
+            Nil => Void,
+        }
     }
+}
+
+package counter {
+    /**
+     * Packages needn't always go in their own file. They can also be nested
+     * within packages in the same file.
+     *
+     * This is stike a balance between forcing good structure for larger
+     * programs yet not forcing too much bureaucracy on smaller ones.
+     */
+
+    enum Message(
+        Increment,
+        Reset(with n Int),
+        Get,
+    )
 
     fun public start(channel Task, n Int: 0) {
         select Message {
+
+            // Putting a dot before a switch or select case is syntactical
+            // sugar for an enum variant of the selected or switched type.
             .Increment {
 
                 // Labelled arguments can omit labels _if the local variable
@@ -418,12 +470,14 @@ interface Equals[T] {
  * `AutoCloseable` fields. This can also be overridden if the default
  * implementation makes no sense.
  */
-class Name {
+class Name(
     var internal firstName String
     var internal lastName String
-}
+)
+// Braces can be dropped off a class. In this case, they act as simple data
+// groups with no additional logic.
 
-/**
+/** 
  * Classes can implement interfaces but cannot extend other classes.
  * Interfaces can extend other interfaces though. Concrete inheritance
  * generally causes more problems that it's worth and type embedding plus a
@@ -432,10 +486,37 @@ class Name {
 class Account(
     firstName String,
     lastName String,
+
+    // Prefixing a class parameter with `var` upgrades it to a field, vaguely
+    // similar to TypeScript's equivalent feature. This is syntactical sugar
+    // for passing a normal parameter and assigning it to a new field in a class
+    // body. It also solves the problem of shadowing between parameters and
+    // declared fields.
     var internal ageInYears Int,
+    
 ) implements ToString, Concatenate[This] {
 
-    println("instantiating an Account...")
+    {
+        // Instance initializers are optional but must appear before anything else
+        // in a class body and there can be only one. However, they are invoked
+        // _at the end_ of object construction, meaning they can access all
+        // defined fields and methods. They allow invoking side-effects upon a
+        // class instantiation.
+        //
+        // As Sylan is an immutable language, this feature does not allow assigning
+        // values to fields like constructors in traditional OO languages.
+        //
+        // This is effectively the same as invoking a side-effect inside a field
+        // initialiser, except no field is being assigned:
+        //
+        // var _ Void = do -> {
+        //     println("Inside a field initialisation...")
+        //     println("instantiating an Account...")
+        // }
+ 
+        println("instantiating an instance initialiser...")
+        println("instantiating an Account...")
+    }
 
     /*
      * Embedding a field hoists all of its _accessible_ methods into
@@ -464,12 +545,12 @@ class Account(
     }
 
     fun public override concatenate(withEnd that This) This {
-        var firstName = firstName.concatenate(withEnd: that.firstName)
-        var lastName = lastName.concatenate(withEnd: that.lastName)
+        var first = firstName.concatenate(withEnd: that.firstName)
+        var last = lastName.concatenate(withEnd: that.lastName)
 
         Account(
-            firstName,
-            lastName,
+            firstName: first,
+            lastName: last,
             ageInYears: ageInYears + that.ageInYears,
         )
     }
@@ -610,7 +691,7 @@ class NumericLiteralsClass implements ToString {
     var j Int32 = 7s
     var k Long = 7s64
     var l Float = 12f
-    var m Double = 8f64
+    var m Double = 8d
 
     fun public override toString String {
         $"{a}{b}{c}{d}{e}{f}{g}{h}{i}{j}{k}{l}{m}"
@@ -697,6 +778,10 @@ fun demo {
  */
 
 var optionalString = Some("test string")
+
+// Like `for` and `while var`, `if var` supports multiple patterns seperated by
+// commas. For the refuttable bindings of `while var` and `if var`, all
+// patterns must match to continue into the block.
 if var Some(s) = optionalString {
     println(s)
 }
@@ -721,6 +806,8 @@ send(counter.Message.Get, to: c)
     }
     println($"{n}")
 }
+
+send(counter.Message.Reset(to: 0), to: c)
 
 print("""
 3 or more quotes can be used to create a custom string delimiter.

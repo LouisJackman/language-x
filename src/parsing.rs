@@ -62,10 +62,10 @@ use crate::lexing::tokens::{
 use crate::lexing::Tokens;
 use crate::parsing::modifier_sets::{AccessibilityModifierExtractor, ModifierSets};
 use crate::parsing::nodes::{
-    Case, CaseMatch, Class, Code, CompositePattern, Cond, CondCase, Expression, Extension, For,
-    Fun, FunModifiers, If, Item, Lambda, LambdaSignature, MainPackage, Method, Node, Operator,
-    Package, Pattern, PatternGetter, PatternItem, Scope, Select, Switch, Throw, Timeout, Type,
-    TypeParameter, TypeSymbolLookup, ValueParameter,
+    Block, Case, CaseMatch, Class, CompositePattern, Cond, CondCase, Expression, Extension, For,
+    Fun, FunModifiers, FunSignature, If, Item, Lambda, LambdaSignature, LambdaValueParameter,
+    MainPackage, Method, Node, Operator, Package, Pattern, PatternGetter, PatternItem, Select,
+    Switch, Throw, Timeout, Type, TypeParameter, TypeSymbol, ValueParameter,
 };
 
 mod modifier_sets;
@@ -95,13 +95,13 @@ pub enum Error {
 
 type Result<T> = result::Result<T, Error>;
 
-fn new_void() -> TypeSymbolLookup {
-    TypeSymbolLookup::new(vec![Identifier::from("Void")])
+fn new_void() -> TypeSymbol {
+    TypeSymbol::new(vec![Identifier::from("Void")])
 }
 
 pub struct Parser {
     tokens: Tokens,
-    current_scope: Rc<Scope>,
+    current_scope: Rc<Block>,
     modifier_sets: ModifierSets,
     accessibility_modifier_extractor: AccessibilityModifierExtractor,
 }
@@ -110,7 +110,7 @@ impl From<Tokens> for Parser {
     fn from(tokens: Tokens) -> Self {
         Self {
             tokens,
-            current_scope: Scope::new_root(),
+            current_scope: Rc::new(Block::new_root()),
             modifier_sets: Default::default(),
             accessibility_modifier_extractor: AccessibilityModifierExtractor::new(),
         }
@@ -230,14 +230,14 @@ impl Parser {
         }
     }
 
-    fn parse_lookup(&mut self) -> Result<nodes::SymbolLookup> {
+    fn parse_lookup(&mut self) -> Result<nodes::Symbol> {
         let mut lookup = vec![];
         loop {
             lookup.push(self.parse_identifier()?);
             if self.next_is(&Token::Dot) {
                 self.tokens.discard();
             } else {
-                break Ok(nodes::SymbolLookup(lookup));
+                break Ok(nodes::Symbol(lookup));
             }
         }
     }
@@ -252,20 +252,13 @@ impl Parser {
 
     fn parse_with(&mut self) -> Result<nodes::Expression> {
         self.tokens.discard();
-        let scope = self.parse_scope()?;
+        let scope = self.parse_block()?;
         Ok(Expression::Context(scope))
     }
 
     fn parse_extension(&mut self) -> Result<nodes::Extension> {
         self.tokens.discard();
-        let extension = if self.next_is(&Token::DeclarationHead(DeclarationHead::Class)) {
-            self.expect_and_discard(Token::DeclarationHead(DeclarationHead::Class))?;
-            Extension(self.parse_class_definition()?)
-        } else {
-            self.expect_and_discard(Token::DeclarationHead(DeclarationHead::Interface))?;
-            Extension(self.parse_interface_definition()?)
-        };
-        Ok(extension)
+        unimplemented!();
     }
 
     fn parse_for(&mut self) -> Result<nodes::Expression> {
@@ -281,7 +274,7 @@ impl Parser {
         let mut bindings = vec![];
         let scope = loop {
             if self.next_is(&Token::Grouping(Grouping::OpenBrace)) {
-                break self.parse_scope()?;
+                break self.parse_block()?;
             } else {
                 self.expect_and_discard(Token::Binding(Binding::Var))?;
                 bindings.push(self.parse_local_binding()?);
@@ -304,11 +297,11 @@ impl Parser {
         self.tokens.discard();
 
         let condition = self.parse_expression()?;
-        let then = self.parse_scope()?;
+        let then = self.parse_block()?;
 
         let else_clause = if self.next_is(&Token::BranchingAndJumping(BranchingAndJumping::Else)) {
             self.tokens.discard();
-            Some(self.parse_scope()?)
+            Some(self.parse_block()?)
         } else {
             None
         };
@@ -320,7 +313,7 @@ impl Parser {
         })
     }
 
-    fn parse_type_symbol_lookup(&mut self) -> Result<nodes::TypeSymbolLookup> {
+    fn parse_type_symbol_lookup(&mut self) -> Result<nodes::TypeSymbol> {
         todo!()
     }
 
@@ -341,17 +334,19 @@ impl Parser {
                     bound_match: None,
                 };
                 Ok(Some(PatternGetter {
-                    identifier: identifier.clone(),
+                    label: Some(identifier.clone()), // TODO: parse separete labels too
+                    name: identifier.clone(),
                     pattern,
                 }))
             }
 
             _ => {
-                let identifier = self.parse_identifier()?;
+                let name = self.parse_identifier()?;
                 self.expect_and_discard(Token::Binding(Binding::Assign))?;
                 let pattern = self.parse_pattern()?;
                 Ok(Some(PatternGetter {
-                    identifier,
+                    label: Some(name.clone()), // TODO: parse separate labels too
+                    name,
                     pattern,
                 }))
             }
@@ -366,7 +361,7 @@ impl Parser {
             .unwrap_or_else(|| self.premature_eof())?;
 
         if let Token::Identifier(_) = token {
-            let composite_type = self.parse_type_symbol_lookup()?;
+            let r#type = self.parse_type_symbol_lookup()?;
             self.expect_and_discard(Token::Grouping(Grouping::OpenParentheses))?;
 
             let mut getters = vec![];
@@ -392,7 +387,7 @@ impl Parser {
             self.expect_and_discard(Token::Grouping(Grouping::CloseParentheses))?;
 
             let composite = CompositePattern {
-                composite_type,
+                r#type,
                 getters,
                 ignore_rest,
             };
@@ -439,7 +434,7 @@ impl Parser {
         unimplemented!()
     }
 
-    fn parse_import(&mut self) -> Result<nodes::SymbolLookup> {
+    fn parse_import(&mut self) -> Result<nodes::Symbol> {
         self.tokens.discard();
         self.parse_lookup()
     }
@@ -452,7 +447,7 @@ impl Parser {
         unimplemented!()
     }
 
-    fn parse_type_constraints(&mut self) -> Result<Vec<TypeSymbolLookup>> {
+    fn parse_type_constraints(&mut self) -> Result<Vec<TypeSymbol>> {
         let mut constraints = vec![];
         loop {
             constraints.push(self.parse_type_symbol_lookup()?);
@@ -488,6 +483,7 @@ impl Parser {
                 };
 
                 list.push(TypeParameter {
+                    label: Some(name.clone()), // TODO: parse separate label too.
                     name,
                     upper_bounds,
                     default_value,
@@ -505,7 +501,7 @@ impl Parser {
         }
     }
 
-    fn parse_lambda_value_parameter_list(&mut self) -> Result<Vec<ValueParameter>> {
+    fn parse_lambda_value_parameter_list(&mut self) -> Result<Vec<LambdaValueParameter>> {
         let mut parameters = vec![];
 
         let wrapped_in_parentheses = self.next_is(&Token::Grouping(Grouping::OpenBrace));
@@ -516,16 +512,6 @@ impl Parser {
         loop {
             let pattern = self.parse_pattern()?;
 
-            let explicit_type_annotation = if self.next_is(&Token::SubItemSeparator)
-                || self.next_is(&Token::Binding(Binding::Assign))
-                || (wrapped_in_parentheses
-                    && self.next_is(&Token::Grouping(Grouping::CloseParentheses)))
-            {
-                None
-            } else {
-                Some(self.parse_type_symbol_lookup()?)
-            };
-
             let default_value = if self.next_is(&Token::Binding(Binding::Assign)) {
                 self.tokens.discard();
                 Some(self.parse_expression()?)
@@ -533,9 +519,9 @@ impl Parser {
                 None
             };
 
-            let parameter = nodes::ValueParameter {
+            let parameter = nodes::LambdaValueParameter {
+                label: None, // TODO: parse labels
                 pattern,
-                explicit_type_annotation,
                 default_value,
             };
 
@@ -552,12 +538,16 @@ impl Parser {
         }
     }
 
-    fn parse_lambda_result_type_annotation(&mut self) -> Result<Option<TypeSymbolLookup>> {
+    fn parse_lambda_result_type_annotation(&mut self) -> Result<Option<TypeSymbol>> {
         if self.next_is(&Token::Grouping(Grouping::OpenBrace)) {
             Ok(None)
         } else {
             Ok(Some(self.parse_type_symbol_lookup()?))
         }
+    }
+
+    fn parse_fun_signature(&mut self) -> Result<FunSignature> {
+        unimplemented!()
     }
 
     fn parse_lambda_signature(&mut self) -> Result<LambdaSignature> {
@@ -566,22 +556,10 @@ impl Parser {
             self.expect_and_discard(Token::Modifier(Modifier::Ignorable))?;
         }
 
-        let type_parameters = self.parse_type_parameter_list()?;
-
-        let value_parameters_wrapped_in_parentheses =
-            self.next_is(&Token::Grouping(Grouping::OpenParentheses));
         let value_parameters = self.parse_lambda_value_parameter_list()?;
 
-        let explicit_return_type_annotation = if value_parameters_wrapped_in_parentheses {
-            self.parse_lambda_result_type_annotation()?
-        } else {
-            None
-        };
-
         Ok(LambdaSignature {
-            type_parameters,
             value_parameters,
-            explicit_return_type_annotation,
             ignorable,
         })
     }
@@ -593,26 +571,17 @@ impl Parser {
         self.expect_and_discard(Token::LambdaArrow)?;
         let signature = self.parse_lambda_signature()?;
         self.expect(Token::Grouping(Grouping::OpenBrace))?;
-        let scope = self.parse_scope()?;
+        let block = self.parse_block()?;
 
-        Ok(Lambda { signature, scope })
+        Ok(Lambda { signature, block })
     }
 
     fn parse_fun(&mut self) -> Result<nodes::Fun> {
         self.expect_and_discard(Token::DeclarationHead(DeclarationHead::Fun))?;
         let modifiers = self.parse_modifiers(&self.modifier_sets.function.clone())?;
         let name = self.parse_identifier()?;
-        let lambda_signature = self.parse_lambda_signature()?;
-        let scope = self.parse_scope()?;
-
-        let signature = if lambda_signature.explicit_return_type_annotation.is_none() {
-            LambdaSignature {
-                explicit_return_type_annotation: Some(new_void()),
-                ..lambda_signature
-            }
-        } else {
-            lambda_signature
-        };
+        let signature = self.parse_fun_signature()?;
+        let block = self.parse_block()?;
 
         let accessibility = self
             .accessibility_modifier_extractor
@@ -630,12 +599,10 @@ impl Parser {
             is_operator: modifiers.contains(&Modifier::Operator),
         };
 
-        let lambda = Lambda { signature, scope };
         Ok(nodes::Fun {
-            name,
-            lambda,
             modifiers,
-            sydoc: None,
+            signature,
+            block,
         })
     }
 
@@ -678,14 +645,6 @@ impl Parser {
     fn parse_binding(&mut self) -> Result<nodes::Binding> {
         self.tokens.discard();
         let declaration_modifiers = self.parse_modifiers(&self.modifier_sets.binding.clone())?;
-        let accessibility = self
-            .accessibility_modifier_extractor
-            .extract_accessibilty_modifier(&declaration_modifiers)
-            .map_err(|msg| {
-                Error::Parser(ParserError {
-                    description: ParserErrorDescription::Described(msg),
-                })
-            })?;
 
         let pattern = self.parse_pattern()?;
 
@@ -762,11 +721,11 @@ impl Parser {
         let mut timeout = None;
 
         loop {
-            let mut matches = LinkedList::new();
+            let mut matches = vec![];
             if self.next_is(&Token::Timeout) {
                 if timeout.is_none() {
                     let nanoseconds = Box::new(self.parse_expression()?);
-                    let body = self.parse_scope()?;
+                    let body = self.parse_block()?;
                     timeout = Some(Timeout { nanoseconds, body });
                 } else {
                     self.unexpected(Token::Timeout)?;
@@ -785,10 +744,10 @@ impl Parser {
                             None
                         };
 
-                    matches.push_back(CaseMatch { pattern, guard });
+                    matches.push(CaseMatch { pattern, guard });
 
                     if self.next_is(&Token::Grouping(Grouping::OpenBrace)) {
-                        break self.parse_scope()?;
+                        break self.parse_block()?;
                     } else {
                         self.expect_and_discard(Token::SubItemSeparator)?;
                     }
@@ -821,7 +780,7 @@ impl Parser {
                 conditions.push_back(expression);
 
                 if self.next_is(&Token::Grouping(Grouping::OpenBrace)) {
-                    break self.parse_scope()?;
+                    break self.parse_block()?;
                 } else {
                     self.expect_and_discard(Token::SubItemSeparator)?;
                 }
@@ -841,7 +800,7 @@ impl Parser {
         let mut cases = vec![];
 
         loop {
-            let mut matches = LinkedList::new();
+            let mut matches = vec![];
             let body = loop {
                 let pattern = self.parse_pattern()?;
 
@@ -852,10 +811,10 @@ impl Parser {
                     None
                 };
 
-                matches.push_back(CaseMatch { pattern, guard });
+                matches.push(CaseMatch { pattern, guard });
 
                 if self.next_is(&Token::Grouping(Grouping::OpenBrace)) {
-                    break self.parse_scope()?;
+                    break self.parse_block()?;
                 } else {
                     self.expect_and_discard(Token::SubItemSeparator)?;
                 }
@@ -1030,15 +989,7 @@ impl Parser {
         }
     }
 
-    fn parse_scope(&mut self) -> Result<nodes::Scope> {
-        let code = self.parse_code()?;
-        Ok(Scope {
-            code,
-            parent: Some(Scope::within(&self.current_scope)),
-        })
-    }
-
-    fn parse_code(&mut self) -> Result<nodes::Code> {
+    fn parse_block(&mut self) -> Result<nodes::Block> {
         let mut bindings = vec![];
         let mut expressions = vec![];
 
@@ -1054,9 +1005,10 @@ impl Parser {
             }
         }
 
-        Ok(Code {
-            bindings,
+        Ok(Block {
             expressions,
+            bindings,
+            parent: Some(Rc::new(Block::within(&self.current_scope))),
         })
     }
 
@@ -1117,10 +1069,7 @@ impl Parser {
     fn parse_main_package(&mut self) -> Result<nodes::MainPackage> {
         let mut items: Vec<Item> = vec![];
 
-        let mut implicit_main = Code {
-            bindings: vec![],
-            expressions: vec![],
-        };
+        let mut implicit_main = Block::new_root();
 
         loop {
             let maybe_token = self.tokens.peek().map(|lexed| lexed.token.clone());
@@ -1180,7 +1129,7 @@ impl Parser {
 
         Ok(MainPackage {
             package,
-            code: implicit_main,
+            block: implicit_main,
         })
     }
 
@@ -1214,22 +1163,22 @@ impl Parser {
         maybe_version
     }
 
-    fn parse_file(&mut self) -> Result<nodes::File> {
+    fn parse_main_file(&mut self) -> Result<nodes::MainFile> {
         let shebang = self.maybe_parse_shebang();
         let version = self.maybe_parse_version();
         let main_package = self.parse_main_package();
 
-        main_package.map(|main| nodes::File {
+        main_package.map(|main| nodes::MainFile {
             shebang,
             version,
-            package: PackageFile::EntryPoint(main),
+            package: main,
         })
     }
 
     /// Parse an AST from a lexer, ensuring the underlying lexer task has
     /// finished before continuing.
-    pub fn parse(mut self) -> Result<nodes::File> {
-        let file = self.parse_file();
+    pub fn parse(mut self) -> Result<nodes::MainFile> {
+        let file = self.parse_main_file();
         let join_handle = self.tokens.join_lexer_thread();
         join_handle.map_err(|err| {
             let description = ParserErrorDescription::LexerThreadFailed(format!(

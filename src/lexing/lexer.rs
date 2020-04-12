@@ -5,8 +5,8 @@ use std::sync::mpsc::{channel, Receiver, RecvError, SendError};
 use std::thread::{self, JoinHandle};
 
 use crate::common::multiphase::{
-    self, Identifier, InterpolatedString, OverloadableInfixOperator, PostfixOperator,
-    PseudoIdentifier, SylanString,
+    self, Identifier, InterpolatedString, OverloadableInfixOperator, OverloadableSliceOperator,
+    PostfixOperator, PseudoIdentifier, SylanString,
 };
 use crate::common::peekable_buffer::PeekableBuffer;
 use crate::common::string_matches_char_slice;
@@ -652,15 +652,25 @@ impl Lexer {
         if let Some(c) = self.source.peek().cloned() {
             match c {
                 // The Infix Operators
-                ':' => Ok(self.lex_with_leading_colon()),
                 '.' => Ok(self.lex_with_leading_dot()),
                 '<' => Ok(self.lex_with_leading_left_angle_bracket()),
                 '=' => Ok(self.lex_with_leading_equals()),
                 '&' => Ok(self.lex_with_leading_ampersand()),
-                '|' => Ok(self.lex_with_leading_pipe()),
                 '^' => Ok(self.lex_with_leading_caret()),
                 '!' => self.lex_with_leading_exclamation_mark(),
                 '@' => self.lex_with_leading_at(),
+                '>' => Ok(self.lex_with_leading_right_angle_bracket()),
+
+                // The minus symbol is a negationnumeric prefix. If the lexer
+                // has got here, it is assumed that their use as numeric
+                // prefixes has already been ruled out.
+                //
+                // Note that `-` or `+` are either parts of a number literal or
+                // binary operators but are _not_ unary operators. This allows
+                // the lexer to avoid distinguishing unary and binary `-` and `+
+                // `solely by whitespace. For negating a variable, use the
+                // `Number#negate` method instead.
+                '-' => Ok(self.lex_with_leading_hyphen()),
 
                 '/' => {
                     self.source.discard();
@@ -674,8 +684,6 @@ impl Lexer {
                         OverloadableInfixOperator::Compose,
                     ))
                 }
-                '>' => Ok(self.lex_with_leading_right_angle_bracket()),
-
                 '%' => {
                     self.source.discard();
                     Ok(Token::OverloadableInfixOperator(
@@ -686,39 +694,27 @@ impl Lexer {
                     self.source.discard();
                     Ok(self.lex_with_leading_astericks())
                 }
-
                 ',' => {
                     self.source.discard();
                     Ok(Token::SubItemSeparator)
                 }
-
                 '?' => {
                     self.source.discard();
                     Ok(Token::PostfixOperator(PostfixOperator::Bind))
                 }
-
-                // The minus symbol is a negationnumeric prefix. If the lexer
-                // has got here, it is assumed that their use as numeric
-                // prefixes has already been ruled out.
-                //
-                // Note that `-` or `+` are either parts of a number literal or
-                // binary operators but are _not_ unary operators. This allows
-                // the lexer to avoid distinguishing unary and binary `-` and `+
-                // `solely by whitespace. For negating a variable, use the
-                // `Number#negate` method instead.
-                '-' => {
-                    self.source.discard();
-                    Ok(Token::OverloadableInfixOperator(
-                        OverloadableInfixOperator::Subtract,
-                    ))
-                }
-
                 '+' => {
                     self.source.discard();
                     Ok(Token::OverloadableInfixOperator(
                         OverloadableInfixOperator::Add,
                     ))
                 }
+
+                // Might be infix, might be postfix.
+                ':' => Ok(self.lex_with_leading_colon()),
+
+                // Might be slicing, or might be unrelated.
+                '[' => Ok(self.lex_with_leading_open_square_bracket()),
+                '|' => Ok(self.lex_with_leading_pipe()),
 
                 // Grouping tokens.
                 '{' => {
@@ -736,10 +732,6 @@ impl Lexer {
                 ')' => {
                     self.source.discard();
                     Ok(Token::Grouping(Grouping::CloseParentheses))
-                }
-                '[' => {
-                    self.source.discard();
-                    Ok(Token::Grouping(Grouping::OpenSquareBracket))
                 }
                 ']' => {
                     self.source.discard();
@@ -763,11 +755,21 @@ impl Lexer {
         }
     }
 
+    fn lex_with_leading_open_square_bracket(&mut self) -> Token {
+        self.source.discard();
+        if self.source.next_is('|') {
+            self.source.discard();
+            Token::OverloadableSliceOperator(OverloadableSliceOperator::Open)
+        } else {
+            Token::Grouping(Grouping::OpenSquareBracket)
+        }
+    }
+
     fn lex_with_leading_dot(&mut self) -> Token {
         self.source.discard();
         if self.source.next_is('.') {
             self.source.discard();
-            if self.source.nth_is(1, '.') {
+            if self.source.next_is('.') {
                 self.source.discard();
                 Token::PseudoIdentifier(PseudoIdentifier::Ellipsis)
             } else {
@@ -821,6 +823,9 @@ impl Lexer {
         } else if self.source.next_is('|') {
             self.source.discard();
             Token::OverloadableInfixOperator(OverloadableInfixOperator::Or)
+        } else if self.source.next_is(']') {
+            self.source.discard();
+            Token::OverloadableSliceOperator(OverloadableSliceOperator::Close)
         } else {
             Token::OverloadableInfixOperator(OverloadableInfixOperator::BitwiseOr)
         }
@@ -850,6 +855,16 @@ impl Lexer {
             Token::OverloadableInfixOperator(OverloadableInfixOperator::GreaterThanOrEqual)
         } else {
             Token::OverloadableInfixOperator(OverloadableInfixOperator::GreaterThan)
+        }
+    }
+
+    fn lex_with_leading_hyphen(&mut self) -> Token {
+        self.source.discard();
+        if self.source.next_is('>') {
+            self.source.discard();
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::Cascade)
+        } else {
+            Token::OverloadableInfixOperator(OverloadableInfixOperator::Subtract)
         }
     }
 
@@ -1346,10 +1361,25 @@ mod tests {
 
     #[test]
     fn infix_operators() {
-        let mut lexer = test_lexer("   <= \t  \r\n ~ ^ ^^ @ - < @-  @@ [ != |> :: ");
+        let mut lexer =
+            test_lexer("    ->   |]   <= \t .   [|   \r\n ~ ^ ^^ @ - < @-  @@ [ != |> :: ");
+
+        assert_next(
+            &mut lexer,
+            &Token::OverloadableInfixOperator(OverloadableInfixOperator::Cascade),
+        );
+        assert_next(
+            &mut lexer,
+            &Token::OverloadableSliceOperator(OverloadableSliceOperator::Close),
+        );
         assert_next(
             &mut lexer,
             &Token::OverloadableInfixOperator(OverloadableInfixOperator::LessThanOrEqual),
+        );
+        assert_next(&mut lexer, &Token::Dot);
+        assert_next(
+            &mut lexer,
+            &Token::OverloadableSliceOperator(OverloadableSliceOperator::Open),
         );
         assert_next(
             &mut lexer,
@@ -1462,13 +1492,12 @@ mod tests {
         let mut lexer = test_lexer(" . .. ... .. .");
 
         assert_next(&mut lexer, &Token::Dot);
-        assert_next(&mut lexer, &Token::Dot);
-        assert_next(&mut lexer, &Token::Dot);
-
         assert_next(&mut lexer, &Token::Rest);
-
-        assert_next(&mut lexer, &Token::Dot);
-        assert_next(&mut lexer, &Token::Dot);
+        assert_next(
+            &mut lexer,
+            &Token::PseudoIdentifier(PseudoIdentifier::Ellipsis),
+        );
+        assert_next(&mut lexer, &Token::Rest);
         assert_next(&mut lexer, &Token::Dot);
     }
 

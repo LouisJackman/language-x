@@ -1,11 +1,47 @@
 //! Sylan consists of items and expressions. Items are declarative whereas
 //! expressions are executed and yield values. Such values can be the void value
-//! for expressions executed solely for side-effects. "Statements" can be approximated by stacking
-//! expressions one after the other and discarding their values.
+//! for expressions executed solely for side-effects. "Statements" can be
+//! approximated by stacking expressions one after the other and discarding
+//! their values.
 //!
 //! Items are guaranteed to be evaluatable in constant-time. Importing a
 //! package should never take an indefinite amount of time due to side effects
 //! being invoked. That guarantee is not upheld for _compiling_ them, however.
+//!
+//! Patterns are used throughout Sylan. They are either refuttable or
+//! irrefuttable. Here is where each can be used:
+//!
+//! * Refuttable: `switch` cases, `select` cases, `while var`, and
+//!   `if var`. `switch` and `select` also add guard clauses, which make
+//!   any pattern refutable unless it yields compile-time boolean true value.
+//! * Irrefuttable: anywhere else, namely: var bindings, final bindings, `for`
+//!   bindings, and parameters.
+//!
+//! Here's how patterns are grouped into refuttable or irrefuttable, based
+//! solely on the pattern itself and not what is being assigned into it. The
+//! exception to that is compile-time constants which consider both sides for
+//! refuttability, but will subsequently reject such a pattern for being a
+//! pointless no-op.
+//!
+//! * Irrefuttable: identifiers, including the ignored `_` identifier,
+//!   Types with irrefutable patterns in all fields, recursively, _except_ for
+//!   enum variants (which are technically type constructors and not types),
+//!   and compile-time constants where the assigned value is also a matching
+//!   compile-time constant (which is rejected by the compiler later on for
+//!   being redundent, but is still technically a irefuttable pattern).
+//! * Refuttable: switch and select clauses with guard patterns (which are
+//!   technically part of switch and select and not part of patterns), enum
+//!   variants, values resolved from identifier with `.`, and literals in the
+//!   pattern that are either not compile-time (e.g. interpolated strings), or
+//!   cannot be matched with an equivalently compile-time equivalent in the
+//!   right hand side.
+//!
+//! Contexts that expect refuttable patterns will reject irrefutable patterns,
+//! and vice-versa. Reffutable patterns used as irrefuttable paterns are
+//! unsound, and irreffutable patterns as refuttable patterns are pointless.
+//!
+//! The parser doesn't care, since refuttabillity can only be asserted with a
+//! type system. Thus, they are both just "patterns" here.
 
 use std::collections::{HashSet, LinkedList};
 use std::hash::{Hash, Hasher};
@@ -28,6 +64,29 @@ pub struct File {
     pub package: Package,
 }
 
+/// Main files are the files that are directly invoked by Sylan. They have
+/// abilities that imported files to not; see [MainPackage] for more details.
+pub struct MainFile {
+    pub shebang: Option<Shebang>,
+    pub version: Option<Version>,
+    pub package: MainPackage,
+}
+
+// Packages only have items at top-level, with the exception of the main package that can also have
+// executable code to simplify small scripts.
+
+pub struct Package {
+    pub accessibility: Accessibility,
+    pub name: Identifier,
+    pub items: Vec<Item>,
+    pub sydoc: Option<SyDoc>,
+}
+
+pub struct MainPackage {
+    pub package: Package,
+    pub block: Block,
+}
+
 /// Every node in Sylan is either an item or an expression, even the special
 /// shebang and version tokens (both of which are items).
 pub enum Node {
@@ -40,7 +99,7 @@ pub enum Node {
 pub enum Item {
     Extension(Extension),
     Fun(Fun),
-    Import(SymbolLookup),
+    Import(Symbol),
     Package(Package),
     Type(Type),
     Final(Final),
@@ -57,10 +116,10 @@ pub enum Item {
 /// Sylan to do actual useful work.
 pub enum Expression {
     BranchingAndJumping(BranchingAndJumping),
-    Context(Scope),
+    Context(Block),
     Literal(Literal),
     Operator(Operator),
-    SymbolLookup(SymbolLookup),
+    SymbolLookup(Symbol),
     Throw(Throw),
     Using(Using),
 }
@@ -75,26 +134,20 @@ pub enum BranchingAndJumping {
     Cond(Cond),
     For(For),
     If(If),
-    IfLet(IfLet),
+    IfVar(IfVar),
     Select(Select),
     Switch(Switch),
     While(While),
-    WhileLet(WhileLet),
+    WhileVar(WhileVar),
 }
 
-/// Packages only have items at top-level, with the exception of the main package that can also have
-/// executable code to simplify small scripts.
-pub struct Package {
-    pub accessibility: Accessibility,
-    pub name: Identifier,
-    pub items: Vec<Item>,
-    pub sydoc: Option<SyDoc>,
-}
-
-pub struct MainPackage {
-    pub package: Package,
-    pub code: Code,
-}
+// One notable difference between funs and lambdas is that omitting a return
+// type on a lambda triggers type inference, whereas it always means the `Void`
+// type for `fun`. Also, `fun` expects its signature to explicitly type every
+// parameter. This is because `fun` is intended to be used for top-level
+// functions that define the shape of the program or API, in which types should
+// be explicitly annotated anyway. It also adds a bounds to potentially
+// expensive type inference costs in the compiler.
 
 pub struct FunModifiers {
     pub accessibility: Accessibility,
@@ -103,20 +156,39 @@ pub struct FunModifiers {
     pub is_operator: bool,
 }
 
-// Funs are ultimately just lambdas used in a binding, the syntactic equivalent of combining `var`
-// with a lambda expression. However, this is only realised during the simplification stage; at
-// this stage they are still distinct.
-//
-// One notable difference is that omitting a return type on a lambda triggers type inference,
-// whereas it always means the `Void` type for `func`. Also, `Fun` expects the lambda signature to
-// explicitly type every parameter, and will quickly fail in a later stage if any type annotations
-// are missing. This is because `func` is intended to be used for top-level functions that define
-// the shape of the program or API, in which types should always be explicitly annotated anyway.
-pub struct Fun {
+pub struct ValueParameter {
+    /// A label is omitted if the developer passes an `_` where a label is expected.
+    /// By constrast, if a label is totally omitted, it assumes the same
+    /// identifier as the parameter. If the parameter uses pattern-matching
+    /// beyond a basic identifier, this stops working, and the compiler notifies
+    /// them that they must provide an explicit label or use a basic identifier as
+    /// the parameter pattern.
+    ///
+    /// The same applies to lambdas and enum variants.
+    pub label: Option<Identifier>,
+
+    pub pattern: Pattern,
+    pub type_annotation: TypeSymbol,
+    pub default_value: Option<Expression>,
+}
+
+pub struct FunSignature {
     pub name: Identifier,
-    pub modifiers: FunModifiers,
-    pub lambda: Lambda,
     pub sydoc: Option<SyDoc>,
+    pub type_parameters: Vec<TypeParameter>,
+    pub value_parameters: Vec<ValueParameter>,
+
+    // Unlike lambdas, an empty return type does not fallback to inference.
+    // Instead, `Void` is assumed.
+    pub return_type_annotation: Option<TypeSymbol>,
+
+    pub ignorable: bool,
+}
+
+pub struct Fun {
+    pub modifiers: FunModifiers,
+    pub signature: FunSignature,
+    pub block: Block,
 }
 
 pub enum DeclarationItem {
@@ -139,31 +211,31 @@ pub struct ClassModifiers {
 // classes, but cannot extend other classes directly.
 
 pub struct Class {
-    pub implements: Vec<Type>,
-    pub methods: HashSet<Method>,
+    pub implements: Vec<TypeSymbol>,
+    pub methods: HashSet<ConcreteMethod>,
     pub fields: HashSet<Field>,
 
     // Initialisation
     pub value_parameters: Vec<ValueParameter>,
-    pub code: Code,
+    pub instance_initialiser: Block,
 }
 
+/// Enum variants look and feel like function parameter lists, but default
+/// values and arbitrarily deep pattern matching are omitted because they
+/// don't make sense specifically for enum variants. Defaults are dropped,
+/// and the pattern matching is restricted to just an identifier, i.e. a
+/// simple parameter name.
+///
+/// Labels can still be used, however.
 pub struct EnumVariant {
+    pub label: Option<Identifier>,
     pub name: Identifier,
-    pub type_parameters: Vec<TypeParameter>,
-    pub item: Class,
-    pub sydoc: Option<SyDoc>,
+    pub type_annotation: TypeSymbol,
 }
 
 pub struct Enum {
     pub variants: Vec<EnumVariant>,
-    pub implements: Vec<Type>,
-    pub methods: HashSet<Method>,
-    pub fields: HashSet<Field>,
-
-    // Initialisation
-    pub value_parameters: Vec<ValueParameter>,
-    pub code: Code,
+    pub class: Class,
 }
 
 /// Interfaces that support extending other interfaces, providing empty methods
@@ -171,7 +243,7 @@ pub struct Enum {
 /// and even allowing already-defined methods to be specialised via overriding
 /// in implementing classes.
 pub struct Interface {
-    pub extends: Vec<Type>,
+    pub extends: Vec<TypeSymbol>,
     pub methods: HashSet<Method>,
 }
 
@@ -188,15 +260,15 @@ pub struct Type {
     pub sydoc: Option<SyDoc>,
 }
 
-pub struct TypeSymbolLookup {
-    pub lookup: SymbolLookup,
+pub struct TypeSymbol {
+    pub reference: Symbol,
     pub type_arguments: Vec<TypeArgument>,
 }
 
-impl TypeSymbolLookup {
-    pub fn new(lookup: Vec<Identifier>) -> TypeSymbolLookup {
-        TypeSymbolLookup {
-            lookup: SymbolLookup(lookup),
+impl TypeSymbol {
+    pub fn new(lookup: Vec<Identifier>) -> Self {
+        Self {
+            reference: Symbol(lookup),
             type_arguments: vec![],
         }
     }
@@ -227,34 +299,34 @@ pub struct MethodModifiers {
 /// Type annotations are only optional in a special case: direct literals. This means a very common
 /// case, OOP-style methods, don't require spelling out type annotations twice as lambdas are
 /// literals.
-pub struct Method {
-    pub name: Identifier,
+
+pub struct AbstractMethod {
     pub modifiers: MethodModifiers,
-    pub type_annotation: Option<Type>,
-    pub non_abstract_value: Option<Expression>,
-    pub sydoc: Option<SyDoc>,
-    pub lambda: Lambda,
+    pub signature: FunSignature,
 }
 
-/// Value parameters are for values at runtime and have identifiers and
-/// optional default values.
-pub struct ValueParameter {
-    pub pattern: Pattern,
-    pub explicit_type_annotation: Option<TypeSymbolLookup>,
-    pub default_value: Option<Expression>,
+pub struct ConcreteMethod {
+    r#abstract: AbstractMethod,
+    scope: Block,
+}
+
+pub enum Method {
+    Abstract(AbstractMethod),
+    Concrete(ConcreteMethod),
 }
 
 /// Type parameters are for types at compile-time and have optional upper
 /// bounds, identifiers, and optional default values.
 pub struct TypeParameter {
+    pub label: Option<Identifier>,
     pub name: Identifier,
-    pub upper_bounds: Vec<TypeSymbolLookup>,
-    pub default_value: Option<TypeSymbolLookup>,
+    pub upper_bounds: Vec<TypeSymbol>,
+    pub default_value: Option<TypeSymbol>,
 }
 
 pub struct Argument<T> {
+    pub label: Option<Identifier>,
     pub value: T,
-    pub identifier: Option<Identifier>,
 }
 
 /// Value arguments are for values at runtime. They support being passed as
@@ -291,11 +363,26 @@ type TypeArgument = Argument<Type>;
 pub struct Binding {
     pub pattern: Pattern,
     pub value: Box<Expression>,
-    pub explicit_type_annotation: Option<TypeSymbolLookup>,
+    pub explicit_type_annotation: Option<TypeSymbol>,
 }
 
 pub struct Final {
+    /// This is gaping escape hatch from Sylan's immutable worldview. If a extern
+    /// final value points to a memory location in another artefact, like a C
+    /// dynamic library, it can actually mutate the variable underneath Sylan.
+    ///
+    /// Sylan therefore treats all extern finals as volatile, forcing memory
+    /// fences on loading and storing. The usual tricks such as automatic
+    /// caching of the value in higher levels are also dropped.
+    ///
+    /// This pollution of Sylan's immutable world view cascades downwards; any
+    /// function relying on its value can no longer assume the same output even
+    /// without `select` and with consistent inputs, so such optimisations also
+    /// are discarded. This pollution also applies to function calling extern
+    /// functions, using select, or using other functions that have these same
+    /// traits.
     pub is_extern: bool,
+
     pub accessibility: Accessibility,
     pub binding: Binding,
     pub sydoc: Option<SyDoc>,
@@ -323,75 +410,79 @@ impl Hash for Binding {
 /// Expressions are seperate from bindings.
 type Expressions = Vec<Expression>;
 
-/// Bindings within a code block are resolved before executing its
+/// Bindings within a block are resolved before executing its
 /// expressions, which is why they're items rather than expressions.
 /// This is to allow techniques like mutual recursion and
 /// self-referential functions and methods without forward declarations.
+///
+/// Blocks are themselves scopes; the two can't be meaningfully separated in
+/// Sylan.
 ///
 /// Note that the declarations aren't accessible until their declarations have
 /// been executed, but don't cause compilation problems if accessed within a
 /// delayed computation within the same scope.
 ///
-/// In other words, these declarations are block scoped with a temporal dead
-/// zone rather than using scope hoisting.
-pub struct Code {
+/// In other words, these declarations are block-scoped with a temporal dead
+/// zone rather than using scope hoisting, to use JavaScript terminology.
+///
+/// Blocks, unlike non-main packages, can contain executable code. Being an
+/// expression-oriented language, executable code is just a sequence of
+/// expressions. Unlike non-main packages, they can refer to parent blocks to
+/// provide scope lookups. They can declare variables with bindings but cannot
+/// declare new types like packages can.
+///
+/// All functions, concrete methods, and lambdas have an attached scope.
+
+pub struct Block {
     pub bindings: Vec<Binding>,
     pub expressions: Expressions,
+    pub parent: Option<Rc<Block>>,
 }
 
-impl Code {
-    pub fn new() -> Self {
-        Self {
+impl Block {
+    pub fn new_root() -> Self {
+        Block {
             bindings: vec![],
             expressions: vec![],
+            parent: None,
+        }
+    }
+
+    pub fn within(parent: &Rc<Block>) -> Self {
+        Block {
+            bindings: vec![],
+            expressions: vec![],
+            parent: Some(parent.clone()),
         }
     }
 }
 
-/// Scopes, unlike non-main packages, can contain executable code. Unlike all
-/// packages, they can refer to parent scopes. They can declare variables with
-/// bindings but cannot declare new types or subpackages like packages can.
-///
-/// All functions, methods, and lambdas have an attached scope.
-pub struct Scope {
-    pub code: Code,
-    pub parent: Option<Rc<Scope>>,
-}
-
-impl Scope {
-    pub fn new_root() -> Rc<Self> {
-        let code = Code::new();
-        let parent = None;
-        Rc::new(Self { code, parent })
-    }
-
-    pub fn within(parent: &Rc<Scope>) -> Rc<Self> {
-        let code = Code::new();
-        let parent = Some(parent.clone());
-        Rc::new(Self { code, parent })
-    }
+pub struct LambdaValueParameter {
+    pub label: Option<Identifier>,
+    pub pattern: Pattern,
+    pub default_value: Option<Expression>,
 }
 
 pub struct LambdaSignature {
-    pub type_parameters: Vec<TypeParameter>,
-    pub value_parameters: Vec<ValueParameter>,
-    pub explicit_return_type_annotation: Option<TypeSymbolLookup>,
+    pub value_parameters: Vec<LambdaValueParameter>,
     pub ignorable: bool,
 }
 
 pub struct Lambda {
     pub signature: LambdaSignature,
-    pub scope: Scope,
+    pub block: Block,
 }
 
-/// Parameterised modules are still being considered; until they're committed to, just a vector of
-/// identifiers is enough. This is a perk of static methods not existing; there's no need to support
-/// class-with-type-parameters components in the symbol lookup for now.
-///
-/// A lookup is an expression, but its information should be completely resolvable in the parsing
-/// and semantic analysis. It allows looking items up in static program structure, e.g. types and
-/// packages.
-pub struct SymbolLookup(pub Vec<Identifier>);
+// Parameterised modules are still being considered; until they're committed to, just a vector of
+// identifiers is enough. Static methods don't exist in Sylan, but `Class.method` as syntactical
+// sugar for `-> object, ..args { object.method(..args)}` does, so type symbols must also be
+// allowed (albeit without type parameters, which are solely inferred in this context).
+//
+// A lookup is an expression, but its information should be completely resolvable in the parsing
+// and semantic analysis. It allows looking items up in static program structure, e.g. types and
+// packages.
+
+pub struct Symbol(pub Vec<Identifier>);
 
 pub enum Literal {
     Char(char),
@@ -408,44 +499,48 @@ pub struct Switch {
 
 pub struct Timeout {
     pub nanoseconds: Box<Expression>,
-    pub body: Scope,
+    pub body: Block,
 }
 
 pub struct Select {
-    pub message_type: TypeSymbolLookup,
+    pub message_type: TypeSymbol,
     pub cases: Vec<Case>,
     pub timeout: Option<Timeout>,
 }
 
-pub enum LambdaArgument {
-    Normal(Argument<Expression>),
-    Entry(Box<Expression>, Box<Expression>),
-}
-
 pub struct Call {
     pub target: Box<Expression>,
-    pub arguments: Vec<LambdaArgument>,
+    pub type_arguments: Vec<TypeArgument>,
+    pub arguments: Vec<ValueArgument>,
 }
 
 pub struct Using(Box<Expression>);
 
+// Ifs must have braces for both the matching body and the else clause if one
+// exists, like any other control statement. There's one exception: if the else
+// is followed directly by another `if`, the braces can be dropped. This is to
+// allow the common `} else if {` notation.
 pub struct If {
     pub condition: Box<Expression>,
-    pub then: Scope,
-    pub else_clause: Option<Scope>,
+    pub then: Block,
+    pub else_clause: Option<Block>,
 }
 
-pub struct IfLet {
+pub struct IfVar {
     pub binding: Binding,
-    pub then: Scope,
-    pub else_clause: Option<Scope>,
+    pub then: Block,
+    pub else_clause: Option<Block>,
 }
 
 pub struct CondCase {
     pub conditions: LinkedList<Expression>,
-    pub then: Scope,
+    pub then: Block,
 }
 
+// The first expression yielding true is used; all others are ignored and not
+// even evaluated, regardless of whether they'd also return true.
+//
+// Any expression not yielding a `Boolean` type fails type checking.
 pub struct Cond(pub Vec<CondCase>);
 
 pub struct CaseMatch {
@@ -454,26 +549,45 @@ pub struct CaseMatch {
 }
 
 pub struct Case {
-    pub matches: LinkedList<CaseMatch>,
-    pub body: Scope,
+    pub matches: Vec<CaseMatch>,
+    pub body: Block,
 }
+
+// For loop "labels" are completely different to parameter labels. They are
+// instead names of continuation identifiers that get predefined inside for loop
+// bodies. They are inspired semantically by both Scheme's named-let and
+// syntactically by Java's loop break labels.
+//
+// * https://docs.racket-lang.org/guide/let.html#%28part._.Named_let%29
+// * https://docs.oracle.com/javase/tutorial/java/nutsandbolts/branch.html
+//
+// for loops will halt unless continue or a label is called. If a label misses
+// out bindings as parameters, they are defaulted to reevaluating the
+// initialiser again.
+//
+// `if var`, `while var`, and `for while` all allow multiple `var` bindings,
+// separated with commas. `if var` and a `while var` expect _all_ bindings to
+// match before continuing into the block. `for` won't allow refutable
+// patterns; refuttable patterns must be done inside the for loop with other
+// constructs.
 
 pub struct For {
     pub bindings: Vec<Binding>,
-    pub scope: Scope,
+    pub scope: Block,
     pub label: Option<Identifier>,
 }
 
 pub struct While {
     pub condition: Box<Expression>,
-    pub scope: Scope,
-    pub label: Option<Identifier>,
+    pub scope: Block,
 }
 
-pub struct WhileLet {
+// `while var` does not accept labels. If a developers need that, they should
+// use for loops instead, and perform refuttable pattern matching against the
+// irefuttable pattern bound by `for` inside the body.
+pub struct WhileVar {
     pub binding: Binding,
-    pub scope: Scope,
-    pub label: Option<Identifier>,
+    pub scope: Block,
 }
 
 /// Throwing an expression does not yield a value as it destroys its current
@@ -484,26 +598,41 @@ pub struct WhileLet {
 pub struct Throw(pub Box<Expression>);
 
 pub struct PatternGetter {
-    pub identifier: Identifier,
+    pub label: Option<Identifier>,
+    pub name: Identifier,
     pub pattern: Pattern,
 }
 
 pub struct CompositePattern {
-    pub composite_type: TypeSymbolLookup,
+    pub r#type: TypeSymbol,
     pub getters: Vec<PatternGetter>,
     pub ignore_rest: bool,
 }
 
 pub enum PatternItem {
-    Literal(Literal),
+    // Irrefuttable
     Identifier(Identifier),
-    Composite(CompositePattern),
     Ignored,
+
+    // Irrefutable unless an interpolated string is used.
+    Literal(Literal),
+
+    // Irrefutable if all fields are also refuttable.
+    Composite(CompositePattern),
+
+    // Refuttable, as it's worked out at runtime from what the symbol resolves
+    // to. Irrefuttable if it can be resolved at compile-time _and_ the
+    // left-hand side can also be resolved at compile-time.
+    Symbol(Symbol),
 }
 
 pub struct Pattern {
     pub item: PatternItem,
-    pub bound_match: Option<Identifier>,
+
+    // Bound with `as`, a ireffutable pattern match on the right hand side and
+    // available in following-on blocks such as switch/select clauses and
+    // guards, fun bodies, and `if let`, `while let`, and `for` blocks.
+    pub bound_match: Option<Box<Pattern>>,
 }
 
 impl PartialEq for Pattern {
