@@ -152,7 +152,7 @@ case of native compilation.
 * Encourage compile-time metaprogramming over runtime annotation and reflection;
   design it to scale in the large without becoming cryptic.
 * Be mostly expression-based and with decent pattern matching.
-* Guarantee tail-call elimination with shadow stacks to aid debugging.
+* Guarantee tail-call elimination with Safari-like shadow stacks to aid debugging.
 
 ## Details
 
@@ -245,14 +245,21 @@ case of native compilation.
 * Types should start with capital letters, and values with lowercase letters.
 * Methods are namespaced to their types, although just deeper in the namespacing
   hierarchy rather than in a completely different standalone global namespace.
-* Shadowing is not allowed except for pseudoidentifiers, which use keywords.
-* There are six psuedoidentifiers: `...`, `_`, `continue`, `it`, `this`, and
-  `super`. `continue` and `it` are _almost_ dynamically scoped, changing
-  implicitly throughout scopes based on the context. `continue` binds to the
-  innermost non-labelled `for` iteration function, `it` is the innermost
-  syntactically-zero-parameter lambda's sole parameter, and `_` is an ignored
-  value in a binding and a partial-application notation for the innermost
-  invocation.
+* Shadowing is not allowed in the same block except for pseudoidentifiers, which
+  use keyphrases. Shadowing is allowed between packages and their subpackages
+  and classes in the same file though; a particular example is methods being
+  able to shadow package-wide functions of the same name. Explicitly specifying
+  the package lets subpackages and classes disambiguate which identifier they
+  mean, which the `this.package` pseudoidentifier can help with.
+* There are nine psuedoidentifiers: `...`, `_`, `continue`, `it`, `this`, `This`
+  `this.module`, `this.package`, and `super`. `continue` and `it` are _almost_
+  dynamically scoped, changing implicitly throughout scopes based on the
+  context. `continue` binds to the innermost non-labelled `for` iteration
+  function, `it` is the innermost syntactically-zero-parameter lambda's sole
+  parameter, and `_` is an ignored value in a binding and a partial-application
+  notation for the innermost invocation. `this` refers to the current object,
+  `This` to the current type, `this.module` to the current module, and
+  `this.package` to the current package.
 * Types and variables can both be thought of as "bindings", just one at
   compile-time and another at runtime. Never the twain shall meet, at least
   until Sylan designs how they should interoperate if at all. This will depend
@@ -273,8 +280,8 @@ case of native compilation.
   not deal with concrete class inheritance.
 * Interfaces can provide default method implementations, which can be overridden
   in implementing classes. `override` on a method makes such overrides clear.
-  Shadowing does not exist; if it has the same name, it must override, and the
-  developer must explicitly state that with `override`.
+  Method shadowing does not exist; if it has the same name, it must override,
+  and the developer must explicitly state that with `override`.
 * There is no method resolution order such as Dylan- and Python 3-inspired MRO.
   Dynamic dispatch does not exist, since all runtime polymorphism should be done
   via enums instead. Interfaces are more like Haskell typeclasses than Java's

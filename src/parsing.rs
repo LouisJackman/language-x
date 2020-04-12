@@ -29,11 +29,12 @@
 //! strict, non-pure language, can just execute sequentially at runtime without
 //! needing monads or uniqueness types to enforce the order.
 //!
-//! There are six keywords that work effectively like predefined identifiers:
-//! `...`, `it`, `continue`, `this`, `super`, and `_`. They are also the only keywords
-//! that are allowed ! to be shadowed; user-defined symbols will fail to bind if
-//! a binding of the ! same name already exists in the same or outer scope. They
-//! are called _pseudoidentifiers_.
+//! There are nine keyphrases that work effectively like predefined identifiers:
+//! `...`, `it`, `continue`, `this`, `This`, `this.module`, `this.package`,
+//! `super`, and `_`. They are also the only keyphrases that are allowed to be
+//! shadowed in the same block; user-defined symbols will fail to bind if a binding
+//! of the same name already exists in the same or outer scope. They are called
+//! _pseudoidentifiers_.
 //!
 //! A simplification step is performed before giving the AST to the backend as
 //! a jump is needed from Sylan's pragmatic, large syntax to the much smaller,

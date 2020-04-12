@@ -12,7 +12,7 @@ use crate::common::peekable_buffer::PeekableBuffer;
 use crate::common::string_matches_char_slice;
 use crate::common::version::Version;
 use crate::lexing::tokens::{Binding, Grouping, Literal, Token};
-use crate::lexing::{char_escapes, keywords, non_word_chars};
+use crate::lexing::{char_escapes, keyphrases, non_word_chars};
 use crate::source::in_memory::Source;
 use crate::source::Position;
 
@@ -89,7 +89,7 @@ fn is_start_of_literal_with_escapes(c: char) -> bool {
 pub struct Lexer {
     source: Source,
     char_escapes: HashMap<char, char>,
-    keywords: HashMap<&'static str, Token>,
+    keyphrases: HashMap<&'static str, Token>,
     non_word_chars: HashSet<char>,
 }
 
@@ -98,7 +98,7 @@ impl From<Source> for Lexer {
         Self {
             source,
             char_escapes: char_escapes::new(),
-            keywords: keywords::new(),
+            keyphrases: keyphrases::new(),
             non_word_chars: non_word_chars::new(),
         }
     }
@@ -588,8 +588,8 @@ impl Lexer {
         }
     }
 
-    fn lex_keyword_or_identifier(&self, word: String) -> Token {
-        match self.keywords.get(&word[..]) {
+    fn lex_phrase(&self, word: String) -> Token {
+        match self.keyphrases.get(&word[..]) {
             Some(token) => token.clone(),
             None => Token::Identifier(multiphase::Identifier::from(word)),
         }
@@ -909,7 +909,7 @@ impl Lexer {
                 }
                 '*' => {
                     self.source.discard();
-                    self.expect_and_discard('*');
+                    self.expect_and_discard('*')?;
                     Ok(Token::OverloadableInfixOperator(
                         OverloadableInfixOperator::MatrixPower,
                     ))
@@ -1052,7 +1052,7 @@ impl Lexer {
                                     } else if c.is_alphabetic() {
                                         let mut rest = String::new();
                                         self.lex_rest_of_word(&mut rest);
-                                        Ok(self.lex_keyword_or_identifier(rest))
+                                        Ok(self.lex_phrase(rest))
                                     } else if c.is_digit(10)
                                         || (self.source.match_nth(1, |c| c.is_digit(10))
                                             && ((c == '+') || (c == '-')))
@@ -1233,12 +1233,25 @@ mod tests {
 
     #[test]
     fn psuedo_identifiers() {
-        let mut lexer = test_lexer(" super    this  \t _ \r  it  continue ... ");
+        let mut lexer =
+            test_lexer(" super  This  this  \t _ this.package this.module \r  it  continue ... ");
         assert_next(
             &mut lexer,
             &Token::PseudoIdentifier(PseudoIdentifier::Super),
         );
+        assert_next(
+            &mut lexer,
+            &Token::PseudoIdentifier(PseudoIdentifier::ThisType),
+        );
         assert_next(&mut lexer, &Token::PseudoIdentifier(PseudoIdentifier::This));
+        assert_next(
+            &mut lexer,
+            &Token::PseudoIdentifier(PseudoIdentifier::ThisPackage),
+        );
+        assert_next(
+            &mut lexer,
+            &Token::PseudoIdentifier(PseudoIdentifier::ThisModule),
+        );
         assert_next(
             &mut lexer,
             &Token::PseudoIdentifier(PseudoIdentifier::PlaceholderIdentifier),

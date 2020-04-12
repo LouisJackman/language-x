@@ -1,13 +1,22 @@
 #!/usr/bin/env sylan
 
-// If no package is specified, "main" is assumed. A `module-info.sy` file is not
-// required for the top level program as there is an inferred `main` module that
-// contains top-level programs.
 package main
+/**
+ * If no package is specified, "main" is assumed. A `module-info.sy` file is not
+ * required for the top level program as there is an inferred `main` module that
+ * contains top-level programs.
+ */ 
 
 // Most of those imports are already in the prelude and thus already imported:
-// `sylan.lang`. They are explicitly imported here to give an idea of the standard
-// package structure.
+// `sylan.lang`. They are explicitly imported here to give an idea of the
+// standard package structure.
+//
+// By default, the first identifier in a lookup is the module. If that clashes
+// with a top-level package in the current module, that can be disambiguated
+// using the `this.module` form, e.g. `import this.module.topLevelPackage`.
+//
+// For example, all the imports here are from the `sylan` module, which is
+// already available for all Sylan programs.
 import sylan.{
     io.println,
     uil.{
@@ -127,7 +136,7 @@ fun demoIteration {
     }
 
     /*
-     * Sylan does not allow scope shadowing. As functions are just
+     * Sylan does not allow scope within blocks. As functions are just
      * variables of a "function type", `factorial` would clash with the
      * top-level `factorial` function defined later on, hence the disambiguating
      * name `innerFactorial`.
@@ -405,8 +414,8 @@ class Account(
     // Prefixing a class parameter with `var` upgrades it to a field, vaguely
     // similar to TypeScript's equivalent feature. This is syntactical sugar
     // for passing a normal parameter and assigning it to a new field in a class
-    // body. It also solves the problem of shadowing between parameters and
-    // declared fields.
+    // body. It also solves the inconvenience of shadowing between parameters
+    // and declared fields.
     var internal ageInYears Int,
     
 ) implements ToString, Concatenate[to: This] {
@@ -431,6 +440,11 @@ class Account(
  
         println("instantiating an instance initialiser...")
         println("instantiating an Account...")
+
+        // If a local method called `println` was defined, that'd be called
+        // instead. If a package-level function is needed instead, refer to
+        // it by its full package name, or even use the `this.package.
+        // convenience form, e.g. `this.package.println("test")`.
     }
 
     /*

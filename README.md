@@ -85,14 +85,23 @@ that can be run.
 ```sylan
 #!/usr/bin/env sylan
 
-// If no package is specified, "main" is assumed. A `module-info.sy` file is not
-// required for the top level program as there is an inferred `main` module that
-// contains top-level programs.
 package main
+/**
+ * If no package is specified, "main" is assumed. A `module-info.sy` file is not
+ * required for the top level program as there is an inferred `main` module that
+ * contains top-level programs.
+ */ 
 
 // Most of those imports are already in the prelude and thus already imported:
-// `sylan.lang`. They are explicitly imported here to give an idea of the standard
-// package structure.
+// `sylan.lang`. They are explicitly imported here to give an idea of the
+// standard package structure.
+//
+// By default, the first identifier in a lookup is the module. If that clashes
+// with a top-level package in the current module, that can be disambiguated
+// using the `this.module` form, e.g. `import this.module.topLevelPackage`.
+//
+// For example, all the imports here are from the `sylan` module, which is
+// already available for all Sylan programs.
 import sylan.{
     io.println,
     uil.{
@@ -212,7 +221,7 @@ fun demoIteration {
     }
 
     /*
-     * Sylan does not allow scope shadowing. As functions are just
+     * Sylan does not allow scope within blocks. As functions are just
      * variables of a "function type", `factorial` would clash with the
      * top-level `factorial` function defined later on, hence the disambiguating
      * name `innerFactorial`.
@@ -358,7 +367,7 @@ fun demoContexts Optional[Int] {
     }
 }
 
-enum List[Element](
+enum List[of Element](
 
     // Enum variants mirror normal functions, and are called like them too.
     // The names of the elements become important for pattern matching.
@@ -446,11 +455,11 @@ fun `test that addition works` {
     assert((2 + 2) == 4)
 }
 
-interface Concatenate[T] {
+interface Concatenate[with T, producing U: T] {
     fun public concatenate(withEnd that T) T
 }
 
-interface Equals[T] {
+interface Equal[to T] {
     fun public equal(to that T) Boolean
 
     /*
@@ -490,11 +499,11 @@ class Account(
     // Prefixing a class parameter with `var` upgrades it to a field, vaguely
     // similar to TypeScript's equivalent feature. This is syntactical sugar
     // for passing a normal parameter and assigning it to a new field in a class
-    // body. It also solves the problem of shadowing between parameters and
-    // declared fields.
+    // body. It also solves the inconvenience of shadowing between parameters
+    // and declared fields.
     var internal ageInYears Int,
     
-) implements ToString, Concatenate[This] {
+) implements ToString, Concatenate[to: This] {
 
     {
         // Instance initializers are optional but must appear before anything else
@@ -516,6 +525,11 @@ class Account(
  
         println("instantiating an instance initialiser...")
         println("instantiating an Account...")
+
+        // If a local method called `println` was defined, that'd be called
+        // instead. If a package-level function is needed instead, refer to
+        // it by its full package name, or even use the `this.package.
+        // convenience form, e.g. `this.package.println("test")`.
     }
 
     /*
@@ -579,7 +593,7 @@ class Account(
  * be two completely different implementations. This is a more disciplined
  * replacement for method overloading.
  */
-extend class Account implements Concatenate[This, Result: String] {
+extend class Account implements Concatenate[to: This, producing: String] {
 
     fun public override concatenate(withEnd: that This) String {
         $"{firstName} {that.firstName}"
@@ -1002,13 +1016,15 @@ case of native compilation.
 * Methods are namespaced to their types, although just deeper in the namespacing
   hierarchy rather than in a completely different standalone global namespace.
 * Shadowing is not allowed except for pseudoidentifiers, which use keywords.
-* There are six psuedoidentifiers: `...`, `_`, `continue`, `it`, `this`, and
-  `super`. `continue` and `it` are _almost_ dynamically scoped, changing
-  implicitly throughout scopes based on the context. `continue` binds to the
-  innermost non-labelled `for` iteration function, `it` is the innermost
-  syntactically-zero-parameter lambda's sole parameter, and `_` is an ignored
-  value in a binding and a partial-application notation for the innermost
-  invocation.
+* There are nine psuedoidentifiers: `...`, `_`, `continue`, `it`, `this`, `This`
+  `this.module`, `this.package`, and `super`. `continue` and `it` are _almost_
+  dynamically scoped, changing implicitly throughout scopes based on the
+  context. `continue` binds to the innermost non-labelled `for` iteration
+  function, `it` is the innermost syntactically-zero-parameter lambda's sole
+  parameter, and `_` is an ignored value in a binding and a partial-application
+  notation for the innermost invocation. `this` refers to the current object,
+  `This` to the current type, `this.module` to the current module, and
+  `this.package` to the current package.
 * Types and variables can both be thought of as "bindings", just one at
   compile-time and another at runtime. Never the twain shall meet, at least
   until Sylan designs how they should interoperate if at all. This will depend

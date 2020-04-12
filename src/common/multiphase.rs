@@ -142,7 +142,6 @@ pub enum OverloadableInfixOperator {
 /// * `list[|1 : 3|]` from the first element to the 3rd, semi-inclusive, and
 ///    considering Sylan's 0-based indexing.
 /// * `list[|: -1 : -2|]` reverses from antepenultimate element to the first.
-/// * `list
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum OverloadableSliceOperator {
     Open,
@@ -157,7 +156,7 @@ pub enum PostfixOperator {
 
 /// They act as identifiers but have two distinguishing properties:
 ///
-/// * They can be shadowed.
+/// * They can be shadowed in the same block.
 /// * They cannot be defined by user code.
 /// * They can only be referred to directly, not via package lookups with dots.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -166,6 +165,9 @@ pub enum PseudoIdentifier {
     It,
     Super,
     This,
+    ThisType,
+    ThisPackage,
+    ThisModule,
 
     /// Similar to Python's ellipsis, it's a variable that can be checked
     /// against and interpreted accordingly by data-oriented APIs when
