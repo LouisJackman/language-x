@@ -12,7 +12,7 @@ use crate::common::peekable_buffer::PeekableBuffer;
 use crate::common::string_matches_char_slice;
 use crate::common::version::Version;
 use crate::lexing::tokens::{Binding, Grouping, Literal, Token};
-use crate::lexing::{char_escapes, keyphrases, non_word_chars};
+use crate::lexing::{char_escapes, keywords, non_word_chars};
 use crate::source::in_memory::Source;
 use crate::source::Position;
 
@@ -89,7 +89,7 @@ fn is_start_of_literal_with_escapes(c: char) -> bool {
 pub struct Lexer {
     source: Source,
     char_escapes: HashMap<char, char>,
-    keyphrases: HashMap<&'static str, Token>,
+    keywords: HashMap<&'static str, Token>,
     non_word_chars: HashSet<char>,
 }
 
@@ -98,7 +98,7 @@ impl From<Source> for Lexer {
         Self {
             source,
             char_escapes: char_escapes::new(),
-            keyphrases: keyphrases::new(),
+            keywords: keywords::new(),
             non_word_chars: non_word_chars::new(),
         }
     }
@@ -588,10 +588,30 @@ impl Lexer {
         }
     }
 
-    fn lex_phrase(&self, word: String) -> Token {
-        match self.keyphrases.get(&word[..]) {
-            Some(token) => token.clone(),
-            None => Token::Identifier(multiphase::Identifier::from(word)),
+    fn lex_phrase(&mut self, word: String) -> TokenResult {
+        match self.keywords.get(&word[..]) {
+            Some(Token::PseudoIdentifier(PseudoIdentifier::This)) => self.lex_this(),
+            Some(token) => Ok(token.clone()),
+            None => Ok(Token::Identifier(multiphase::Identifier::from(word))),
+        }
+    }
+
+    fn lex_this(&mut self) -> TokenResult {
+        if self.source.next_is('.') {
+            self.source.discard();
+            if self.source.match_next(|c| c.is_alphabetic()) {
+                let mut rest = String::new();
+                self.lex_rest_of_word(&mut rest);
+                Ok(match &rest[..] {
+                    "package" => Token::PseudoIdentifier(PseudoIdentifier::ThisPackage),
+                    "module" => Token::PseudoIdentifier(PseudoIdentifier::ThisModule),
+                    _ => Token::FieldLookup(Identifier::from(rest)),
+                })
+            } else {
+                self.fail("expected an alphabetic character after `this.`")
+            }
+        } else {
+            Ok(Token::PseudoIdentifier(PseudoIdentifier::This))
         }
     }
 
@@ -1052,7 +1072,7 @@ impl Lexer {
                                     } else if c.is_alphabetic() {
                                         let mut rest = String::new();
                                         self.lex_rest_of_word(&mut rest);
-                                        Ok(self.lex_phrase(rest))
+                                        self.lex_phrase(rest)
                                     } else if c.is_digit(10)
                                         || (self.source.match_nth(1, |c| c.is_digit(10))
                                             && ((c == '+') || (c == '-')))
@@ -1177,7 +1197,7 @@ mod tests {
     fn assert_next(lexer: &mut Lexer, token: &Token) {
         match lexer.lex_next() {
             Ok(LexedToken { token: t, .. }) => {
-                assert_eq!(t, *token);
+                assert_eq!(*token, t);
             }
             Err(e) => panic!(e),
         }
@@ -1246,15 +1266,15 @@ mod tests {
         assert_next(&mut lexer, &Token::PseudoIdentifier(PseudoIdentifier::This));
         assert_next(
             &mut lexer,
+            &Token::PseudoIdentifier(PseudoIdentifier::PlaceholderIdentifier),
+        );
+        assert_next(
+            &mut lexer,
             &Token::PseudoIdentifier(PseudoIdentifier::ThisPackage),
         );
         assert_next(
             &mut lexer,
             &Token::PseudoIdentifier(PseudoIdentifier::ThisModule),
-        );
-        assert_next(
-            &mut lexer,
-            &Token::PseudoIdentifier(PseudoIdentifier::PlaceholderIdentifier),
         );
         assert_next(&mut lexer, &Token::PseudoIdentifier(PseudoIdentifier::It));
         assert_next(
@@ -1540,5 +1560,19 @@ mod tests {
         let mut lexer = test_lexer("/* comment */ // \n /** A SyDoc /* comment. */ */");
         let sydoc = Token::SyDoc(SyDoc::from(" A SyDoc /* comment. */ "));
         assert_next(&mut lexer, &sydoc);
+    }
+
+    #[test]
+    fn field_lookups() {
+        let mut lexer = test_lexer("  /* */this.field this.package this.FIEL3D_FIELD //");
+        assert_next(&mut lexer, &Token::FieldLookup(Identifier::from("field")));
+        assert_next(
+            &mut lexer,
+            &Token::PseudoIdentifier(PseudoIdentifier::ThisPackage),
+        );
+        assert_next(
+            &mut lexer,
+            &Token::FieldLookup(Identifier::from("FIEL3D_FIELD")),
+        );
     }
 }

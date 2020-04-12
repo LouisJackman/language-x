@@ -20,7 +20,7 @@ use crate::common::peekable_buffer::PeekableBuffer;
 use crate::lexing::lexer::{LexedToken, Lexer, LexerTask, LexerTaskError};
 
 mod char_escapes;
-mod keyphrases;
+mod keywords;
 mod non_word_chars;
 
 pub mod lexer;

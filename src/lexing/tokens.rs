@@ -84,6 +84,7 @@ pub enum Binding {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Token {
     Identifier(Identifier),
+    FieldLookup(Identifier),
     Literal(Literal),
     Shebang(Shebang),
     SyDoc(SyDoc),
@@ -102,6 +103,7 @@ pub enum Token {
 
     Colon,
     Dot,
+    FieldSigil,
     Eof,
     LambdaArrow,
     Rest,

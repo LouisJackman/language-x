@@ -416,6 +416,18 @@ class Account(
     // for passing a normal parameter and assigning it to a new field in a class
     // body. It also solves the inconvenience of shadowing between parameters
     // and declared fields.
+    //
+    // Fields are, on the surface, accessible directly. Actually, they are only
+    // available via the `this.` sigil which cannot be used outside the class.
+    // Classes only expose methods. However, fields autogenerate getter methods
+    // with the same accessibility and with the aforementioned syntactical sugar
+    // of dropping parentheses for no arguments. These can be overridden at a
+    // future date by a developer to transparently upgrade a simple field to a
+    // getter with additional logic.
+    //
+    // This also means that interfaces can mandate "fields"; as all fields are
+    // ultimately getter methods from an external viewpoint, they can also be
+    // defined and defaulted in interfaces.
     var internal ageInYears Int,
     
 ) implements ToString, Concatenate[to: This] {
@@ -468,6 +480,18 @@ class Account(
     var embed name Name = Name(first: firstName, last: lastName)
 
     var expiry ZonedDateTime = ZonedDateTime.now + 1.year
+
+    // Automatically generated field getters can be overridden with custom
+    // implementations like the following, which can then access the original
+    // field with `this.`.
+    //
+    // Note that all access to a field without the `this.` sigil, even from
+    // inside the class itself, is going via the getter methods.
+    fun public expiry ZonedDateTime {
+        println($"the original expiry was {this.expiry}")
+
+        this.expiry + 1.year  // Ultimately yields now plus two years
+    }
 
     fun public override toString String {
         $"{firstName} {lastName} is {ageInYears} years old"

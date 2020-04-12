@@ -1,10 +1,8 @@
-//! Keyphrases are whole phrases that are lexed as a single unit and reserved
-//! by the language. Most of them are single keywords, but some are multiple
-//! words using dots as separators which must be reserved by the language to
-//! distinguish them from normal symbol lookups.
+//! Keywords are whole words that are lexed as a single unit and reserved
+//! by the language.
 //!
-//! Keyphrases are reserved to help the parser interpret tokens and resolve
-//! ambiguities. Some of the keyphrases here are reserved but not used. They are
+//! Keywords are reserved to help the parser interpret tokens and resolve
+//! ambiguities. Some of the keywords here are reserved but not used. They are
 //! reserved to avoid their use as symbols in source files so that they can
 //! potentially be used in the future without breaking existing code.
 
@@ -19,25 +17,22 @@ pub fn new() -> HashMap<&'static str, Token> {
     let mut map = HashMap::new();
     map.extend(vec![
         //
-        // Pseudoidentifiers (including two Keyphrases)
+        // Pseudoidentifiers
         //
         (
             "_",
             Token::PseudoIdentifier(PseudoIdentifier::PlaceholderIdentifier),
         ),
+        (
+            "continue",
+            Token::PseudoIdentifier(PseudoIdentifier::Continue),
+        ),
         ("this", Token::PseudoIdentifier(PseudoIdentifier::This)),
-        (
-            "this.module",
-            Token::PseudoIdentifier(PseudoIdentifier::ThisModule),
-        ),
-        (
-            "this.package",
-            Token::PseudoIdentifier(PseudoIdentifier::ThisPackage),
-        ),
+        ("This", Token::PseudoIdentifier(PseudoIdentifier::ThisType)),
         ("it", Token::PseudoIdentifier(PseudoIdentifier::It)),
         ("super", Token::PseudoIdentifier(PseudoIdentifier::Super)),
         //
-        // Used Keywords
+        // Used
         //
         ("as", Token::Binding(Binding::As)),
         ("class", Token::DeclarationHead(DeclarationHead::Class)),
@@ -100,7 +95,7 @@ pub fn new() -> HashMap<&'static str, Token> {
             Token::BranchingAndJumping(BranchingAndJumping::While),
         ),
         //
-        // Reserved keywords, but not used.
+        // Reserved, but not yet used
         //
         ("asm", Token::ReservedKeyword),
         ("alias", Token::ReservedKeyword),
