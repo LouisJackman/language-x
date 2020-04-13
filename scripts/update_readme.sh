@@ -9,7 +9,7 @@ script=$(cat <<-'EOF'
         getline
 
         print "```sylan"
-        system("cat examples/main.sy")
+        system("cat examples/readme_example.sy")
         print "```"
     }
 

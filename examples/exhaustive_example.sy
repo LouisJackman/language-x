@@ -66,7 +66,7 @@ fun demoIteration {
         .each(println::)
 
     // Sylan supports field-looking getters and transparently upgrading an
-    // expression to a computation, both of which mandate no parentheses
+    // field lookup to a computation, both of which mandate no parentheses
     // for no-argument invocables. Use the :: postfix operator to pick up these
     // invocables as first-class values. Combine it with the dot operator to
     // refer to a method of a type.
@@ -101,12 +101,17 @@ fun demoIteration {
     }
 
     do -> {
+
+        // `using` invokes an expressions AutoClose method at the end of the
+        // current block, even if the program dies due to an exception (which
+        // are seen as truly in Sylan and thus cannot be caught).
+        //
+        // In this context, "closing" a task kills it, which, unlike Java
+        // threads, is safe.
         var counterService = using Task -> {
             for var n = 0 {
                 var sender = select Task {
-                    _ {
-                        it
-                    }
+                    x { x }
                 }
                 if n < 5 {
                     send(Some(n), to: sender)
@@ -264,7 +269,7 @@ fun demoContexts Optional[Int] {
      */
 
     with {
-        Some(5)?.map
+        Some(5)
         println("Doing something.")
 
         var _ = Empty?
@@ -323,23 +328,23 @@ package counter {
         Get,
     )
 
-    fun public start(channel Task, n Int: 0) {
+    fun public start(task Task, n Int: 0) {
         select Message {
 
             // Putting a dot before a switch or select case is syntactical
             // sugar for an enum variant of the selected or switched type.
             .Increment {
-                start(channel, n: n + 1)
+                start(task, n: n + 1)
             }
             .Reset(n) {
 
                 // Labelled arguments can omit labels _if the local variable
                 // passed in has the same name_.
-                start(channel, n)
+                start(task, n)
             }
             .Get {
-                send(n, to: sender)
-                start(channel, n)
+                send(n, to: task)
+                start(task, n)
             }
             timeout 10.seconds {
                 throw Exception("timed out!")
@@ -726,8 +731,11 @@ if var Some(s) = optionalString {
     println(s)
 }
 
-var c = Task -> {
-    counter.start(channel: currentTask)
+var c = do -> {
+    var parent = currentTask
+    Task -> {
+        counter.start(task: parent)
+    }
 }
 5.times -> {
     send(counter.Message.Increment, to: c)
@@ -739,11 +747,12 @@ send(counter.Message.Get, to: c)
 
 // Should print 5 and then 6.
 2.times -> {
-    var n = select Int {
-        _ {
-            it
-        }
-    }
+
+    // As well as the explicit form used in an earlier example, the body can be dropped if
+    // the developer wants to grab any message that matches the type with no further
+    // pattern matching or timeouts.
+    var n = select Int
+
     println($"{n}")
 }
 

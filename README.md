@@ -20,11 +20,131 @@ computer science concepts. It should take versioning and backwards compatibility
 seriously and ease distribution by producing single, statically-linked
 executables with no required external runtimes.
 
+## Example
+
+```sylan
+#!/usr/bin/env sylan
+
+fun fizzBuzz(n Int) Int {
+    /**
+     * The (in)famous FizzBuzz.
+     */
+    
+    1.up(to: n).each -> {
+        switch {
+            0 == (it % 15) { "FizzBuzz" }
+            0 == (it % 5) { "Fizz" }
+            0 == (it % 3) { "Buzz" }
+            _ { it }
+        } |> println
+    }
+}
+
+//
+// Time for some data structures. Note: real pattern matching.
+//
+enum List[of Element](
+    Node(of element Element, next This),
+    Nil,
+) {
+    fun each(do (element Element)) {
+        switch this {
+            Node(element, next) {
+                do(element)
+                next.each(do)
+            }
+            Nil {
+                Void
+            }
+        }
+    }
+}
+
+//
+// Now, Erlang-style concurrency and nested packages.
+//
+
+package counter {
+    enum Message(
+        Increment,
+        Reset(with n Int),
+        Get,
+    )
+
+    fun public start(task Task, n Int: 0) {
+        select Message {
+            .Increment {
+                start(task, n: n + 1)
+            }
+            .Reset(n) {
+                start(task, n)
+            }
+            .Get {
+                send(n, to: task)
+                start(task, n)
+            }
+            timeout 10.seconds {
+                throw Exception("timed out!")
+            }
+        }
+    }
+}
+
+var c = do -> {
+    var parent = currentTask
+    Task -> {
+        counter.start(task: parent)
+    }
+}
+5.times -> {
+    send(counter.Message.Increment, to: c)
+}
+send(counter.Message.Get, to: c)
+send(counter.Message.Increment, to: c)
+send(counter.Message.Get, to: c)
+2.times -> {
+    var n = select Int
+    println($"{n}")
+}
+send(counter.Message.Reset(to: 0), to: c)
+
+//
+// Easy data definition with keyword arguments and defaults. Easily interpolate strings.
+//
+class Name(
+    var public first String: "James",
+    var public last String: "Bond",
+) implements ToString {
+
+    fun public override toString String {
+        $"The name is {lastName}, {firstName} {lastName}."
+    }
+}
+
+//
+// Finally, the esoteric for Haskell fans: applicative notation.
+//
+fun demoContexts Optional[Int] {
+    with {
+        var x = Some(5)?
+
+        Empty?
+        println("Will not be run.")
+        Empty
+    }
+}
+
+//
+// There's much more! See `examples/exhaustive_example.sy` for a demo of all
+// language features, with explanatory comments for each.
+//
+```
+
 ## Contents
 
+* [Example](#example)
 * [Installation](#installation)
 * [Done so Far](#done-so-far)
-* [Example](#example)
 * [Overview](#overview)
 * [Goals](#goals)
 * [Details](#details)
@@ -80,791 +200,6 @@ that can be run.
 - [ ] Add optimisations like persistent data structures.
 - [ ] Compile with bundled runtime.
 
-## Example
-
-```sylan
-#!/usr/bin/env sylan
-
-package main
-/**
- * If no package is specified, "main" is assumed. A `module-info.sy` file is not
- * required for the top level program as there is an inferred `main` module that
- * contains top-level programs.
- */ 
-
-// Most of those imports are already in the prelude and thus already imported:
-// `sylan.lang`. They are explicitly imported here to give an idea of the
-// standard package structure.
-//
-// By default, the first identifier in a lookup is the module. If that clashes
-// with a top-level package in the current module, that can be disambiguated
-// using the `this.module` form, e.g. `import this.module.topLevelPackage`.
-//
-// For example, all the imports here are from the `sylan` module, which is
-// already available for all Sylan programs.
-import sylan.{
-    io.println,
-    uil.{
-        toString.ToString,
-        collections.{HashMap, List},
-        concurrency.Task,
-        datetime.ZonedDateTime,
-        optional.{Empty, Some},
-    },
-}
-
-fun fizzBuzz(_ n Int) Int {
-
-    // Sylan supports blocks, syntactical sugar for passing a lambda as a final
-    // argument to an invocable. Note the use of `it` as a shorthand for
-    // one-argument lambdas.
-    1.up(to: n).each -> {
-        switch {
-            0 == (it % 15) { "FizzBuzz" }
-            0 == (it % 5) { "Fizz" }
-            0 == (it % 3) { "Buzz" }
-            _ { it }
-        } |> println
-    }
-}
-
-fizzBuzz(100)
-
-// Parentheses can be dropped for zero-parameter functions and methods.
-fun demoIteration {
-    /**
-     * SyDocs can be written for code documentation.
-     *
-     * SyDocs, unlike JavaDocs, go _inside_ the method, class, or function it refers
-     * to. This means the most important information, the header, is upfront.
-     *
-     * They go _after_ top-level package variable definitions and final variables.
-     */
-
-    var highlight = -> s {
-        $">> {s} <<"
-    }
-
-    // The ~ operator composes invocables together, from left to right.
-    1.up(to: 5)
-        .map(Number.doubled:: ~ ToString.toString:: ~ highlight::)
-        .each(println::)
-
-    // Sylan supports field-looking getters and transparently upgrading an
-    // expression to a computation, both of which mandate no parentheses
-    // for no-argument invocables. Use the :: postfix operator to pick up these
-    // invocables as first-class values. Combine it with the dot operator to
-    // refer to a method of a type.
-
-    List { 1, 2, 3 }.each -> n {
-
-        /*
-         * Dollar-prefixed strings allow interpolation. Only single symbols can
-         * be interpolated; interpolating arbitrary expressions was purposely
-         * omitted due to its ability to create cryptic one-liners.
-         */
-        println($"{n}")
-    }
-
-    var quadruple = -> {
-        it.doubled.doubled
-    }
-
-    123456789
-        |> quadruple::
-        |> Object.toString::
-        |> highlight::
-        |> println::
-
-    var map = Map {
-        "abc": 123,
-        "def": 321,
-        "ghi": 987,
-    }
-    map.each -> key, value {
-        println($"{key}: {value}")
-    }
-
-    do -> {
-        var counterService = using Task -> {
-            for var n = 0 {
-                var sender = select Task {
-                    _ {
-                        it
-                    }
-                }
-                if n < 5 {
-                    send(Some(n), to: sender)
-                    continue(n + 1)
-                } else {
-                    send(Empty, to: sender)
-                    continue(n)
-                }
-            }
-        }
-
-        5.times -> {
-            send(currentTask, to: counterService)
-        }
-
-        // `while var`, like `if var`, can handle multiple refutable patterns
-        // seperated by commas. In this case, all patterns must match to
-        // continue into the block.
-        //
-        // Unlike `for`, `while var` and `if var` take refuttable patterns
-        // rather than irrefuttable ones.
-        while var Some(n) = select Optional[int] {
-            _ {
-                it
-            }
-        } {
-            println($"{n}")
-        }
-    }
-
-    /*
-     * `for` is a cross between Java's enhanced-for loop and Scheme's named-let.
-     * It looks similar to `while let`, but takes irrefutable bindings rather
-     * than refuttable ones.
-     */
-    var factorial = for var n = 20, result = 1 {
-        if n <= 0 {
-            result
-        } else {
-
-            // Continue, like `it`, is a keyword representing an implicit
-            // variable. In this case it stands for the inner-most
-            // unlabelled for loop.
-            continue(n: n - 1, result: n * result)
-        }
-    }
-
-    for outer var n = 10 {
-        if 0 < n {
-            for {
-
-                // This for loop is labelled as "outer", so that is available
-                // to call as a function if iteration is desired. That allows
-                // it to skip the inner `for` here; `continue` in this context
-                // would cause an infinite loop.
-                outer(n - 1)
-            }
-        }
-    }
-
-    println($"factorial: {innerFactorial}")
-}
-
-/*
- * All packages, classes, methods, and finals are private unless explicitly
- * opened up with the `public` keyword. If the developer wants to expose them
- * openly but only to its own module, they can use the `internal` keyword.
- *
- * As can be seen in this function and the previous, Sylan allows functions to
- * stand alone in packages without being tied to classes or interfaces.
- */
-fun internal factorial(of n Int) Int {
-    switch n {
-        0, 1 {
-            1
-        }
-        n if n < 0 {
-            throw Exception("n cannot be less than 0")
-        }
-        n {
-            /*
-             * Guaranteed tail call elimination will ensure a stack overflow
-             * does not occur.
-             */
-            factorial(n * (n - 1))
-        }
-    }
-}
-
-fun internal ignorable printFactorial(_ n Int) Int {
-    /*
-     * Sylan does not allow callers to throw away non-`Void` function or methods
-     * results unless they're declared with the `ignorable` modifier.
-     *
-     * This makes sense when getting a return value is potentially useful but
-     * not the entire reason behind invoking it.  Such a function or method can
-     * be assumed to have side effects, with the exception of constant-time
-     * operation NOPs or the like.
-     */
-
-    var result = factorial(of: n)
-    println(result)
-
-    /*
-     * Sylan is an expression-oriented language, so everything returns a value
-     * including loops and `if`s. Therefore, the last value is returned by
-     * default. The lack of explicit `return`s means there is always a single
-     * exit point from a function or method: the last expression.
-     *
-     * Having a guaranteed single exit point from a function makes it easier to
-     * reason about, which is presumably why Niklaus Wirth had a preference for
-     * it in structured programming. 
-     */
-    result
-}
-
-fun twice[N Number: int](_ n N, do f (N) N) N {
-    f(n) + f(n)
-}
-
-fun double[N Add & ToString](_ n N) String {
-    (n + n).toString
-}
-
-/**
- * Sylan uses concrete implementations of interfaces only, such as `Number`
- * here. Dynamic dispatch does not exist in Sylan because it overlaps too much
- * with sum types, a.k.a discriminated unions or enhanced enums.
- * 
- * In this way, Sylan's interfaces are closer to Haskell's typeclasses than
- * Java 8's enhanced interfaces.
- * 
- * Extension classes give the ability for packages to statically add operations
- * to other package's types. This is still not using dynamic dispatch, however.
- *
- */
-fun printNumber(_ n Number) {
-    println($"{n}")
-}
-
-fun demoContexts Optional[Int] {
-
-    println("Demoing contexts...")
-
-    /*
-     * Haskell developers will recognise this as the applicative do notation,
-     * which Sylan calls "contexts". Haskell programmers already know the
-     * benefits of this construct; non-Haskell programmers will be glad to know
-     * that this feature can make tangled code such as optionality-checking
-     * chains, error-handling, and validation code much cleaner.
-     *
-     * Developers from other languages like Swift and JavaScript might
-     * recognise the question mark here; the difference is that Sylan allows it
-     * for any applicative type, not just optional types.
-     */
-
-    with {
-        Some(5)?.map
-        println("Doing something.")
-
-        var _ = Empty?
-        println("Will not be run.")
-        Empty
-    }
-}
-
-enum List[of Element](
-
-    // Enum variants mirror normal functions, and are called like them too.
-    // The names of the elements become important for pattern matching.
-    Node(of element Element, next This),
-
-    Nil,
-) {
-    fun each(do (element Element)) {
-        switch this {
-
-            // Pattern matching follows similar rules to function parameter
-            // lists. In particular, if a matched field matches a parameter
-            // name, an explicit label is not needed. Furthermore, a label is
-            // implicitly the same as a parameter name if omitted. In fact,
-            // _most_ pattern matches are expected to use both of these
-            // shortcuts combined.
-            //
-            // Utilising both of them makes pattern matching appear similar to
-            // other functional languages while retaining consistency with
-            // function calls. This is important because Sylan unifies function
-            // calls and type instantiations rather than using a separate syntax
-            // for both.
-            Node(element, next) {
-                do(element)
-                next.each(do)
-            }
-
-            Nil {
-                Void
-            }
-        }
-    }
-}
-
-package counter {
-    /**
-     * Packages needn't always go in their own file. They can also be nested
-     * within packages in the same file.
-     *
-     * This is stike a balance between forcing good structure for larger
-     * programs yet not forcing too much bureaucracy on smaller ones.
-     */
-
-    enum Message(
-        Increment,
-        Reset(with n Int),
-        Get,
-    )
-
-    fun public start(channel Task, n Int: 0) {
-        select Message {
-
-            // Putting a dot before a switch or select case is syntactical
-            // sugar for an enum variant of the selected or switched type.
-            .Increment {
-                start(channel, n: n + 1)
-            }
-            .Reset(n) {
-
-                // Labelled arguments can omit labels _if the local variable
-                // passed in has the same name_.
-                start(channel, n)
-            }
-            .Get {
-                send(n, to: sender)
-                start(channel, n)
-            }
-            timeout 10.seconds {
-                throw Exception("timed out!")
-            }
-        }
-    }
-}
-
-/**
- * Backquotes can be used to allow any character in an identifier name. This is
- * designed for these cases:
- *
- *  * Allowing fluent sentence-like test cases like below.
- *  * Easing interoperability with foreign APIs that use different naming
- *    contentions.
- *  * Using Sylan keywords as symbols.
- *
- * Like normal strings, they also support raw mode and custom delimiters.
- * Interpolation is obviously not supported, however.
- */
-fun `test that addition works` {
-    assert((2 + 2) == 4)
-}
-
-interface Concatenate[with T, producing U: T] {
-    fun public concatenate(withEnd that T) T
-}
-
-interface Equal[to T] {
-    fun public equal(to that T) Boolean
-
-    /*
-     * Sylan's interface methods can have bodies like Java 8's defender methods.
-     * Unlike Java 8, private methods with bodies are also allowed with them.
-     */
-    fun public notEqual(to that T) Boolean {
-        not(equal(to: that))
-    }
-}
-
-/**
- * Hashing, equality checking, and the constructor all just exist
- * automatically. They can still be manually overridden if necessary though.
- * `close` is also automatically implemented for classes that implement
- * `AutoCloseable`, the default implementation just closing all
- * `AutoCloseable` fields. This can also be overridden if the default
- * implementation makes no sense.
- */
-class Name(
-    var internal firstName String
-    var internal lastName String
-)
-// Braces can be dropped off a class. In this case, they act as simple data
-// groups with no additional logic.
-
-/** 
- * Classes can implement interfaces but cannot extend other classes.
- * Interfaces can extend other interfaces though. Concrete inheritance
- * generally causes more problems that it's worth and type embedding plus a
- * more powerful interface system makes up for the difference.
- */
-class Account(
-    firstName String,
-    lastName String,
-
-    // Prefixing a class parameter with `var` upgrades it to a field, vaguely
-    // similar to TypeScript's equivalent feature. This is syntactical sugar
-    // for passing a normal parameter and assigning it to a new field in a class
-    // body. It also solves the inconvenience of shadowing between parameters
-    // and declared fields.
-    //
-    // Fields are, on the surface, accessible directly. Actually, they are only
-    // available via the `this.` sigil which cannot be used outside the class.
-    // Classes only expose methods. However, fields autogenerate getter methods
-    // with the same accessibility and with the aforementioned syntactical sugar
-    // of dropping parentheses for no arguments. These can be overridden at a
-    // future date by a developer to transparently upgrade a simple field to a
-    // getter with additional logic.
-    //
-    // This also means that interfaces can mandate "fields"; as all fields are
-    // ultimately getter methods from an external viewpoint, they can also be
-    // defined and defaulted in interfaces.
-    var internal ageInYears Int,
-    
-) implements ToString, Concatenate[to: This] {
-
-    {
-        // Instance initializers are optional but must appear before anything else
-        // in a class body and there can be only one. However, they are invoked
-        // _at the end_ of object construction, meaning they can access all
-        // defined fields and methods. They allow invoking side-effects upon a
-        // class instantiation.
-        //
-        // As Sylan is an immutable language, this feature does not allow assigning
-        // values to fields like constructors in traditional OO languages.
-        //
-        // This is effectively the same as invoking a side-effect inside a field
-        // initialiser, except no field is being assigned:
-        //
-        // var _ Void = do -> {
-        //     println("Inside a field initialisation...")
-        //     println("instantiating an Account...")
-        // }
- 
-        println("instantiating an instance initialiser...")
-        println("instantiating an Account...")
-
-        // If a local method called `println` was defined, that'd be called
-        // instead. If a package-level function is needed instead, refer to
-        // it by its full package name, or even use the `this.package.
-        // convenience form, e.g. `this.package.println("test")`.
-    }
-
-    /*
-     * Embedding a field hoists all of its _accessible_ methods into
-     * the class itself. Embedded methods take the lowest priority: methods in
-     * the class itself and default methods in implementing interfaces both take
-     * priority over embedded methods, although other embedded methods will
-     * still call the embedder's method if calling it by name.
-     *
-     * Embedded classes can implement methods for implementing interfaces on the
-     * embedder's behalf, following the rules above.
-     *
-     * Note that no relationship whatsoever is established between the classes
-     * after the embedding; there is no concrete subtyping in Sylan. It's solely
-     * for DRY, a.k.a. Don't Repeat Yourself.
-     *
-     * The earlier embeddings take priority over the later ones, to be
-     * consistent with the MRO of inheritance. Therefore, changing the order of
-     * embeds can change behaviour.
-     */
-    var embed name Name = Name(first: firstName, last: lastName)
-
-    var expiry ZonedDateTime = ZonedDateTime.now + 1.year
-
-    // Automatically generated field getters can be overridden with custom
-    // implementations like the following, which can then access the original
-    // field with `this.`.
-    //
-    // Note that all access to a field without the `this.` sigil, even from
-    // inside the class itself, is going via the getter methods.
-    fun public expiry ZonedDateTime {
-        println($"the original expiry was {this.expiry}")
-
-        this.expiry + 1.year  // Ultimately yields now plus two years
-    }
-
-    fun public override toString String {
-        $"{firstName} {lastName} is {ageInYears} years old"
-    }
-
-    fun public override concatenate(withEnd that This) This {
-        var first = firstName.concatenate(withEnd: that.firstName)
-        var last = lastName.concatenate(withEnd: that.lastName)
-
-        Account(
-            firstName: first,
-            lastName: last,
-            ageInYears: ageInYears + that.ageInYears,
-        )
-    }
-
-    fun public name String {
-        $"{firstName} {lastName}"
-    }
-
-    fun public locked Boolean {
-        expiry < ZonedDateTime.now
-    }
-}
-
-/*
- * Type extensions allow modules to add their own features to an existing class
- * when imported. Note that this implements `Concatenate` again just with
- * different type parameters passed to `Concatenate`; Sylan considers these to
- * be two completely different implementations. This is a more disciplined
- * replacement for method overloading.
- */
-extend class Account implements Concatenate[to: This, producing: String] {
-
-    fun public override concatenate(withEnd: that This) String {
-        $"{firstName} {that.firstName}"
-    }
-}
-
-fun demoPatternMatching {
-    var account1 = Account(firstName: "Tom", lastName: "Smith")
-    var matchingLastName = "Smith"
-
-    if var Account(firstName, lastName: .matchingLastName) as account
-            = account1 {
-        println($"Matching first name: {firstName}")
-        println($"Matching account: {account}")
-    }
-
-    switch account1 {
-
-        Account(locked: True), Account(firstName: "unlucky") {
-            println("LOCKED!")
-        }
-
-        Account(expiry) if expiry < ZonedDateTime.now {
-            println("ALSO LOCKED")
-        }
-
-        _ {
-            println("NOT LOCKED: ")
-            println(account1)
-        }
-
-        /*
-         * Switches are expressions, support multiple cases, can do pattern
-         * matching, and have support for conditional "guards".
-         */
-    }
-}
-
-/*
- * Aliasing of various constructs to allow easy code repair during large-scale
- * refactoring. Any item in any module can be aliased, which can ease module
- * versioning where new major module versions are effectively different modules.
- */
-package counter2 = counter
-class Person = Account
-interface Showable = ToString
-fun factorial2 = factorial
-
-final maxBound Int = 5
-/**
- * Constants are allowed in the top-level of a package, and can have SyDocs
- * underneath as well as the usual modifiers. Their values must be evaluatable
- * at compile-time, meaning that package imports never trigger arbirary
- * computations.
- *
- * Unlike vars, their types must be explicitly typed out and cannot be
- * inferred.
- *
- * Local bindings with var can occur too, but only in the main package.
- */
-
-fun demoClosures {
-    var x = 5
-
-    var account1 = Account(
-        firstName: "Tom",
-        lastName: "Smith",
-        ageInYears: 15,
-    )
-
-    var firstName = "Tom"
-    var lastName = "Smith"
-    var age = 25
-    var account2 = Account(firstName, lastName, ageInYears: age)
-
-    var f = -> {
-        println(it.toString)
-    }
-
-    f(account1)
-    f(account2(firstName: "Emma"))
-
-    var g = -> {
-        println("returning a value")
-        it
-    }
-
-    var z = g(account1)
-
-    var n = twice(3) -> {
-        it * 2
-    }
-    println($"n == {n}")
-}
-
-class NumericLiteralsClass implements ToString {
-
-    // Non-overflowable numbers.
-    var a Int = 5
-    var b UInt = 5u
-    var c Decimal = 10.0
-
-    // Overflowable, machine-width numbers.
-    var d Byte = 5u8
-    var e UInt16 = 11u16
-    var f UInt32 = 12u32
-    var g UInt64 = 13u64
-    var h Int8 = 15s8
-    var i Short = 13s16
-    var j Int32 = 7s
-    var k Long = 7s64
-    var l Float = 12f
-    var m Double = 8d
-
-    fun public override toString String {
-        $"{a}{b}{c}{d}{e}{f}{g}{h}{i}{j}{k}{l}{m}"
-    }
-}
-
-class AutoCloseableDemo implements AutoCloseable {
-
-    println("Opened")
-
-    fun public override close {
-        println("Closed")
-    }
-}
-
-fun demoAutoCloseables {
-
-    /*
-     * Sylan, like Erlang and Go, strongly discourages catching exceptional
-     * problems on a routine basis - if something is truly "exceptional" then
-     * the developer wouldn't have thought of a meaningful response to it.
-     * Instead it encourages assertive programming through a "happy path" and
-     * using supervisor tasks to allow the system to heal from unexpected
-     * failures.
-     *
-     * Sylan does not offer `try`/`catch` for this reason, and also to ensure
-     * that exception-driven control flow isn't possible.
-     *
-     * However, there still needs to be a strategy regarding closing resources
-     * in tasks that have had unexpected failures. Sylan offers `AutoClosable`
-     * types and the `using` keyword for this, which are a sort of middle ground
-     * between C#'s `IDisposable` and its `using` keyword, and Go's `defer`
-     * keyword.
-     *
-     * If an `AutoCloseable` type is prefixed with the `using` keyword, its
-     * `close` method is invoked at the end of the scope _even if the
-     * code in the scope completely fails unexpectedly_. The closing is done in
-     * the reverse order that they are set up. If any `defer`d `close` methods
-     * themselves fail, all other deferred calls are given a chance to run too,
-     * and all errors are accumulated into one and rethrown once they're all
-     * finished.
-     */
-
-    println("Entering scope")
-    do -> {
-        var closeable = using AutoCloseableDemo
-        println("Using closeable")
-    }
-    println("Leaving scope")
-
-    // Prints "Entering scope", "Opened", "Using closeable", "Closed", and finally "Leaving scope".
-}
-
-fun demo {
-    // As mentioned above, all invocables can omit parentheses if they have
-    // zero parameters. This is primarily for getters, but should also be used
-    // for Pascal-procedure-style invocations just for consistency. That
-    // includes constructors, methods, lambdas, and functions.
-
-    demoIteration
-
-    printFactorial(42)
-    var x = twice(4, do: doubled::)
-    println($"{x}")
-
-    demoContexts
-    demoPatternMatching
-    demoClosures
-
-    println(NumericLiteralsDemo.toString)
-
-    demoAutoCloseable
-}
-
-/*
- * Top-level code is allowed, but only in the main package within the main
- * module. Code in other packages must be in functions or methods.
- *
- * Top-level declarations must usually be explicitly typed and be evaluatable
- * in constant-time when loading the package, but `var` is allowed for the main
- * package meaning that type inference can be used here. They are just
- * type-inferred local variables for the top-level program which are private to
- * the `main` package.
- */
-
-var optionalString = Some("test string")
-
-// Like `for` and `while var`, `if var` supports multiple patterns seperated by
-// commas. For the refuttable bindings of `while var` and `if var`, all
-// patterns must match to continue into the block.
-if var Some(s) = optionalString {
-    println(s)
-}
-
-var c = Task -> {
-    counter.start(channel: currentTask)
-}
-5.times -> {
-    send(counter.Message.Increment, to: c)
-}
-
-send(counter.Message.Get, to: c)
-send(counter.Message.Increment, to: c)
-send(counter.Message.Get, to: c)
-
-// Should print 5 and then 6.
-2.times -> {
-    var n = select Int {
-        _ {
-            it
-        }
-    }
-    println($"{n}")
-}
-
-send(counter.Message.Reset(to: 0), to: c)
-
-print("""
-3 or more quotes can be used to create a custom string delimiter.
-This allows escaping almost any embedded content with few problems.
-This works with interpolated and raw strings too.
-""")
-
-println(r"Raw string in which escapes characters are now read literally: \n\r")
-
-var n = 4
-
-println($"""
-Multiline interpolated strings: {n}
-""")
-
-var x = do -> {
-    println("Returning 5 to be bound as x...")
-    5
-}
-println($"{x}")
-
-/*
-  A multiline comment.
-
-  /*
-    A nested multiline comment.
-  */
-*/
-
-demo
-```
-
 ## Overview
 
 Java and C# moved C++ application programmers away from direct memory management
@@ -897,7 +232,7 @@ modules. Non-pinned dependency versions or disallowing the import of multiple
 major versions of the same module does not scale in the modern world of software
 development.
 
-A runtime will be needed for preemptive concurrency and light weight tasks.  Go
+A runtime will be needed for preemptive concurrency and light weight tasks. Go
 shows that compromises regarding the tasks' preemptiveness must be made in the
 case of native compilation.
 

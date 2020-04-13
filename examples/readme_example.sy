@@ -1,0 +1,115 @@
+#!/usr/bin/env sylan
+
+fun fizzBuzz(n Int) Int {
+    /**
+     * The (in)famous FizzBuzz.
+     */
+    
+    1.up(to: n).each -> {
+        switch {
+            0 == (it % 15) { "FizzBuzz" }
+            0 == (it % 5) { "Fizz" }
+            0 == (it % 3) { "Buzz" }
+            _ { it }
+        } |> println
+    }
+}
+
+//
+// Time for some data structures. Note: real pattern matching.
+//
+enum List[of Element](
+    Node(of element Element, next This),
+    Nil,
+) {
+    fun each(do (element Element)) {
+        switch this {
+            Node(element, next) {
+                do(element)
+                next.each(do)
+            }
+            Nil {
+                Void
+            }
+        }
+    }
+}
+
+//
+// Now, Erlang-style concurrency and nested packages.
+//
+
+package counter {
+    enum Message(
+        Increment,
+        Reset(with n Int),
+        Get,
+    )
+
+    fun public start(task Task, n Int: 0) {
+        select Message {
+            .Increment {
+                start(task, n: n + 1)
+            }
+            .Reset(n) {
+                start(task, n)
+            }
+            .Get {
+                send(n, to: task)
+                start(task, n)
+            }
+            timeout 10.seconds {
+                throw Exception("timed out!")
+            }
+        }
+    }
+}
+
+var c = do -> {
+    var parent = currentTask
+    Task -> {
+        counter.start(task: parent)
+    }
+}
+5.times -> {
+    send(counter.Message.Increment, to: c)
+}
+send(counter.Message.Get, to: c)
+send(counter.Message.Increment, to: c)
+send(counter.Message.Get, to: c)
+2.times -> {
+    var n = select Int
+    println($"{n}")
+}
+send(counter.Message.Reset(to: 0), to: c)
+
+//
+// Easy data definition with keyword arguments and defaults. Easily interpolate strings.
+//
+class Name(
+    var public first String: "James",
+    var public last String: "Bond",
+) implements ToString {
+
+    fun public override toString String {
+        $"The name is {lastName}, {firstName} {lastName}."
+    }
+}
+
+//
+// Finally, the esoteric for Haskell fans: applicative notation.
+//
+fun demoContexts Optional[Int] {
+    with {
+        var x = Some(5)?
+
+        Empty?
+        println("Will not be run.")
+        Empty
+    }
+}
+
+//
+// There's much more! See `examples/exhaustive_example.sy` for a demo of all
+// language features, with explanatory comments for each.
+//

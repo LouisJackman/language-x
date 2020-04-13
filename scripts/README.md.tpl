@@ -20,11 +20,15 @@ computer science concepts. It should take versioning and backwards compatibility
 seriously and ease distribution by producing single, statically-linked
 executables with no required external runtimes.
 
+## Example
+
+$EXAMPLE_SOURCE
+
 ## Contents
 
+* [Example](#example)
 * [Installation](#installation)
 * [Done so Far](#done-so-far)
-* [Example](#example)
 * [Overview](#overview)
 * [Goals](#goals)
 * [Details](#details)
@@ -80,10 +84,6 @@ that can be run.
 - [ ] Add optimisations like persistent data structures.
 - [ ] Compile with bundled runtime.
 
-## Example
-
-$EXAMPLE_SOURCE
-
 ## Overview
 
 Java and C# moved C++ application programmers away from direct memory management
@@ -116,7 +116,7 @@ modules. Non-pinned dependency versions or disallowing the import of multiple
 major versions of the same module does not scale in the modern world of software
 development.
 
-A runtime will be needed for preemptive concurrency and light weight tasks.  Go
+A runtime will be needed for preemptive concurrency and light weight tasks. Go
 shows that compromises regarding the tasks' preemptiveness must be made in the
 case of native compilation.
 
