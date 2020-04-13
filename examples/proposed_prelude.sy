@@ -67,7 +67,7 @@ interface public Number {
     fun public extern operator >> Number
     fun public extern operator >>> Number
 
-    fun public negate This {
+    fun public negate
         /**
          * Negate a number; replaces the unary minus operator present in other
          * languages.
@@ -76,7 +76,7 @@ interface public Number {
          * assert(4.negate == (0 - 4))
          * ```
          */
-
+    This {
         if 0 <= this {
             this - this.doubled
         } else {
@@ -152,11 +152,11 @@ class AssertionError implements Exception {
 
 // TODO: this should really be a macro, but Sylan doesn't yet have a solid plan
 // for macros.
-fun public assert(that predicate Boolean) {
+fun public assert
     /**
      * Assert that predicate is true, otherwise throw an `AssertionError`.
      */
-
+(that predicate Boolean) {
     if not(predicate) {
         throw AssertionError
     }

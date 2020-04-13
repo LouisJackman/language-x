@@ -8,6 +8,7 @@ use crate::common::multiphase::{
     self, Identifier, InterpolatedString, OverloadableInfixOperator, OverloadableSliceOperator,
     PostfixOperator, PseudoIdentifier, SylanString,
 };
+use crate::common::newlines::{check_newline, NewLine};
 use crate::common::peekable_buffer::PeekableBuffer;
 use crate::common::string_matches_char_slice;
 use crate::common::version::Version;
@@ -188,6 +189,17 @@ impl Lexer {
                         buffer.push('/');
                         buffer.push('*');
                         self.source.discard();
+
+                        // Treat SyDoc comments inside other comments or SyDocs
+                        // as multiline comments. Avoid tripping up on
+                        // accidentally parsing an empty multiline comment
+                        // `/**/` as the start of an embedded JavaDoc starting
+                        // with a `/`.
+                        if self.source.next_is('*') && !self.source.nth_is(1, '/') {
+                            buffer.push('*');
+                            self.source.discard();
+                        }
+
                         nesting_level += 1;
                     } else if (c == '*') && self.source.next_is('/') {
                         if 1 < nesting_level {
@@ -579,9 +591,41 @@ impl Lexer {
                     content.push('*');
                     content.push('/');
                 }
-            } else if let Some(c) = next_char {
-                content.push(c);
-                self.source.discard();
+            } else if let (Some(c), next) = (next_char, self.source.peek_nth(1)) {
+                if let Some(newline) = check_newline(c, next.cloned()) {
+                    // Newlines are unwanted in SyDoc
+                    if newline == NewLine::CarridgeReturnLineFeed {
+                        self.source.discard();
+                    }
+                    self.source.discard();
+
+                    // Leading whitespace in SyDoc is likely due to indenting
+                    // and not intended to be in the result.
+                    while self.source.match_next(|c| c.is_whitespace()) {
+                        self.source.discard();
+                    }
+
+                    // Leading asterisks are often used to make JavaDocs look
+                    // pretty, and SyDoc follows this. Throw them away in the
+                    // result though.
+                    //
+                    // They're also the only way to put leading indents in
+                    // multiline SyDoc.
+                    if self.source.next_is('*') {
+                        self.source.discard();
+
+                        // Leave an idiomatic leading whitespace after the `*`
+                        // in the buffer. Why? Because a newline was cut out
+                        // earlier, and the developer won't expect two words on
+                        // separate lines to be glued together. Let's also
+                        // assume that automatic formatters and editors will
+                        // throw away trailing whitespace, including those at
+                        // the end of SyDoc lines.
+                    }
+                } else {
+                    content.push(c);
+                    self.source.discard();
+                }
             } else {
                 break self.fail("the file ended before a SyDoc within");
             }
@@ -712,7 +756,7 @@ impl Lexer {
                 }
                 '*' => {
                     self.source.discard();
-                    Ok(self.lex_with_leading_astericks())
+                    Ok(self.lex_with_leading_asterisk())
                 }
                 ',' => {
                     self.source.discard();
@@ -888,7 +932,7 @@ impl Lexer {
         }
     }
 
-    fn lex_with_leading_astericks(&mut self) -> Token {
+    fn lex_with_leading_asterisk(&mut self) -> Token {
         self.source.discard();
         if self.source.next_is('*') {
             self.source.discard();
@@ -1557,8 +1601,16 @@ mod tests {
 
     #[test]
     fn sydoc() {
-        let mut lexer = test_lexer("/* comment */ // \n /** A SyDoc /* comment. */ */");
-        let sydoc = Token::SyDoc(SyDoc::from(" A SyDoc /* comment. */ "));
+        // Ensure that:
+        //
+        // * Multiline comments aren't mixed up with SyDocs.
+        // * Nesting comments works.
+        // * Nesting JavaDoc within multiline comments works, and vice-versa.
+        // * Leading whitespace and `*` on newlines are stripped.
+        let mut lexer =
+            test_lexer("/* /**/ /****/ comment */ // \n /** A SyDoc \n * /* comment. */ */");
+
+        let sydoc = Token::SyDoc(SyDoc::from(" A SyDoc  /* comment. */ "));
         assert_next(&mut lexer, &sydoc);
     }
 

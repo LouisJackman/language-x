@@ -25,11 +25,9 @@ executables with no required external runtimes.
 ```sylan
 #!/usr/bin/env sylan
 
-fun fizzBuzz(n Int) Int {
-    /**
-     * The (in)famous FizzBuzz.
-     */
-    
+fun fizzBuzz
+    /** The (in)famous FizzBuzz. */
+(n Int) Int {
     1.up(to: n).each -> {
         switch {
             0 == (it % 15) { "FizzBuzz" }
@@ -40,10 +38,9 @@ fun fizzBuzz(n Int) Int {
     }
 }
 
-//
-// Time for some data structures. Note: real pattern matching.
-//
-enum List[of Element](
+enum List[of Element]
+    /** Time for some data structures. Note: real pattern matching. */
+(
     Node(of element Element, next This),
     Nil,
 ) {
@@ -60,9 +57,7 @@ enum List[of Element](
     }
 }
 
-//
 // Now, Erlang-style concurrency and nested packages.
-//
 
 package counter {
     enum Message(
@@ -108,36 +103,30 @@ send(counter.Message.Get, to: c)
 }
 send(counter.Message.Reset(to: 0), to: c)
 
-//
-// Easy data definition with keyword arguments and defaults. Easily interpolate strings.
-//
-class Name(
+class Name
+    /** Easy data definition with keyword arguments and defaults. */
+(
     var public first String: "James",
     var public last String: "Bond",
 ) implements ToString {
-
     fun public override toString String {
         $"The name is {lastName}, {firstName} {lastName}."
     }
 }
 
-//
-// Finally, the esoteric for Haskell fans: applicative notation.
-//
-fun demoContexts Optional[Int] {
+fun demoContexts Optional[Int]
+    /** Finally, the esoteric for Haskell fans: applicative notation. */
+{
     with {
         var x = Some(5)?
-
         Empty?
         println("Will not be run.")
         Empty
     }
 }
 
-//
 // There's much more! See `examples/exhaustive_example.sy` for a demo of all
 // language features, with explanatory comments for each.
-//
 ```
 
 ## Contents

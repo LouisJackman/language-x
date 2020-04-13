@@ -8,6 +8,7 @@
 //! to avoid heavy coupling.
 
 pub mod multiphase;
+pub mod newlines;
 pub mod peekable_buffer;
 pub mod version;
 

@@ -9,6 +9,7 @@
 //! in the future to support lazily streaming sources as lexing and parsing
 //! commences on already-streamed fragments without breaking compatibility.
 
+use crate::common::newlines::{check_newline, NewLine};
 use std::ops::Index;
 
 pub mod in_memory;
@@ -22,31 +23,6 @@ impl<'a> Index<usize> for CharReadMany<'a> {
     fn index(&self, index: usize) -> &char {
         let CharReadMany(slice) = self;
         &slice[index]
-    }
-}
-
-enum NewLine {
-    // Unix
-    LineFeed,
-
-    // Windows
-    CarrigeReturnLineFeed,
-
-    // Classic MacOS
-    CarrigeReturn,
-}
-
-fn check_newline(current: char, next: Option<char>) -> Option<NewLine> {
-    if current == '\n' {
-        Some(NewLine::LineFeed)
-    } else if current == '\r' {
-        if next.filter(|&c| c == '\n').is_some() {
-            Some(NewLine::CarrigeReturnLineFeed)
-        } else {
-            Some(NewLine::CarrigeReturn)
-        }
-    } else {
-        None
     }
 }
 
@@ -81,7 +57,7 @@ impl Position {
             } else {
                 let next = char_slice.get(index + 1).cloned();
                 let newline = check_newline(*current, next);
-                if let Some(NewLine::CarrigeReturnLineFeed) = newline {
+                if let Some(NewLine::CarridgeReturnLineFeed) = newline {
                     skip_next = true;
                 }
                 if newline.is_some() {

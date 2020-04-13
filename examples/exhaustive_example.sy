@@ -46,16 +46,21 @@ fun fizzBuzz(_ n Int) Int {
 fizzBuzz(100)
 
 // Parentheses can be dropped for zero-parameter functions and methods.
-fun demoIteration {
+fun demoIteration
     /**
-     * SyDocs can be written for code documentation.
+     * SyDocs can be written for code documentation. Unlike JavaDoc, they go
+     * directly after the item they document, to ensure that the most important
+     * information, i.e. what is being documented, is kept upfront.
      *
-     * SyDocs, unlike JavaDocs, go _inside_ the method, class, or function it refers
-     * to. This means the most important information, the header, is upfront.
+     * They depart significantly from most language's documentation comments
+     * too, insofar as they document items _directly_ rather than referring to
+     * them with tags like `@param` or `@return`.
      *
-     * They go _after_ top-level package variable definitions and final variables.
+     * Rather than keeping a tag in sync with an actual parameter name, a
+     * developer _knows_ they'll always be in sync because they're after the
+     * parameter itself.
      */
-
+{
     var highlight = -> s {
         $">> {s} <<"
     }
@@ -175,15 +180,22 @@ fun demoIteration {
     println($"factorial: {innerFactorial}")
 }
 
-/*
- * All packages, classes, methods, and finals are private unless explicitly
- * opened up with the `public` keyword. If the developer wants to expose them
- * openly but only to its own module, they can use the `internal` keyword.
- *
- * As can be seen in this function and the previous, Sylan allows functions to
- * stand alone in packages without being tied to classes or interfaces.
- */
-fun internal factorial(of n Int) Int {
+fun internal factorial
+    /**
+     * All packages, classes, methods, and finals are private unless explicitly
+     * opened up with the `public` keyword. If the developer wants to expose them
+     * openly but only to its own module, they can use the `internal` keyword.
+     *
+     * As can be seen in this function and the previous, Sylan allows functions to
+     * stand alone in packages without being tied to classes or interfaces.
+     */
+(
+    of n Int
+    /** SyDoc supports documenting parameters directly. */
+) 
+    Int
+    /** Return values, too. */
+{
     switch n {
         0, 1 {
             1
@@ -201,8 +213,8 @@ fun internal factorial(of n Int) Int {
     }
 }
 
-fun internal ignorable printFactorial(_ n Int) Int {
-    /*
+fun internal ignorable printFactorial
+    /**
      * Sylan does not allow callers to throw away non-`Void` function or methods
      * results unless they're declared with the `ignorable` modifier.
      *
@@ -211,6 +223,7 @@ fun internal ignorable printFactorial(_ n Int) Int {
      * be assumed to have side effects, with the exception of constant-time
      * operation NOPs or the like.
      */
+(_ n Int) Int {
 
     var result = factorial(of: n)
     println(result)
@@ -228,7 +241,11 @@ fun internal ignorable printFactorial(_ n Int) Int {
     result
 }
 
-fun twice[N Number: int](_ n N, do f (N) N) N {
+fun twice
+[
+    N Number: int
+    /** Type parameters can also be documented with SyDocs. */
+](_ n N, do f (N) N) N {
     f(n) + f(n)
 }
 
@@ -236,19 +253,19 @@ fun double[N Add & ToString](_ n N) String {
     (n + n).toString
 }
 
-/**
- * Sylan uses concrete implementations of interfaces only, such as `Number`
- * here. Dynamic dispatch does not exist in Sylan because it overlaps too much
- * with sum types, a.k.a discriminated unions or enhanced enums.
- * 
- * In this way, Sylan's interfaces are closer to Haskell's typeclasses than
- * Java 8's enhanced interfaces.
- * 
- * Extension classes give the ability for packages to statically add operations
- * to other package's types. This is still not using dynamic dispatch, however.
- *
- */
-fun printNumber(_ n Number) {
+fun printNumber
+    /**
+     * Sylan uses concrete implementations of interfaces only, such as `Number`
+     * here. Dynamic dispatch does not exist in Sylan because it overlaps too much
+     * with sum types, a.k.a discriminated unions or enhanced enums.
+     * 
+     * In this way, Sylan's interfaces are closer to Haskell's typeclasses than
+     * Java 8's enhanced interfaces.
+     * 
+     * Extension classes give the ability for packages to statically add operations
+     * to other package's types. This is still not using dynamic dispatch, however.
+     */
+(_ n Number) {
     println($"{n}")
 }
 
@@ -267,7 +284,6 @@ fun demoContexts Optional[Int] {
      * recognise the question mark here; the difference is that Sylan allows it
      * for any applicative type, not just optional types.
      */
-
     with {
         Some(5)
         println("Doing something.")
@@ -282,7 +298,9 @@ enum List[of Element](
 
     // Enum variants mirror normal functions, and are called like them too.
     // The names of the elements become important for pattern matching.
+
     Node(of element Element, next This),
+    /** As you'd expect, enum variants can be documented individually. */
 
     Nil,
 ) {
@@ -313,7 +331,7 @@ enum List[of Element](
     }
 }
 
-package counter {
+package counter
     /**
      * Packages needn't always go in their own file. They can also be nested
      * within packages in the same file.
@@ -321,7 +339,7 @@ package counter {
      * This is stike a balance between forcing good structure for larger
      * programs yet not forcing too much bureaucracy on smaller ones.
      */
-
+{
     enum Message(
         Increment,
         Reset(with n Int),
@@ -353,19 +371,20 @@ package counter {
     }
 }
 
-/**
- * Backquotes can be used to allow any character in an identifier name. This is
- * designed for these cases:
- *
- *  * Allowing fluent sentence-like test cases like below.
- *  * Easing interoperability with foreign APIs that use different naming
- *    contentions.
- *  * Using Sylan keywords as symbols.
- *
- * Like normal strings, they also support raw mode and custom delimiters.
- * Interpolation is obviously not supported, however.
- */
-fun `test that addition works` {
+fun `test that addition works`
+    /**
+     * Backquotes can be used to allow any character in an identifier name. This is
+     * designed for these cases:
+     *
+     *  * Allowing fluent sentence-like test cases like below.
+     *  * Easing interoperability with foreign APIs that use different naming
+     *    contentions.
+     *  * Using Sylan keywords as symbols.
+     *
+     * Like normal strings, they also support raw mode and custom delimiters.
+     * Interpolation is obviously not supported, however.
+     */
+{
     assert((2 + 2) == 4)
 }
 
@@ -376,37 +395,40 @@ interface Concatenate[with T, producing U: T] {
 interface Equal[to T] {
     fun public equal(to that T) Boolean
 
-    /*
-     * Sylan's interface methods can have bodies like Java 8's defender methods.
-     * Unlike Java 8, private methods with bodies are also allowed with them.
-     */
-    fun public notEqual(to that T) Boolean {
+    fun public notEqual
+        /**
+         * Sylan's interface methods can have bodies like Java 8's defender methods.
+         * Unlike Java 8, private methods with bodies are also allowed with them.
+         */
+    (to that T) Boolean {
         not(equal(to: that))
     }
 }
 
-/**
- * Hashing, equality checking, and the constructor all just exist
- * automatically. They can still be manually overridden if necessary though.
- * `close` is also automatically implemented for classes that implement
- * `AutoCloseable`, the default implementation just closing all
- * `AutoCloseable` fields. This can also be overridden if the default
- * implementation makes no sense.
- */
-class Name(
+class Name
+    /**
+     * Hashing, equality checking, and the constructor all just exist
+     * automatically. They can still be manually overridden if necessary though.
+     * `close` is also automatically implemented for classes that implement
+     * `AutoCloseable`, the default implementation just closing all
+     * `AutoCloseable` fields. This can also be overridden if the default
+     * implementation makes no sense.
+     */
+(
     var internal firstName String
     var internal lastName String
 )
 // Braces can be dropped off a class. In this case, they act as simple data
 // groups with no additional logic.
 
-/** 
- * Classes can implement interfaces but cannot extend other classes.
- * Interfaces can extend other interfaces though. Concrete inheritance
- * generally causes more problems that it's worth and type embedding plus a
- * more powerful interface system makes up for the difference.
- */
-class Account(
+class Account
+    /** 
+     * Classes can implement interfaces but cannot extend other classes.
+     * Interfaces can extend other interfaces though. Concrete inheritance
+     * generally causes more problems that it's worth and type embedding plus a
+     * more powerful interface system makes up for the difference.
+     */
+(
     firstName String,
     lastName String,
 
@@ -516,14 +538,15 @@ class Account(
     }
 }
 
-/*
- * Type extensions allow modules to add their own features to an existing class
- * when imported. Note that this implements `Concatenate` again just with
- * different type parameters passed to `Concatenate`; Sylan considers these to
- * be two completely different implementations. This is a more disciplined
- * replacement for method overloading.
- */
-extend class Account implements Concatenate[to: This, producing: String] {
+extend class Account
+    /**
+     * Type extensions allow modules to add their own features to an existing class
+     * when imported. Note that this implements `Concatenate` again just with
+     * different type parameters passed to `Concatenate`; Sylan considers these to
+     * be two completely different implementations. This is a more disciplined
+     * replacement for method overloading.
+     */
+implements Concatenate[to: This, producing: String] {
 
     fun public override concatenate(withEnd: that This) String {
         $"{firstName} {that.firstName}"
