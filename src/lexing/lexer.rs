@@ -611,7 +611,9 @@ impl Lexer {
                     //
                     // They're also the only way to put leading indents in
                     // multiline SyDoc.
-                    if self.source.next_is('*') {
+                    //
+                    // Don't mix up a leading asterisk with the end of SyDoc.
+                    if self.source.next_is('*') && !self.source.nth_is(1, '/') {
                         self.source.discard();
 
                         // Leave an idiomatic leading whitespace after the `*`
@@ -1608,7 +1610,7 @@ mod tests {
         // * Nesting JavaDoc within multiline comments works, and vice-versa.
         // * Leading whitespace and `*` on newlines are stripped.
         let mut lexer =
-            test_lexer("/* /**/ /****/ comment */ // \n /** A SyDoc \n * /* comment. */ */");
+            test_lexer("/* /**/ /****/ comment */ // \n /** A SyDoc \n * /* comment. */ \n */");
 
         let sydoc = Token::SyDoc(SyDoc::from(" A SyDoc  /* comment. */ "));
         assert_next(&mut lexer, &sydoc);
