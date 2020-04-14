@@ -62,6 +62,7 @@ pub fn new() -> HashMap<&'static str, Token> {
             Token::DeclarationHead(DeclarationHead::Interface),
         ),
         ("module", Token::DeclarationHead(DeclarationHead::Module)),
+        ("nonvolatile", Token::Modifier(Modifier::NonVolatile)),
         ("operator", Token::Modifier(Modifier::Operator)),
         ("override", Token::Modifier(Modifier::Override)),
         ("package", Token::DeclarationHead(DeclarationHead::Package)),

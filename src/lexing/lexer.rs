@@ -1441,7 +1441,7 @@ mod tests {
     #[test]
     fn infix_operators() {
         let mut lexer =
-            test_lexer("    ->   |]   <= \t .   [|   \r\n ~ ^ ^^ @ - < @-  @@ [ != |> :: ");
+            test_lexer("    ->   |]   <= \t .   [|   \r\n ~ ^ ^^ @* - < @-  @@ [ != |> :: ");
 
         assert_next(
             &mut lexer,

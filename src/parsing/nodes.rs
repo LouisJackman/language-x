@@ -372,8 +372,15 @@ pub struct Final {
     /// dynamic library, it can actually mutate the variable underneath Sylan.
     ///
     /// Sylan therefore treats all extern finals as volatile, forcing memory
-    /// fences on loading and storing. The usual tricks such as automatic
-    /// caching of the value in higher levels are also dropped.
+    /// fences on loading and storing, unless the `nonvolatile` keyword is used.
+    /// The usual tricks such as automatic caching of the value in higher levels
+    /// are also dropped.
+    ///
+    /// It might be helpful to think of `final` as "final from Sylan's
+    /// perspective", not "won't ever change".
+    ///
+    /// Modifying such values, like modifying any memory location directly in
+    /// Sylan, will require unsafe FFI APIs.
     ///
     /// This pollution of Sylan's immutable world view cascades downwards; any
     /// function relying on its value can no longer assume the same output even
