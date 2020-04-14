@@ -109,9 +109,9 @@ class Name
     }
 }
 
-fun demoContexts Optional[Int]
+fun demoContexts
     /** Finally, the esoteric for Haskell fans: applicative notation. */
-{
+Optional[Int] {
     with {
         var x = Some(5)?
         Empty?
