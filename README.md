@@ -45,12 +45,9 @@ enum List[of Element]
     Nil,
 ) {
     fun each(do (element Element)) {
-        switch this {
-            Node(element, next) {
-                do(element)
-                next.each(do)
-            }
-            Nil { Void }
+        if var Node(element, next) = this {
+            do(element)
+            next.each(do)
         }
     }
 }

@@ -316,9 +316,12 @@ enum List[of Element](
                 next.each(do)
             }
 
-            Nil { Void }
+            Nil { }
         }
     }
+
+    // That switch was being illustrative. It'd been easier to use `if var`:
+    // `if var Node(element, next) = this {`
 }
 
 package counter
