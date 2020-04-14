@@ -355,17 +355,22 @@ case of native compilation.
 ### Pattern Matching
 
 * Literals are matched as is.
-* Composite types are matched as `Type(getter1, getter2 = match2, getter3
+* Composite types are matched as `Type(getter1, getter2: match2, getter3)`.
 * "Getters" (i.e. nullary methods) can be used.
 * An identifier by itself is a shorthand for `identifier = identifier`.
 * There are no positional matches, only matches by specific names.
 * For types not overriding the built-in constructor, destructuring should be
   symmetrical with constructing.
-* `...` can be used to omit the rest of the match.
+* `..` can be used to omit the rest of the match.
 * `as` can bind part of a match to a name, e.g.  `Account(firstName) as
   account`.
 * Prefixing an identifier with a dot matches its value rather than binding
-  against the identifier, e.g: `Account(firstName = .enteredFirstName, ...)`.
+  against the identifier, e.g: `Account(firstName: .enteredFirstName, ...)`.
+  This only works against single identifiers, not lookups with multiple
+  identifiers separated with dots. To use a more complex identifier, or even
+  a full expression, either use a guard clause in a switch or select case, or
+  put the more complex expression into a temporarly local variable and use
+  that.
 
 ### Matching in Switch and Select
 
@@ -373,10 +378,10 @@ case of native compilation.
   commas.
 * Both have `default` clauses as a fallback "match all" clause.
 * `switch` is exhaustive: a compiler error happens if not all cases are covered.
-* `select` is non-exhaustive, sending non-matching messages to the `noReceiver`
-  task's mailbox (whose behaviour can be manually overridden). When `receive`
-  happens, all non-matching messages are redirected to the noReceiver mailbox
-  until a matching message is encountered. If the mailbox is empty, it waits
+* `select` is exhaustive for the selected type, but sends logs of non-matching types to the `noReceiver`
+  task's mailbox (whose behaviour can be manually overridden). When `select`
+  happens, all messages with non-matching types are logged to the noReceiver mailbox
+  until a message with a matching type is encountered. If the mailbox is empty, it waits
   until messages are sent, repeating the same behaviour until a matching message
   is encountered.
 * `select` blocks the current task until someone sends the process a message of
@@ -481,7 +486,7 @@ case of native compilation.
 ### Interoperability
 
 * `extern` allows calling functions that are either statically linked in or via
-  a named dynamically linked library.
+  a named dynamically linked library. `extern` types are defined by Sylan itself. `extern` finals refer to extern variables in other compiled artefacts, but won't assume the other artefact actually keeps it constant, thereby employing memory fences on access.
 * Public exposed symbols in Sylan are accessible by either statically linking
   the result into another executable or by creating a dynamically linked library
   when building the Sylan program and then referring to it dynamically from
@@ -505,8 +510,6 @@ case of native compilation.
 ## To Consider
 
 * Parameterisable packages, perhaps a less powerful version of ML functors.
-* Matrix operations to implement for user types, even if builtins do not use
-  them. See Python 3 for an implementation of this.
 * Subtyping for built in types, like subranges across integers, Ada-style?
 * Reject changes that break backwards compatibility if the major version isn't
   bumped, similar to Elm.

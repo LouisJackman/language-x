@@ -565,7 +565,11 @@ fun demoPatternMatching {
 
     switch account1 {
 
-        Account(locked: True), Account(firstName: "unlucky") {
+        // Put a dot before an identifier to check it in the match rather than
+        // binding to it. It is used here because boolean true is a pre-imported
+        // prelude enum variant of type `sylan.lang.Boolean` rather than a
+        // keyword, unlike Java or C#.
+        Account(locked: .True), Account(firstName: "unlucky") {
             println("LOCKED!")
         }
 
