@@ -61,9 +61,7 @@ fun demoIteration
      * parameter itself.
      */
 {
-    var highlight = -> s {
-        $">> {s} <<"
-    }
+    var highlight = -> s { $">> {s} <<" }
 
     // The ~ operator composes invocables together, from left to right.
     1.up(to: 5)
@@ -76,7 +74,7 @@ fun demoIteration
     // invocables as first-class values. Combine it with the dot operator to
     // refer to a method of a type.
 
-    List { 1, 2, 3 }.each -> n {
+    List { 1, 2, 3, }.each -> n {
 
         /*
          * Dollar-prefixed strings allow interpolation. Only single symbols can
@@ -86,9 +84,7 @@ fun demoIteration
         println($"{n}")
     }
 
-    var quadruple = -> {
-        it.doubled.doubled
-    }
+    var quadruple = -> { it.doubled.doubled }
 
     123456789
         |> quadruple::
@@ -139,9 +135,7 @@ fun demoIteration
         // Unlike `for`, `while var` and `if var` take refuttable patterns
         // rather than irrefuttable ones.
         while var Some(n) = select Optional[int] {
-            _ {
-                it
-            }
+            x { x }
         } {
             println($"{n}")
         }
@@ -197,9 +191,7 @@ fun internal factorial
     /** Return values, too. */
 {
     switch n {
-        0, 1 {
-            1
-        }
+        0, 1 { 1 }
         n if n < 0 {
             throw Exception("n cannot be less than 0")
         }
@@ -324,9 +316,7 @@ enum List[of Element](
                 next.each(do)
             }
 
-            Nil {
-                Void
-            }
+            Nil { Void }
         }
     }
 }
@@ -640,9 +630,7 @@ fun demoClosures {
 
     var z = g(account1)
 
-    var n = twice(3) -> {
-        it * 2
-    }
+    var n = twice(3) -> { it * 2 }
     println($"n == {n}")
 }
 
