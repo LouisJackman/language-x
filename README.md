@@ -38,9 +38,9 @@ fun fizzBuzz
     }
 }
 
-enum List[of Element]
+enum List
     /** Time for some data structures. Note: real pattern matching. */
-(
+[of Element](
     Node(of element Element, next This),
     Nil,
 ) {
