@@ -975,10 +975,12 @@ impl Lexer {
                 }
                 '*' => {
                     self.source.discard();
-                    self.expect_and_discard('*')?;
-                    Ok(Token::OverloadableInfixOperator(
-                        OverloadableInfixOperator::MatrixPower,
-                    ))
+                    let op = if self.source.next_is('*') {
+                        OverloadableInfixOperator::MatrixPower
+                    } else {
+                        OverloadableInfixOperator::MatrixMultiply
+                    };
+                    Ok(Token::OverloadableInfixOperator(op))
                 }
                 '-' => {
                     self.source.discard();
@@ -986,9 +988,7 @@ impl Lexer {
                         OverloadableInfixOperator::MatrixSubtract,
                     ))
                 }
-                c => Ok(Token::OverloadableInfixOperator(
-                    OverloadableInfixOperator::MatrixMultiply,
-                )),
+                unexpected => self.unexpected(unexpected),
             },
             None => Err(self.premature_eof()),
         }
