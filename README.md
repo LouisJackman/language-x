@@ -50,9 +50,7 @@ enum List[of Element]
                 do(element)
                 next.each(do)
             }
-            Nil {
-                Void
-            }
+            Nil { Void }
         }
     }
 }
