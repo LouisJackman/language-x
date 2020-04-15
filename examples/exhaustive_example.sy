@@ -205,18 +205,21 @@ fun internal factorial
     }
 }
 
-fun internal ignorable printFactorial
-    /**
+fun internal printFactorial(_ n Int)
+    Int ignorable
+     /**
      * Sylan does not allow callers to throw away non-`Void` function or methods
-     * results unless they're declared with the `ignorable` modifier.
+     * results unless their return values are have an `ignorable` modifier.
      *
      * This makes sense when getting a return value is potentially useful but
-     * not the entire reason behind invoking it.  Such a function or method can
+     * not the entire reason behind invoking it. Such a function or method can
      * be assumed to have side effects, with the exception of constant-time
      * operation NOPs or the like.
+     *
+     * Do not use this to discard errors. If a error type truly must be omitted
+     * from an API, at least make it throw an exception instead.
      */
-(_ n Int) Int {
-
+{
     var result = factorial(of: n)
     println(result)
 

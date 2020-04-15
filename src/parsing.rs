@@ -17,12 +17,11 @@
 //! top-level code.
 //!
 //! Statements don't really exist in Sylan. The closest equivalent is an
-//! expression that returns Sylan's unit type `Void` or an `ignorable`
-//! expression that throws away an `ignoreable`  method's or function's
-//! non-`Void` return value. That said, the only item allowed inside expressions
-//! (e.g. within the body of a lambda in the middle of an outer expression),
-//! variable bindings with `var`, pretty much look and feel like statements from
-//! other languages.
+//! expression that returns Sylan's unit type `Void` or a function call with
+//! an `ignorable` return value which is indeed ignored. That said, the only
+//! item allowed inside expressions (e.g. within the body of a lambda in the
+//! middle of an outer expression), variable bindings with `var`, pretty much
+//! look and feel like statements from other languages.
 //!
 //! Expressions just resolve inner expressions outwards until done; a function,
 //! lambda, or method block can have multiple expressions which Sylan, being a
@@ -552,17 +551,9 @@ impl Parser {
     }
 
     fn parse_lambda_signature(&mut self) -> Result<LambdaSignature> {
-        let ignorable = self.next_is(&Token::Modifier(Modifier::Ignorable));
-        if ignorable {
-            self.expect_and_discard(Token::Modifier(Modifier::Ignorable))?;
-        }
-
         let value_parameters = self.parse_lambda_value_parameter_list()?;
 
-        Ok(LambdaSignature {
-            value_parameters,
-            ignorable,
-        })
+        Ok(LambdaSignature { value_parameters })
     }
 
     /// Parsing a lambda; this should not happen from a top-level expression, but only a
@@ -595,7 +586,6 @@ impl Parser {
 
         let modifiers = FunModifiers {
             accessibility,
-            is_ignorable: modifiers.contains(&Modifier::Ignorable),
             is_extern: modifiers.contains(&Modifier::Extern),
             is_operator: modifiers.contains(&Modifier::Operator),
         };

@@ -151,7 +151,6 @@ pub enum BranchingAndJumping {
 
 pub struct FunModifiers {
     pub accessibility: Accessibility,
-    pub is_ignorable: bool,
     pub is_extern: bool,
     pub is_operator: bool,
 }
@@ -172,6 +171,11 @@ pub struct ValueParameter {
     pub default_value: Option<Expression>,
 }
 
+pub struct ReturnType {
+    r#type: TypeSymbol,
+    ignorable: bool,
+}
+
 pub struct FunSignature {
     pub name: Identifier,
     pub sydoc: Option<SyDoc>,
@@ -180,9 +184,7 @@ pub struct FunSignature {
 
     // Unlike lambdas, an empty return type does not fallback to inference.
     // Instead, `Void` is assumed.
-    pub return_type_annotation: Option<TypeSymbol>,
-
-    pub ignorable: bool,
+    pub return_type: Option<ReturnType>,
 }
 
 pub struct Fun {
@@ -472,7 +474,10 @@ pub struct LambdaValueParameter {
 
 pub struct LambdaSignature {
     pub value_parameters: Vec<LambdaValueParameter>,
-    pub ignorable: bool,
+    // Non-void lambda results can always be ignored without warnings, hence no
+    // `ignorable` modifier. Sylan is only concerned if declared top-level
+    // functions in an API are ignored without declaring such an ignoral to be
+    // acceptable.
 }
 
 pub struct Lambda {
