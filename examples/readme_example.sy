@@ -15,8 +15,8 @@ fun fizzBuzz
 
 enum List
     /** Time for some data structures. Note: real pattern matching. */
-[of Element](
-    Node(of element Element, next This),
+[Element](
+    Node(element Element, next This),
     Nil,
 ) {
     fun each(do (element Element)) {
