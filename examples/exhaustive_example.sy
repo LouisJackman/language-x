@@ -411,8 +411,8 @@ class Name
      * implementation makes no sense.
      */
 (
-    var internal firstName String
-    var internal lastName String
+    var internal firstName String,
+    var internal lastName String,
 )
 // Braces can be dropped off a class. In this case, they act as simple data
 // groups with no additional logic.
