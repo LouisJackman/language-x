@@ -30,6 +30,7 @@ pub enum DeclarationHead {
     Extend,
     Extends,
     Fun,
+    Implements,
     Interface,
     Module,
     Import,

@@ -55,6 +55,10 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("ignorable", Token::Modifier(Modifier::Ignorable)),
         ("import", Token::DeclarationHead(DeclarationHead::Import)),
         (
+            "implements",
+            Token::DeclarationHead(DeclarationHead::Implements),
+        ),
+        (
             "internal",
             Token::Modifier(Modifier::Accessibility(Accessibility::Internal)),
         ),
@@ -125,7 +129,6 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("gen", Token::ReservedKeyword),
         ("get", Token::ReservedKeyword),
         ("infix", Token::ReservedKeyword),
-        ("implements", Token::ReservedKeyword),
         ("in", Token::ReservedKeyword),
         ("link", Token::ReservedKeyword),
         ("llvm", Token::ReservedKeyword),
