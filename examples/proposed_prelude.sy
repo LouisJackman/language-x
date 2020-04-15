@@ -111,7 +111,7 @@ interface public Number {
     }
 }
 
-fun public extern bitnot[N Number](n N) N
+fun public extern bitnot[N extends Number](n N) N
 
 // Built-in types, which look a bit like Java primitives except that they are
 // real OO-style types. These can't be defined in Sylan itself due to their

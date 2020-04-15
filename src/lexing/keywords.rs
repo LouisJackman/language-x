@@ -42,6 +42,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ),
         ("embed", Token::Modifier(Modifier::Embed)),
         ("extend", Token::DeclarationHead(DeclarationHead::Extend)),
+        ("extends", Token::DeclarationHead(DeclarationHead::Extends)),
         (
             "exports",
             Token::ModuleDefinitions(ModuleDefinitions::Exports),

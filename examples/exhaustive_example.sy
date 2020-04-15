@@ -238,13 +238,13 @@ fun internal printFactorial(_ n Int)
 
 fun twice
 [
-    N Number: int
+    N extends Number: int
     /** Type parameters can also be documented with SyDocs. */
 ](_ n N, do f (N) N) N {
     f(n) + f(n)
 }
 
-fun double[N Add & ToString](_ n N) String {
+fun double[N extends Add & ToString](_ n N) String {
     (n + n).toString
 }
 
@@ -384,7 +384,7 @@ fun `test that addition works`
     assert((2 + 2) == 4)
 }
 
-interface Concatenate[with T, producing U: T] {
+interface Concatenate[with T, producing U extends T] {
     fun public concatenate(withEnd that T) T
 }
 

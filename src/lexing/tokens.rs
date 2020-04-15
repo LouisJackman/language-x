@@ -28,6 +28,7 @@ pub enum BranchingAndJumping {
 pub enum DeclarationHead {
     Class,
     Extend,
+    Extends,
     Fun,
     Interface,
     Module,
