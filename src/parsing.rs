@@ -44,7 +44,7 @@
 //! require a sort of zipper or lazy tree structure. More research is needed
 //! here. Until then, there is no `ParserTask` equivalent to the `LexerTask`.
 
-use std::collections::{HashSet, LinkedList};
+use std::collections::HashSet;
 use std::default::Default;
 use std::rc::Rc;
 use std::result;
@@ -118,6 +118,10 @@ impl From<Tokens> for Parser {
 }
 
 impl Parser {
+    //
+    // Utilities
+    //
+
     /// Fail at parsing, describing the reason why.
     fn fail<T>(&self, message: impl Into<String>) -> Result<T> {
         Err(Error::Parser(ParserError {
@@ -188,9 +192,38 @@ impl Parser {
         }))
     }
 
+    //
+    // Tokens Convenience Wrappers
+    //
+
+    fn peek(&mut self) -> Option<Token> {
+        self.tokens.peek().map(|lexed| lexed.token.clone())
+    }
+
+    fn peek_nth(&mut self, n: usize) -> Option<Token> {
+        self.tokens.peek_nth(n).map(|lexed| lexed.token.clone())
+    }
+
+    fn read(&mut self) -> Option<Token> {
+        self.tokens.read().map(|lexed| lexed.token)
+    }
+
+    /// Check whether the next token passes the predicate.
+    fn match_next(&mut self, predicate: impl Fn(Token) -> bool) -> bool {
+        self.tokens
+            .match_next(|lexed| predicate(lexed.token.clone()))
+    }
+
     /// Check whether the next token matches `expected`.
     fn next_is(&mut self, expected: &Token) -> bool {
         self.tokens.match_next(|lexed| lexed.token == *expected)
+    }
+
+    /// Check whether the `n`th token passes the predicate, where `n` is
+    /// zero-indexed.
+    fn match_nth(&mut self, n: usize, predicate: impl Fn(Token) -> bool) -> bool {
+        self.tokens
+            .match_nth(n, |lexed| predicate(lexed.token.clone()))
     }
 
     /// Check whether the `n`th token matches `expected`, where `n` is
@@ -199,30 +232,35 @@ impl Parser {
         self.tokens.match_nth(n, |lexed| lexed.token == *expected)
     }
 
+    //
     // The following methods are sub-parsers that are reentrant and handle the
     // parsing of a particular subcontext of the overall source. Each expects
     // the whole context next in the stream, so previous steps working out which
     // sub-parser to delegate to should use peeks and not reads to discern it
     // from subsequent tokens in the buffer.
+    //
 
     fn parse_modifiers(&mut self, whitelist: &HashSet<Modifier>) -> Result<HashSet<Modifier>> {
         let mut results = HashSet::new();
         loop {
-            if self.tokens.match_next(|lexed| {
-                if let Token::Modifier(ref modifier) = lexed.token {
+            let is_modifier = self.match_next(|token| {
+                if let Token::Modifier(ref modifier) = token {
                     whitelist.contains(modifier)
                 } else {
                     false
                 }
-            }) {
-                if let Token::Modifier(modifier) = self.tokens.read().unwrap().token {
+            });
+            self.tokens.discard();
+
+            if is_modifier {
+                if let Token::Modifier(modifier) = self.read().unwrap() {
                     if results.contains(&modifier) {
                         self.fail(format!("the modifier {:?} was listed twice", modifier))?;
                     } else {
                         results.insert(modifier.clone());
                     }
                 } else {
-                    panic!("invalid state");
+                    unreachable!()
                 }
             } else {
                 break Ok(results);
@@ -242,11 +280,240 @@ impl Parser {
         }
     }
 
-    fn parse_class_body(&mut self) -> Result<HashSet<Method>> {
+    fn parse_class_definition(&mut self) -> Result<nodes::Type> {
+        self.tokens.discard();
+
+        let name = self.parse_identifier()?;
+        let sydoc = if let Some(Token::SyDoc(doc)) = self.peek() {
+            self.tokens.discard();
+            Some(doc)
+        } else {
+            None
+        };
+
+        let has_type_parameters = self.next_is(&Token::Grouping(Grouping::OpenSquareBracket));
+        let type_parameters = if has_type_parameters {
+            self.parse_type_parameter_list()?
+        } else {
+            vec![]
+        };
+
+        let has_value_parameters = self.next_is(&Token::Grouping(Grouping::OpenParentheses));
+        let value_parameters = if has_value_parameters {
+            self.parse_class_value_parameters()?
+        } else {
+            vec![]
+        };
+
+        let does_implement = self.next_is(&Token::DeclarationHead(DeclarationHead::Implements));
+        let implements = if does_implement {
+            self.parse_implements_clause()?
+        } else {
+            vec![]
+        };
+
+        let has_body = self.next_is(&Token::Grouping(Grouping::OpenBrace));
+        let (fields, methods, instance_initialiser) = if has_body {
+            self.parse_class_body()?
+        } else {
+            (vec![], vec![], Block::new_root())
+        };
+
+        let class = Class {
+            implements,
+            methods,
+            fields,
+            value_parameters,
+            instance_initialiser,
+        };
+
+        Ok(nodes::Type {
+            name,
+            type_parameters,
+            item: nodes::TypeItem::Class(class),
+            sydoc,
+        })
+    }
+
+    fn parse_class_value_parameters(&mut self) -> Result<Vec<nodes::ClassValueParameter>> {
+        let mut parameters = vec![];
+
+        loop {
+            if self.next_is(&Token::Grouping(Grouping::CloseParentheses)) {
+                self.tokens.discard();
+                break Ok(parameters);
+            }
+
+            let upgraded_to_field = self.next_is(&Token::Binding(Binding::Var));
+            if upgraded_to_field {
+                let parameter = self.parse_class_parameter_field_upgrade()?;
+                parameters.push(parameter);
+            } else {
+                let parameter = nodes::ClassValueParameter {
+                    parameter: self.parse_value_parameter()?,
+                    field_upgrade: None,
+                };
+                parameters.push(parameter);
+            }
+
+            match self.peek() {
+                Some(Token::SubItemSeparator) => {
+                    self.tokens.discard();
+                }
+                Some(Token::Grouping(Grouping::CloseParentheses)) => {
+                    self.tokens.discard();
+                    break Ok(parameters);
+                }
+                Some(t) => self.unexpected(t)?,
+                None => self.premature_eof()?,
+            }
+        }
+    }
+
+    /// Optional labels complicates parsing value parameter lists. Unlike
+    /// type parameters, there isn't an `extends` clause to split type
+    /// constraints from names and labels.
+    ///
+    /// Doing it with a fixed lookahead relies on the fact that complex
+    /// irrefuttable pattern matching (i.e. not just a top-level identifier
+    /// binding) is always an identifier followed by a non-identifier.
+    ///
+    /// This comes with a caveat: parameter lists must either completely infer
+    /// types or not infer at all, otherwise `label name` is indistinguishable
+    /// from `name type`. Lambdas infer all, `fun`s infer nothing. Otherwise the
+    /// parser would get lost here. Sylan is therefore really committing to this
+    /// design decision...
+    fn parse_value_parameter(&mut self) -> Result<nodes::ValueParameter> {
+        match self.peek() {
+            // Either a label or the start of a parameter name.
+            Some(Token::Identifier(..)) => {}
+
+            Some(t) => self.unexpected(t)?,
+            None => self.premature_eof()?,
+        };
+
+        Ok(if let Some(Token::Identifier(..)) = self.peek_nth(1) {
+            // Either the type or the start of a parameter pattern after a label.
+
+            match self.peek_nth(2) {
+                Some(Token::Grouping(Grouping::CloseParentheses)) => {
+                    // Must be a basic parameter name and a type.
+
+                    let pattern = self.parse_pattern()?;
+                    let type_annotation = self.parse_type_lookup()?;
+                    ValueParameter {
+                        label: None,
+                        pattern,
+                        type_annotation,
+                        default_value: None,
+                        sydoc: None,
+                    }
+                }
+                Some(Token::SubItemSeparator) => {
+                    // Must be a basic parameter name and a type.
+
+                    let pattern = self.parse_pattern()?;
+                    let type_annotation = self.parse_type_lookup()?;
+                    self.tokens.discard();
+                    ValueParameter {
+                        label: None,
+                        pattern,
+                        type_annotation,
+                        default_value: None,
+                        sydoc: None,
+                    }
+                }
+                Some(Token::Colon) => {
+                    // Must be a basic parameter name and a type with a
+                    // default value.
+
+                    let pattern = self.parse_pattern()?;
+                    let type_annotation = self.parse_type_lookup()?;
+                    let default_value = Some(self.parse_default_value()?);
+                    let sydoc = if let Some(Token::SyDoc(doc)) = self.peek() {
+                        self.tokens.discard();
+                        Some(doc)
+                    } else {
+                        None
+                    };
+                    ValueParameter {
+                        label: None,
+                        pattern,
+                        type_annotation,
+                        default_value,
+                        sydoc,
+                    }
+                }
+                Some(_) => {
+                    // Must be a label followed by complex pattern matching,
+                    // and then a type.
+
+                    let label = Some(self.parse_identifier()?);
+                    let pattern = self.parse_pattern()?;
+                    let type_annotation = self.parse_type_lookup()?;
+                    let default_value = if self.next_is(&Token::Colon) {
+                        Some(self.parse_default_value()?)
+                    } else {
+                        None
+                    };
+                    let sydoc = if let Some(Token::SyDoc(doc)) = self.peek() {
+                        self.tokens.discard();
+                        Some(doc)
+                    } else {
+                        None
+                    };
+                    ValueParameter {
+                        label,
+                        pattern,
+                        type_annotation,
+                        default_value,
+                        sydoc,
+                    }
+                }
+                None => self.premature_eof()?,
+            }
+        } else {
+            // Must be the start of a complex pattern match without a label.
+
+            let pattern = self.parse_pattern()?;
+            let type_annotation = self.parse_type_lookup()?;
+            let default_value = if self.next_is(&Token::Colon) {
+                Some(self.parse_default_value()?)
+            } else {
+                None
+            };
+            let sydoc = if let Some(Token::SyDoc(doc)) = self.peek() {
+                self.tokens.discard();
+                Some(doc)
+            } else {
+                None
+            };
+            ValueParameter {
+                label: None,
+                pattern,
+                type_annotation,
+                default_value,
+                sydoc,
+            }
+        })
+    }
+
+    fn parse_default_value(&mut self) -> Result<nodes::Expression> {
+        self.expect_and_discard(Token::Colon)?;
+        self.parse_expression()
+    }
+
+    fn parse_class_parameter_field_upgrade(&mut self) -> Result<nodes::ClassValueParameter> {
         todo!()
     }
 
-    fn parse_class_definition(&mut self) -> Result<nodes::Type> {
+    fn parse_implements_clause(&mut self) -> Result<Vec<TypeSymbol>> {
+        todo!()
+    }
+
+    fn parse_class_body(
+        &mut self,
+    ) -> Result<(Vec<nodes::Field>, Vec<nodes::ConcreteMethod>, Block)> {
         todo!()
     }
 
@@ -313,7 +580,7 @@ impl Parser {
         })
     }
 
-    fn parse_type_symbol_lookup(&mut self) -> Result<nodes::TypeSymbol> {
+    fn parse_type_lookup(&mut self) -> Result<nodes::TypeSymbol> {
         todo!()
     }
 
@@ -361,7 +628,7 @@ impl Parser {
             .unwrap_or_else(|| self.premature_eof())?;
 
         if let Token::Identifier(_) = token {
-            let r#type = self.parse_type_symbol_lookup()?;
+            let r#type = self.parse_type_lookup()?;
             self.expect_and_discard(Token::Grouping(Grouping::OpenParentheses))?;
 
             let mut getters = vec![];
@@ -439,7 +706,7 @@ impl Parser {
         self.parse_lookup()
     }
 
-    fn parse_interface_body(&mut self) -> Result<HashSet<Method>> {
+    fn parse_interface_body(&mut self) -> Result<Vec<Method>> {
         unimplemented!()
     }
 
@@ -450,7 +717,7 @@ impl Parser {
     fn parse_type_constraints(&mut self) -> Result<Vec<TypeSymbol>> {
         let mut constraints = vec![];
         loop {
-            constraints.push(self.parse_type_symbol_lookup()?);
+            constraints.push(self.parse_type_lookup()?);
             if self.next_is(&Token::OverloadableInfixOperator(
                 OverloadableInfixOperator::Ampersand,
             )) {
@@ -477,7 +744,13 @@ impl Parser {
                 };
                 let default_value = if self.next_is(&Token::Binding(Binding::Assign)) {
                     self.expect_and_discard(Token::Binding(Binding::Assign))?;
-                    Some(self.parse_type_symbol_lookup()?)
+                    Some(self.parse_type_lookup()?)
+                } else {
+                    None
+                };
+                let sydoc = if let Some(Token::SyDoc(doc)) = self.peek() {
+                    self.tokens.discard();
+                    Some(doc)
                 } else {
                     None
                 };
@@ -487,6 +760,7 @@ impl Parser {
                     name,
                     upper_bounds,
                     default_value,
+                    sydoc,
                 });
 
                 if self.next_is(&Token::Grouping(Grouping::CloseSquareBracket)) {
@@ -512,17 +786,9 @@ impl Parser {
         loop {
             let pattern = self.parse_pattern()?;
 
-            let default_value = if self.next_is(&Token::Binding(Binding::Assign)) {
-                self.tokens.discard();
-                Some(self.parse_expression()?)
-            } else {
-                None
-            };
-
             let parameter = nodes::LambdaValueParameter {
                 label: None, // TODO: parse labels
                 pattern,
-                default_value,
             };
 
             parameters.push(parameter);
@@ -542,7 +808,7 @@ impl Parser {
         if self.next_is(&Token::Grouping(Grouping::OpenBrace)) {
             Ok(None)
         } else {
-            Ok(Some(self.parse_type_symbol_lookup()?))
+            Ok(Some(self.parse_type_lookup()?))
         }
     }
 
@@ -620,7 +886,7 @@ impl Parser {
         let explicit_type_annotation = if self.next_is(&Token::Binding(Binding::Assign)) {
             None
         } else {
-            Some(self.parse_type_symbol_lookup()?)
+            Some(self.parse_type_lookup()?)
         };
         self.expect_and_discard(Token::Binding(Binding::Assign))?;
 
@@ -642,7 +908,7 @@ impl Parser {
         let explicit_type_annotation = if self.next_is(&Token::Binding(Binding::Assign)) {
             None
         } else {
-            Some(self.parse_type_symbol_lookup()?)
+            Some(self.parse_type_lookup()?)
         };
         self.expect_and_discard(Token::Binding(Binding::Assign))?;
 
@@ -672,7 +938,7 @@ impl Parser {
         let explicit_type_annotation = if self.next_is(&Token::Binding(Binding::Assign)) {
             None
         } else {
-            Some(self.parse_type_symbol_lookup()?)
+            Some(self.parse_type_lookup()?)
         };
         self.expect_and_discard(Token::Binding(Binding::Assign))?;
 
@@ -706,7 +972,7 @@ impl Parser {
 
     fn parse_select(&mut self) -> Result<nodes::Select> {
         self.tokens.discard();
-        let message_type = self.parse_type_symbol_lookup()?;
+        let message_type = self.parse_type_lookup()?;
         self.expect_and_discard(Token::Grouping(Grouping::OpenBrace))?;
         let mut cases = vec![];
         let mut timeout = None;
@@ -765,10 +1031,10 @@ impl Parser {
         let mut cases = vec![];
 
         loop {
-            let mut conditions = LinkedList::new();
+            let mut conditions = vec![];
             let then = loop {
                 let expression = self.parse_expression()?;
-                conditions.push_back(expression);
+                conditions.push(expression);
 
                 if self.next_is(&Token::Grouping(Grouping::OpenBrace)) {
                     break self.parse_block()?;
