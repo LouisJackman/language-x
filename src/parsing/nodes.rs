@@ -43,8 +43,6 @@
 //! The parser doesn't care, since refuttabillity can only be asserted with a
 //! type system. Thus, they are both just "patterns" here.
 
-use std::collections::{HashSet, LinkedList};
-use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use crate::common::multiphase::{
@@ -58,6 +56,7 @@ use crate::common::version::Version;
 /// shebangs must be completely resolved before anything else can be parsed,
 /// and the result of parsing version can completely change the lexing and
 /// parsing of all subsequent tokens.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct File {
     pub shebang: Option<Shebang>,
     pub version: Option<Version>,
@@ -66,6 +65,7 @@ pub struct File {
 
 /// Main files are the files that are directly invoked by Sylan. They have
 /// abilities that imported files to not; see [MainPackage] for more details.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct MainFile {
     pub shebang: Option<Shebang>,
     pub version: Option<Version>,
@@ -75,6 +75,7 @@ pub struct MainFile {
 // Packages only have items at top-level, with the exception of the main package that can also have
 // executable code to simplify small scripts.
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Package {
     pub accessibility: Accessibility,
     pub name: Identifier,
@@ -82,6 +83,7 @@ pub struct Package {
     pub sydoc: Option<SyDoc>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct MainPackage {
     pub package: Package,
     pub block: Block,
@@ -89,6 +91,7 @@ pub struct MainPackage {
 
 /// Every node in Sylan is either an item or an expression, even the special
 /// shebang and version tokens (both of which are items).
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Node {
     Item(Item),
     Expression(Expression),
@@ -96,6 +99,7 @@ pub enum Node {
 
 /// The declarations that make up the static structure of a Sylan program. Items
 /// can't be contained within expressions, with the exception of bindings.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Item {
     Extension(Extension),
     Fun(Fun),
@@ -114,6 +118,7 @@ pub enum Item {
 
 /// The expressions that allow Turing-complete computations, i.e. allowing
 /// Sylan to do actual useful work.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expression {
     BranchingAndJumping(BranchingAndJumping),
     Context(Block),
@@ -124,11 +129,13 @@ pub enum Expression {
     Using(Using),
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Operator {
     InfixOperator(OverloadableInfixOperator, Box<Expression>, Box<Expression>),
     PostfixOperator(Box<Expression>, PostfixOperator),
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum BranchingAndJumping {
     Call(Call),
     Cond(Cond),
@@ -149,12 +156,14 @@ pub enum BranchingAndJumping {
 // be explicitly annotated anyway. It also adds a bounds to potentially
 // expensive type inference costs in the compiler.
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct FunModifiers {
     pub accessibility: Accessibility,
     pub is_extern: bool,
     pub is_operator: bool,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ValueParameter {
     /// A label is omitted if the developer passes an `_` where a label is expected.
     /// By constrast, if a label is totally omitted, it assumes the same
@@ -169,13 +178,30 @@ pub struct ValueParameter {
     pub pattern: Pattern,
     pub type_annotation: TypeSymbol,
     pub default_value: Option<Expression>,
+    pub sydoc: Option<SyDoc>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ClassValueParameterFieldUpgrade {
+    pub is_embedded: bool,
+    pub accessibility: Accessibility,
+}
+
+/// The same except as a [ValueParameter] except that they can be upgraded to
+/// fields by prefixing with var with the usual field modifiers.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ClassValueParameter {
+    pub parameter: ValueParameter,
+    pub field_upgrade: Option<ClassValueParameterFieldUpgrade>,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ReturnType {
     r#type: TypeSymbol,
     ignorable: bool,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct FunSignature {
     pub name: Identifier,
     pub sydoc: Option<SyDoc>,
@@ -187,23 +213,27 @@ pub struct FunSignature {
     pub return_type: Option<ReturnType>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Fun {
     pub modifiers: FunModifiers,
     pub signature: FunSignature,
     pub block: Block,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum DeclarationItem {
     Binding(Binding),
     Type(Type),
     Package(Package),
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Declaration {
     pub accessibility: Accessibility,
     pub item: DeclarationItem,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ClassModifiers {
     accessibility: Accessibility,
     is_extern: bool,
@@ -212,13 +242,14 @@ pub struct ClassModifiers {
 // Concrete classes that support implementing interfaces and embedding other
 // classes, but cannot extend other classes directly.
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Class {
     pub implements: Vec<TypeSymbol>,
-    pub methods: HashSet<ConcreteMethod>,
-    pub fields: HashSet<Field>,
+    pub methods: Vec<ConcreteMethod>,
+    pub fields: Vec<Field>,
 
     // Initialisation
-    pub value_parameters: Vec<ValueParameter>,
+    pub value_parameters: Vec<ClassValueParameter>,
     pub instance_initialiser: Block,
 }
 
@@ -229,12 +260,15 @@ pub struct Class {
 /// simple parameter name.
 ///
 /// Labels can still be used, however.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct EnumVariant {
     pub label: Option<Identifier>,
     pub name: Identifier,
     pub type_annotation: TypeSymbol,
+    pub sydoc: Option<SyDoc>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Enum {
     pub variants: Vec<EnumVariant>,
     pub class: Class,
@@ -244,17 +278,20 @@ pub struct Enum {
 /// that implementors must implement, providing already-defined utility methods,
 /// and even allowing already-defined methods to be specialised via overriding
 /// in implementing classes.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Interface {
     pub extends: Vec<TypeSymbol>,
-    pub methods: HashSet<Method>,
+    pub methods: Vec<Method>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum TypeItem {
     Class(Class),
     Enum(Enum),
     Interface(Interface),
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Type {
     pub name: Identifier,
     pub type_parameters: Vec<TypeParameter>,
@@ -262,6 +299,7 @@ pub struct Type {
     pub sydoc: Option<SyDoc>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TypeSymbol {
     pub reference: Symbol,
     pub type_arguments: Vec<TypeArgument>,
@@ -276,6 +314,7 @@ impl TypeSymbol {
     }
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Extension {
     pub name: Identifier,
     pub extension_parameters: Vec<TypeParameter>,
@@ -284,6 +323,7 @@ pub struct Extension {
     pub sydoc: Option<SyDoc>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct MethodModifiers {
     fun_modifiers: FunModifiers,
     overrides: bool,
@@ -302,16 +342,19 @@ pub struct MethodModifiers {
 /// case, OOP-style methods, don't require spelling out type annotations twice as lambdas are
 /// literals.
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct AbstractMethod {
     pub modifiers: MethodModifiers,
     pub signature: FunSignature,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ConcreteMethod {
     r#abstract: AbstractMethod,
     scope: Block,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Method {
     Abstract(AbstractMethod),
     Concrete(ConcreteMethod),
@@ -319,13 +362,16 @@ pub enum Method {
 
 /// Type parameters are for types at compile-time and have optional upper
 /// bounds, identifiers, and optional default values.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TypeParameter {
     pub label: Option<Identifier>,
     pub name: Identifier,
     pub upper_bounds: Vec<TypeSymbol>,
     pub default_value: Option<TypeSymbol>,
+    pub sydoc: Option<SyDoc>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Argument<T> {
     pub label: Option<Identifier>,
     pub value: T,
@@ -362,12 +408,14 @@ type TypeArgument = Argument<Type>;
 /// "execution-time" can mean both "runtime" and "running within a compile-time
 /// macro.)
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Binding {
     pub pattern: Pattern,
     pub value: Box<Expression>,
     pub explicit_type_annotation: Option<TypeSymbol>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Final {
     /// This is gaping escape hatch from Sylan's immutable worldview. If a extern
     /// final value points to a memory location in another artefact, like a C
@@ -397,23 +445,12 @@ pub struct Final {
     pub sydoc: Option<SyDoc>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Field {
     pub is_extern: bool,
     pub is_embedded: bool,
     pub accessibility: Accessibility,
     pub binding: Binding,
-}
-
-impl PartialEq for Binding {
-    fn eq(&self, other: &Self) -> bool {
-        self.pattern == other.pattern
-    }
-}
-
-impl Hash for Binding {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.pattern.hash(state)
-    }
 }
 
 /// Expressions are seperate from bindings.
@@ -442,6 +479,7 @@ type Expressions = Vec<Expression>;
 ///
 /// All functions, concrete methods, and lambdas have an attached scope.
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Block {
     pub bindings: Vec<Binding>,
     pub expressions: Expressions,
@@ -466,12 +504,13 @@ impl Block {
     }
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct LambdaValueParameter {
     pub label: Option<Identifier>,
     pub pattern: Pattern,
-    pub default_value: Option<Expression>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct LambdaSignature {
     pub value_parameters: Vec<LambdaValueParameter>,
     // Non-void lambda results can always be ignored without warnings, hence no
@@ -480,6 +519,7 @@ pub struct LambdaSignature {
     // acceptable.
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Lambda {
     pub signature: LambdaSignature,
     pub block: Block,
@@ -494,8 +534,10 @@ pub struct Lambda {
 // and semantic analysis. It allows looking items up in static program structure, e.g. types and
 // packages.
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Symbol(pub Vec<Identifier>);
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Literal {
     Char(char),
     InterpolatedString(InterpolatedString),
@@ -504,48 +546,56 @@ pub enum Literal {
     Lambda(Lambda),
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Switch {
     pub expression: Box<Expression>,
     pub cases: Vec<Case>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Timeout {
     pub nanoseconds: Box<Expression>,
     pub body: Block,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Select {
     pub message_type: TypeSymbol,
     pub cases: Vec<Case>,
     pub timeout: Option<Timeout>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Call {
     pub target: Box<Expression>,
     pub type_arguments: Vec<TypeArgument>,
     pub arguments: Vec<ValueArgument>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Using(Box<Expression>);
 
 // Ifs must have braces for both the matching body and the else clause if one
 // exists, like any other control statement. There's one exception: if the else
 // is followed directly by another `if`, the braces can be dropped. This is to
 // allow the common `} else if {` notation.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct If {
     pub condition: Box<Expression>,
     pub then: Block,
     pub else_clause: Option<Block>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct IfVar {
     pub binding: Binding,
     pub then: Block,
     pub else_clause: Option<Block>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct CondCase {
-    pub conditions: LinkedList<Expression>,
+    pub conditions: Vec<Expression>,
     pub then: Block,
 }
 
@@ -553,13 +603,16 @@ pub struct CondCase {
 // even evaluated, regardless of whether they'd also return true.
 //
 // Any expression not yielding a `Boolean` type fails type checking.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Cond(pub Vec<CondCase>);
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct CaseMatch {
     pub pattern: Pattern,
     pub guard: Option<Expression>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Case {
     pub matches: Vec<CaseMatch>,
     pub body: Block,
@@ -581,12 +634,14 @@ pub struct Case {
 // patterns; refuttable patterns must be done inside the for loop with other
 // constructs.
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct For {
     pub bindings: Vec<Binding>,
     pub scope: Block,
     pub label: Option<Identifier>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct While {
     pub condition: Box<Expression>,
     pub scope: Block,
@@ -595,6 +650,7 @@ pub struct While {
 // `while var` does not accept labels. If a developers need that, they should
 // use for loops instead, and perform refuttable pattern matching against the
 // irefuttable pattern bound by `for` inside the body.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WhileVar {
     pub binding: Binding,
     pub scope: Block,
@@ -605,20 +661,24 @@ pub struct WhileVar {
 /// expression can be used. It can throw any expression that yields a type which
 /// implements the Exception interface. In "returns" the bottom type which
 /// allows it to be used anywhere.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Throw(pub Box<Expression>);
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PatternGetter {
     pub label: Option<Identifier>,
     pub name: Identifier,
     pub pattern: Pattern,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct CompositePattern {
     pub r#type: TypeSymbol,
     pub getters: Vec<PatternGetter>,
     pub ignore_rest: bool,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum PatternItem {
     // Irrefuttable
     Identifier(Identifier),
@@ -636,6 +696,7 @@ pub enum PatternItem {
     Symbol(Symbol),
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Pattern {
     pub item: PatternItem,
 
@@ -643,16 +704,4 @@ pub struct Pattern {
     // available in following-on blocks such as switch/select clauses and
     // guards, fun bodies, and `if let`, `while let`, and `for` blocks.
     pub bound_match: Option<Box<Pattern>>,
-}
-
-impl PartialEq for Pattern {
-    fn eq(&self, other: &Self) -> bool {
-        self.bound_match == other.bound_match
-    }
-}
-
-impl Hash for Pattern {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.bound_match.hash(state)
-    }
 }
