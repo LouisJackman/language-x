@@ -1,7 +1,7 @@
 #!/usr/bin/env sylan
 
 fun fizzBuzz
-    /** The (in)famous FizzBuzz. */
+    /** The (In)famous FizzBuzz. */
 (n Int) Int {
     1.up(to: n).each -> {
         switch {
@@ -14,7 +14,7 @@ fun fizzBuzz
 }
 
 enum List
-    /** Time for some data structures. Note: real pattern matching. */
+    /** Data Structures & Pattern Matching */
 [Element](
     Node(element Element, next This),
     Nil,
@@ -27,22 +27,15 @@ enum List
     }
 }
 
-// Now, Erlang-style concurrency and nested packages.
+// Erlang-style Concurrency & Nested Packages.
 
 package counter {
-    enum Message(
-        Increment,
-        Reset(with n Int),
-        Get,
-    )
+    enum public Message(public Increment, public Get)
 
     fun public start(task Task, n Int: 0) {
         select Message {
             .Increment {
                 start(task, n: n + 1)
-            }
-            .Reset(n) {
-                start(task, n)
             }
             .Get {
                 send(n, to: task)
@@ -57,24 +50,15 @@ package counter {
 
 var c = do -> {
     var parent = currentTask
-    Task -> {
-        counter.start(task: parent)
-    }
+    Task -> { counter.start(task: parent) }
 }
-5.times -> {
-    send(counter.Message.Increment, to: c)
-}
+5.times -> { send(counter.Message.Increment, to: c) }
 send(counter.Message.Get, to: c)
-send(counter.Message.Increment, to: c)
-send(counter.Message.Get, to: c)
-2.times -> {
-    var n = select Int
-    println($"{n}")
-}
-send(counter.Message.Reset(to: 0), to: c)
+var n = select Int
+println($"Counter: {n}")
 
 class Name
-    /** Easy data definition with keyword arguments and defaults. */
+    /** Data Definition with Keyword & Default Arguments */
 (
     var public first String: "James",
     var public last String: "Bond",
@@ -84,8 +68,17 @@ class Name
     }
 }
 
+// Compile-time Programming & Macros (Reader Macros too; see Documentation)
+fun final repeat(times Usize, syntax pipeline AstPipeline) {
+    pipeline.finish(with: quasiquote {
+        unquote {
+            1.up(to: times).map(pipeline.source::)
+        }
+    })
+}
+
 fun demoContexts
-    /** Finally, the esoteric for Haskell fans: applicative notation. */
+    /** One for the Haskell Fans: Applicative Notation */
 Optional[Int] {
     with {
         var x = Some(5)?

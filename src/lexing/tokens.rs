@@ -87,6 +87,14 @@ pub enum Binding {
     Var,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum Macros {
+    Quote,
+    Quasiquote,
+    Unquote,
+    Syntax,
+}
+
 /// All tokens that can currently exist in all version of a Sylan program source.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Token {
@@ -107,6 +115,7 @@ pub enum Token {
     OverloadableSliceOperator(OverloadableSliceOperator),
     PostfixOperator(PostfixOperator),
     PseudoIdentifier(PseudoIdentifier),
+    Macros(Macros),
 
     Colon,
     Dot,

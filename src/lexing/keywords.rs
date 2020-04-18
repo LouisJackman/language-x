@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use crate::common::multiphase::{Accessibility, PseudoIdentifier};
 use crate::lexing::tokens::{
-    Binding, BranchingAndJumping, DeclarationHead, Modifier, ModuleDefinitions, Token,
+    Binding, BranchingAndJumping, DeclarationHead, Macros, Modifier, ModuleDefinitions, Token,
 };
 
 pub fn new() -> HashMap<&'static str, Token> {
@@ -75,6 +75,8 @@ pub fn new() -> HashMap<&'static str, Token> {
             "public",
             Token::Modifier(Modifier::Accessibility(Accessibility::Public)),
         ),
+        ("quasiquote", Token::Macros(Macros::Quasiquote)),
+        ("quote", Token::Macros(Macros::Quote)),
         (
             "reject",
             Token::ModuleDefinitions(ModuleDefinitions::Reject),
@@ -87,12 +89,14 @@ pub fn new() -> HashMap<&'static str, Token> {
             "select",
             Token::BranchingAndJumping(BranchingAndJumping::Select),
         ),
+        ("syntax", Token::Macros(Macros::Syntax)),
         (
             "switch",
             Token::BranchingAndJumping(BranchingAndJumping::Switch),
         ),
         ("throw", Token::Throw),
         ("timeout", Token::Timeout),
+        ("unquote", Token::Macros(Macros::Unquote)),
         ("using", Token::Using),
         ("var", Token::Binding(Binding::Var)),
         ("with", Token::With),
@@ -127,7 +131,8 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("extern", Token::ReservedKeyword),
         ("fexpr", Token::ReservedKeyword),
         ("fixed", Token::ReservedKeyword),
-        ("fun", Token::ReservedKeyword),
+        ("fn", Token::ReservedKeyword),
+        ("func", Token::ReservedKeyword),
         ("forall", Token::ReservedKeyword),
         ("gc", Token::ReservedKeyword),
         ("gen", Token::ReservedKeyword),
@@ -151,8 +156,6 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("prefix", Token::ReservedKeyword),
         ("pragma", Token::ReservedKeyword),
         ("pure", Token::ReservedKeyword),
-        ("quasiquote", Token::ReservedKeyword),
-        ("quote", Token::ReservedKeyword),
         ("raw", Token::ReservedKeyword),
         ("read", Token::ReservedKeyword),
         ("reader", Token::ReservedKeyword),
@@ -163,7 +166,6 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("struct", Token::ReservedKeyword),
         ("source", Token::ReservedKeyword),
         ("sync", Token::ReservedKeyword),
-        ("syntax", Token::ReservedKeyword),
         ("throws", Token::ReservedKeyword),
         ("tokens", Token::ReservedKeyword),
         ("total", Token::ReservedKeyword),
@@ -172,7 +174,6 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("unary", Token::ReservedKeyword),
         ("unchecked", Token::ReservedKeyword),
         ("unsafe", Token::ReservedKeyword),
-        ("unquote", Token::ReservedKeyword),
         ("unllvm", Token::ReservedKeyword),
         ("yield", Token::ReservedKeyword),
         ("value", Token::ReservedKeyword),

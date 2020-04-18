@@ -1,4 +1,46 @@
-#!/usr/bin/env sylan
+#!/usr/bin/env sylan 
+
+// Basic use of shebangs are just to ease execution on Unix-like systems, but
+// more complex usages of it can completely change the way a program is
+// interpreted.
+//
+// Later in this file, you'll see examples of macros, which give a function
+// the ability to change language syntax. Reader macros provide token-level
+// and even character-level reading of the program. This allow effectively
+// unlimited linguistic abstractions. They can be invoked in many ways, and
+// shebangs are one of them.
+//
+// They are mentioned in shebangs like so:
+//
+// `#!/usr/bin/env -S sylan -l exampleModule.examplePackage.exampleReader`
+//
+// A macro mentioned in the shebang, using normal package lookup notation after
+// a `-l` flag, will get a pass through the whole program from the line after
+// the shebang to the end of the file.
+//
+// Sylan ignores most of the shebang, since it's primarily of the benefit of the
+// OS. The exception is when it encountered `sylan` seperated by whitespace. It
+// will then interpret subsequent `-v` and `-l` arguments to work out how to
+// parse the source file, where both take a comma-seperated list of version
+// numbers and reader macro lookups respectively.
+//
+// Furthermore, multiple languages can be separated by commas, creating a tower
+// of nested languages. Interpretation goes through each macro, from left to
+// right.
+//
+// It must emit a whole valid Sylan file its provided pipeline, or an invalid one
+// that a later reader in the pipeline can understand. Either way, a valid Sylan
+// program must end up at the end of the pipeline.
+//
+// `-S` is discarded by Sylan, like most of the shebang. It's used by GNU
+// coreutils and FreeBSD's userland to split the subsequent words when invoking
+// the program, working around a common problem with Unix shebangs.
+//
+// This syntax is chosen for a reason; if the shebang is run directly from a
+// Unix-like system, it will also interpret the file under that package's reader
+// macro due to understanding the `-l` flag. This means the shebang allows
+// whole-file macros to apply to both imported files and ones started from the
+// shell.
 
 package main
 /**
@@ -17,15 +59,25 @@ package main
 //
 // For example, all the imports here are from the `sylan` module, which is
 // already available for all Sylan programs.
-import sylan.{
-    io.println,
-    uil.{
-        toString.ToString,
-        collections.{HashMap, List},
-        concurrency.Task,
-        datetime.ZonedDateTime,
-        optional.{Empty, Some},
+import {
+    sylan.{
+        io.println,
+        uil.{
+            toString.ToString,
+            collections.{HashMap, List},
+            concurrency.Task,
+            datetime.ZonedDateTime,
+            optional.{Empty, Some},
+        },
     },
+    package1,
+
+    // Packages can also be interpreted with specific macros, even if those
+    // files have no knowledge of such macros.
+    package2 syntax(package1.readAsLisp).{item1, item2},
+
+    // In fact, such files might have no knowledge of even Sylan...
+    module1.`package1.lisp` syntax(package1.readAsLisp),
 }
 
 fun fizzBuzz(_ n Int) Int {
@@ -205,9 +257,8 @@ fun internal factorial
     }
 }
 
-fun internal printFactorial(_ n Int)
-    Int ignorable
-     /**
+fun internal ignorable printFactorial
+    /**
      * Sylan does not allow callers to throw away non-`Void` function or methods
      * results unless their return values are have an `ignorable` modifier.
      *
@@ -219,7 +270,7 @@ fun internal printFactorial(_ n Int)
      * Do not use this to discard errors. If a error type truly must be omitted
      * from an API, at least make it throw an exception instead.
      */
-{
+(_ n Int) Int {
     var result = factorial(of: n)
     println(result)
 
@@ -265,7 +316,6 @@ fun printNumber
 }
 
 fun demoContexts Optional[Int] {
-
     println("Demoing contexts...")
 
     /*
@@ -597,7 +647,7 @@ fun factorial2 = factorial
 
 final maxBound Int = 5
 /**
- * Constants are allowed in the top-level of a package, and can have SyDocs
+ * Finals are allowed in the top-level of a package, and can have SyDocs
  * underneath as well as the usual modifiers. Their values must be evaluatable
  * at compile-time, meaning that package imports never trigger arbirary
  * computations.
@@ -607,6 +657,134 @@ final maxBound Int = 5
  *
  * Local bindings with var can occur too, but only in the main package.
  */
+
+fun final compileTimeAdd
+    /**
+     * `final` functions always run at compile-time. If parameters are passed
+     * that require runtime values, the compilation fails.
+     *
+     * If a package does work at compile-time, it must be imported with a single
+     * `!`, e.g: `import thirdPartyModule.package1.{loopMacro!, whenMacro!}`.
+     *
+     * This requirement might be dropped if purity-checking is added to the
+     * language and can be used to assess compile-time operations.
+     */
+(x Int, y Int) Int {
+    x + y
+}
+
+fun anyTimeAnytime(x Int, y Int) Int { x + y }
+
+fun final repeat(
+    times Int,
+
+    syntax pipeline AstPipeline,
+    /**
+     * `syntax` interprets an argument as a chunk of syntax rather than
+     * evaluating it, automatically converting it into a mallable syntax type.
+     * There are limited "*Pipeline" types in `sylan.lang` that are supported
+     * with `syntax`.
+     *
+     * `syntax` is banned on functions that aren't `final`; compiled artefacts
+     * are never burdened with the weight of meta-linguistic abstrations at
+     * runtime.
+     *
+     * To convert a chunk of syntax into one of the AST-consuming pipelines,
+     * Sylan must be given something that can be _successfully parsed as an AST
+     * node_. It needn't type check, use bound identifiers, or pass any further
+     * stages. Macros are the only part in the language, apart from `var`
+     * bindings in lambdas, that allows items declarations in expressions.
+     *
+     * For pipelines consuming tokens and characters, full control over the
+     * parser and lexer are surrendered to the function and the subsequent
+     * content needn't be a valid AST node. This can present "interesting"
+     * security problems as, unlike `Ast`, third party code gains control over
+     * when customised lexing and parsing stops. Therefore, such macros must be
+     * explicitly imported into a package suffixed with a double exclamation
+     * mark:
+     *
+     * `import thirdPartyModule.package1.{loopMacro!!, whenMacro!!}`
+     *
+     * This is also why `import` blocks must be a the top of packages before
+     * anything else; what if a lexer macro hijacked the lexing of exclamation
+     * marks in imports itself?
+     *
+     * Modules can also whitelist macro imports, allowing ones from the standard
+     * library but refusing to allow other third party libraries to take over
+     * the lexing and parsing. In fact, this is the default for
+     * explicitly-defined modules.
+     *
+     * A final function that has any `syntax` parameters is idiomatically
+     * referred to as a "macro". AST macros are comparable to most languages and
+     * are often found in Lisp dialects, but reader macros of this style are
+     * only found in Common Lisp, which Sylan took them from.
+     */
+) {
+    quasiquote {
+
+        // Unquote would normally be pointless as the only block in a
+        // quasiquoted outer block. The AST could be just returned directly.
+        //
+        // However, `unquote` against a `List[Ast]` has special splicing
+        // behaviour that normal bare `Ast` results do not; all nodes in the
+        // list are spliced inline.
+        unquote {
+
+            1.up(to: times)
+                .map(pipeline.source::)
+        }
+    } |> pipeline.finish
+}
+
+fun extern json(syntax pipeline AsymmetricPipeline[from: Token, to: Ast])
+
+fun extern embeddedLanguage(syntax pipeline Pipeline[of: Token])
+
+fun testCompileTime {
+    compileTimeAdd(40, 2) |> println
+
+    // Normal functions are run at runtime, at least _observably_. Parts might
+    // be run at compile-time for optimisation if the difference is unobservable
+    // in the resulting program.
+    addAtAnyTime(40, 2) |> println
+
+    // Normal functions can be explicitly run at compile-time with `!`. The same
+    // rule as `final` function applies: if any argument requires runtime
+    // evaluation, it fails to compile.
+    addAtAnyTime!(40, 2) |> println
+
+    // Want to run a block in compile-time without defining a function to call?
+    // Just use the standard `sylan.lang.do` function with `!`:
+    do! -> {
+        println("this prints at compile time")
+    }
+
+    repeat(4, do -> {
+        println("this is a test!")
+        println("this is another test!")
+    })
+
+    //
+    // This ends up compiled as:
+    //
+    // do -> {
+    //     println("this is a test!")
+    //     println("this is another test!")
+    // }
+    // do -> {
+    //     println("this is a test!")
+    //     println("this is another test!")
+    // }
+    // do -> {
+    //     println("this is a test!")
+    //     println("this is another test!")
+    // }
+    // do -> {
+    //     println("this is a test!")
+    //     println("this is another test!")
+    // }
+    //
+}
 
 fun demoClosures {
     var x = 5

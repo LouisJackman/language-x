@@ -141,6 +141,324 @@ class public Decimal {
     //
 }
 
+interface LanguageReader[reading Item] {
+
+    fun public readMany
+        /** Read from the reader, consuming them as they are returned. */
+    (
+        amount Usize
+        /** The amount to attempt to read. */
+    )
+        List[of: Item]
+        /**
+         * What was read; if smaller than the amount, it means the reader hit
+         * the end of its source. This means that the end of the source can be
+         * detected by requesting more than zero to read and checking for an
+         * empty resulting list.
+         *
+         * That is what [is_finished] does.
+         */
+
+    fun public peekMany
+        /** Peek in the reader, multiple characters from an index. */
+    (
+        amount Usize,
+        /** The amount to attempt to peek at.  */
+
+        from index Usize: 0
+        /** Whence to peek onwards. */
+    )
+        List[of: Item]
+        /**
+         * What was read; if smaller than the amount, it means the reader hit
+         * the end of its source. This means that the end of the source can be
+         * detected by requesting more than zero to peek at and checking for an
+         * empty resulting list.
+         *
+         * That is what [is_finished] does.
+         */
+
+    fun public discard
+    (
+        amount Usize: 1
+        /** The amount to attempt to discard. */
+    )
+        Boolean
+        /**
+         * Whether all `amount` items were discarded before encoutering the end
+         * of the stream.
+         */
+
+    fun public read Optional[Item] {
+        readMany(amount: 1).first
+    }
+
+    fun public peek(at index: 0) Optional[Item] {
+        peekMany(amount: 1, from: index).first
+    }
+
+    fun isFinished Boolean {
+        peek.isEmpty
+    }
+
+    fun skipUntil
+        /**
+         * Consume and discard _until_ an item passes the match, so it's the
+         * next item in the stream for the caller.
+         */
+    (matches (item Item) Boolean)
+        Boolean
+        /**
+         * Whether the desired item was encountered before the end of the
+         * stream.
+         */
+    {
+        switch peek {
+            Some(.item) if matches(item) { True }
+            Some(_)                      { skip_until(matches) }
+            Empty                        { False }
+        }
+    }
+
+    fun skip
+        /**
+         * Consume and discard _until_ the item, so it's the next item in the
+         * stream for the caller.
+         */
+    (until item Item)
+        Boolean
+        /** Whether the desired item was encountered before the end of the stream. */
+    {
+        skip_until(matches: _ == item)
+    }
+}
+
+interface Ast {
+    //
+}
+
+interface ParameterAst extends Ast {
+    //
+}
+
+interface ParameterLanguageReader[reading Item] extends LanguageReader[reading: Item] {
+    fun public nextIsSubitemSeperator Boolean
+    fun public nextIsCloseCall Boolean
+
+    fun public resemblesEnd Boolean {
+        nextIsSubitemSeperator || nextIsCloseCall
+    }
+}
+
+interface public TokenReader extends LanguageReader[reading: Token]
+
+interface public ParameterTokenReader extends ParameterLanguageReader[reading: Token] {
+    fun public nextIsSubitemSeperator Boolean {
+        peek.filter(_ == Token.SubItemSeperator).hasValue
+    }
+
+    fun public nextIsCloseCall Boolean {
+        peek
+            .filter(_ == Token.Grouping(tokens.Grouping.CloseParentheses))
+            .hasValue
+    }
+}
+
+interface public CharReader extends LanguageReader[reading: Char]
+
+interface public ParameterCharReader extends ParameterLanguageReader[reading: Char] {
+
+    fun public nextIsSubitemSeperator Boolean {
+        peek
+            .filter(_ == ',')
+            .hasValue
+    }
+
+    fun public nextIsCloseCall Boolean {
+        peek
+            .filter(_ == ')')
+            .hasValue
+    }
+
+    fun skipWhitespace
+        /**
+         * Consume and discard whitespace.
+         * 
+         * Unlike token reader macros, character reader macros don't get the
+         * benefit of being able to ignore whitespace-handling. In fact, the
+         * language they're defining might be whitespace-sensitive.
+         *
+         * This method should help.
+         */
+    {
+        if skipUntil(matches: Character.isWhitespace ~ not) {
+            discard
+            skipWhitespace
+        }
+    }
+}
+
+class LanguageWriter[writing Item] = (_ toWrite Item)
+/**
+ * Class aliases usually point to other classes. There is one exception:
+ * function types can also be pointed to directly.
+ */
+
+interface public CharWriter extends LanguageWriter[writing: Char]
+interface public TokenWriter extends LanguageWriter[writing: Token]
+
+class public AstFinisher = (with ast Ast)
+
+interface ReaderWriterPipeline[
+    of Item,
+    readingFrom Reader extends LanguageReader[reading: Item],
+    writingTo Writer extends LanguageWriter[writing: Item],
+] {
+    fun public source Reader
+    fun public destination Writer
+
+    fun public passthroughMany
+        /** Pass items through from the source to the destination. */
+    (
+        amount USize: 1
+        /** The amount to passthrough. */
+    )
+        List[of: Item]
+        /**
+         * What was passed through; if smaller than the amount, it means the
+         * reader hit the end of its source.
+         */
+    {
+        var items = source.read(amount)
+        items.each(destination)
+        items
+    }
+
+    fun public passthrough Optional[Item] {
+        passthroughMany.first
+    }
+
+    fun passthroughUntil
+        /**
+         * Many readers won't want to totally discard the whole previous language
+         * (mostly likely Sylan itself for single-macro pipelines). They can let
+         * most of the language pass through until it sees something it is interested
+         * in changing.
+         *
+         * It skips _until_ an item passes the match, so it's the next item in the stream
+         * for the caller.
+         */
+    (matches (item Item) Boolean)
+        Boolean
+        /** Whether the desired item was encountered before the end of the stream. */
+    {
+        switch passthrough {
+            Some(.item) if matches(item) { True }
+            Some(_)                      { passthroughUntil(matches) }
+            Empty                        { False }
+        }
+    }
+
+    fun passthroughUntilMatches
+        /**
+         * Many readers won't want to totally discard the whole previous language
+         * (mostly likely Sylan itself for single-macro pipelines). They can let
+         * most of the language pass through until it sees something it is interested
+         * in changing.
+         *
+         * It skips _until_ the item, so it's the next item in the stream for the
+         * caller.
+         */
+    (_ item Item)
+        Boolean
+        /** Whether the desired item was encountered before the end of the stream. */
+    {
+        passthroughUntil(matches: _ == item)
+    }
+
+    fun passthroughWhitespace
+        /**
+         * Many readers won't want to totally discard the whole previous language
+         * (mostly likely Sylan itself for single-macro pipelines). They can let
+         * most of the language pass through until it sees something it is
+         * interested in changing.
+         *
+         * It skips _until_ non-whitespace, so it's the next item in the stream
+         * for the caller.
+         */
+    (_ item Item)
+        Boolean
+        /** Whether the desired item was encountered before the end of the stream. */
+    {
+        passthroughUntil(matches: Character.isWhitespace ~ not)
+    }
+}
+
+//
+// The following types are used by macros.
+//
+// ASTs are the easiest to manipulate and the least error prone, but they're
+// less powerful and can't be processed lazily and in parallel. They're ideal
+// for simplification stages, changing evaluation strategies, creating magic
+// identifiers such as anaphoric macros or auto-gensym, but not so much defining
+// whole new languages.
+//
+// Token and character readers are powerful, able to produce any language, but
+// also dangerous and unpredictable. Character readers grant the ability to
+// define whitespace-sensitive languages.
+//
+// Unlike Sylan itself, which constrains itself to fixed lookahead to keep the
+// language simple and comprehendible, reader macros can do unlimited lookahead
+// with peek for both characters and tokens. Just because Sylan is sane enough
+// to avoid unlimited lookahead doesn't mean other languages are.
+//
+// Normal consumers and parameter consumers are mostly the same, but gives the
+// macro implementor the ability to change how their language is lexed or parsed
+// depending on whether it was triggered by a macro call in another language or
+// given a whole file. Parameter consumers also have some helper methods that
+// don't make sense for file consumers, such as detecting the end of the
+// parameter position that triggered it.
+//
+// These capabilities are quite "raw", but Sylan libraries can be created to
+// raise the abstraction layer. There might be ParSec-style libraries,
+// Yacc-style macros, or something else. Sylan is agnostic of the parsing
+// strategy you use, providing the building blocks for your preferred approach.
+//
+// These types are the only valid types for `syntax` parameters. Based on
+// which type a macro function defined will change how Sylan presents the
+// syntax to that macro and unloads the result back into the destination
+// language. A macro either supports file-level or parameter-level.
+//
+// If a macro wants to support both file- and parameter-level macros, it must
+// provide two separate macros for each, otherwise the compiler will complain.
+// Of course, one of them can just immediately delegate to the other if the
+// sublanguage doesn't change its interpretation from being embedded versus
+// being in its own file.
+//
+
+class public AstPipeline[Ast extends FileAst: FileAst]
+    var public source Ast,
+    var public finish AstFinisher,
+)
+
+class public Pipeline[
+    of Item,
+    readingFrom Source extends LanguageReader[of: Item]: LanguageReader[of: Item],
+    writingTo Destination extends LanguageWriter[of: Item]: LanguageWriter[of: Item],
+] implements ReaderWriterPipeline[
+    of: Item,
+    readingFrom: Source,
+    writingTo: Destination,
+(
+    var public source Source,
+    var public destination Destination,
+)
+
+class public AsymmetricPipeline[from Source, to Destination](
+    var public source Source,
+    var public destination Destination,
+)
+
 fun public extern currentTask Task
 
 class AssertionError implements Exception {
