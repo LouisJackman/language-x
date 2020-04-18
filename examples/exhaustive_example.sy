@@ -662,12 +662,6 @@ fun final compileTimeAdd
     /**
      * `final` functions always run at compile-time. If parameters are passed
      * that require runtime values, the compilation fails.
-     *
-     * If a package does work at compile-time, it must be imported with a single
-     * `!`, e.g: `import thirdPartyModule.package1.{loopMacro!, whenMacro!}`.
-     *
-     * This requirement might be dropped if purity-checking is added to the
-     * language and can be used to assess compile-time operations.
      */
 (x Int, y Int) Int {
     x + y
@@ -675,51 +669,7 @@ fun final compileTimeAdd
 
 fun anyTimeAnytime(x Int, y Int) Int { x + y }
 
-fun final repeat(
-    times Int,
-
-    syntax pipeline AstPipeline,
-    /**
-     * `syntax` interprets an argument as a chunk of syntax rather than
-     * evaluating it, automatically converting it into a mallable syntax type.
-     * There are limited "*Pipeline" types in `sylan.lang` that are supported
-     * with `syntax`.
-     *
-     * `syntax` is banned on functions that aren't `final`; compiled artefacts
-     * are never burdened with the weight of meta-linguistic abstrations at
-     * runtime.
-     *
-     * To convert a chunk of syntax into one of the AST-consuming pipelines,
-     * Sylan must be given something that can be _successfully parsed as an AST
-     * node_. It needn't type check, use bound identifiers, or pass any further
-     * stages. Macros are the only part in the language, apart from `var`
-     * bindings in lambdas, that allows items declarations in expressions.
-     *
-     * For pipelines consuming tokens and characters, full control over the
-     * parser and lexer are surrendered to the function and the subsequent
-     * content needn't be a valid AST node. This can present "interesting"
-     * security problems as, unlike `Ast`, third party code gains control over
-     * when customised lexing and parsing stops. Therefore, such macros must be
-     * explicitly imported into a package suffixed with a double exclamation
-     * mark:
-     *
-     * `import thirdPartyModule.package1.{loopMacro!!, whenMacro!!}`
-     *
-     * This is also why `import` blocks must be a the top of packages before
-     * anything else; what if a lexer macro hijacked the lexing of exclamation
-     * marks in imports itself?
-     *
-     * Modules can also whitelist macro imports, allowing ones from the standard
-     * library but refusing to allow other third party libraries to take over
-     * the lexing and parsing. In fact, this is the default for
-     * explicitly-defined modules.
-     *
-     * A final function that has any `syntax` parameters is idiomatically
-     * referred to as a "macro". AST macros are comparable to most languages and
-     * are often found in Lisp dialects, but reader macros of this style are
-     * only found in Common Lisp, which Sylan took them from.
-     */
-) {
+fun final repeat(times Uint, syntax pipeline AstPipeline) {
     quasiquote {
 
         // Unquote would normally be pointless as the only block in a

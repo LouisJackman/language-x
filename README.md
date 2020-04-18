@@ -547,19 +547,19 @@ case of native compilation.
   - `AstPipeline`
   - `AstPipeline[of: ParameterAst]`
   - `Pipeline[of: Token]`
-  - `Pipeline[of: Token, readingFrom: ParameterFileReader[Token]]`
+  - `Pipeline[of: Token, readingFrom: ParameterReader[Token]]`
   - `Pipeline[of: Char]`
-  - `Pipeline[of: Char, readingFrom: ParameterFileReader[Char]]]`
+  - `Pipeline[of: Char, readingFrom: ParameterReader[Char]]]`
   - `AsymmetricPipeline[from: Ast, to: Token]`
-  - `AsymmetricPipeline[from: Ast, to: Token, readingFrom: ParameterFileReader[Ast]]`
+  - `AsymmetricPipeline[from: Ast, to: Token, readingFrom: ParameterReader[Ast]]`
   - `AsymmetricPipeline[from: Ast, to: Char]`
-  - `AsymmetricPipeline[from: Ast, to: Char, readingFromParameterFileReader[Ast]]`
+  - `AsymmetricPipeline[from: Ast, to: Char, readingFromParameterReader[Ast]]`
   - `AsymmetricPipeline[from: Token, to: Ast]`
-  - `AsymmetricPipeline[from: Token, to: Ast, readingFrom: ParameterFileReader[Token]]`
+  - `AsymmetricPipeline[from: Token, to: Ast, readingFrom: ParameterReader[Token]]`
   - `AsymmetricPipeline[from: Token, to: Char]`
-  - `AsymmetricPipeline[from: Token, to: Char, readingFromParameterFileReader[Token]]`
+  - `AsymmetricPipeline[from: Token, to: Char, readingFromParameterReader[Token]]`
   - `AsymmetricPipeline[from: Char, to: Ast]`
-  - `AsymmetricPipeline[from: Char, to: Ast, readingFrom: ParameterFileReader[Char]]`
+  - `AsymmetricPipeline[from: Char, to: Ast, readingFrom: ParameterReader[Char]]`
   - `AsymmetricPipeline[from: Char, to: Token]`
   - `AsymmetricPipeline[from: Char, to: Token, readingFromParameterFileReader[Char]]`
 * A final function with a `syntax` parameter pertaining to ASTs is called a
