@@ -52,7 +52,7 @@ enum List
     }
 }
 
-// Erlang-style Concurrency & Nested Packages.
+// Erlang-style Concurrency & Nested Packages
 
 package counter {
     enum public Message(public Increment, public Get)
@@ -83,7 +83,8 @@ var n = select Int
 println($"Counter: {n}")
 
 class Name
-    /** Data Definition with Keyword & Default Arguments */
+    /** Annotated Data Definitions with Keyword & Default Arguments */
+    @derive(Equals)
 (
     var public first String: "James",
     var public last String: "Bond",
@@ -94,12 +95,11 @@ class Name
 }
 
 // Compile-time Programming & Macros (Reader Macros too; see Documentation)
-fun final repeat(times Usize, syntax pipeline AstPipeline) {
-    pipeline.finish(with: quasiquote {
-        unquote {
-            1.up(to: times).map(pipeline.source::)
-        }
-    })
+fun final repeat(times Usize, using pipeline AstPipeline) {
+    pipeline.finish(with: 
+        ..1.up(to: times)
+            .map(pipeline.source::)
+    )
 }
 
 fun demoContexts
@@ -284,6 +284,12 @@ case of native compilation.
   module.
 * The `public` keyword exposes an item to its parent, available from outside the
   module too.
+* Classes, interfaces, functions, packages, final package-level bindings,
+  methods, fields, enum variants, and constructors can all have accessibility
+  modifiers.
+* The modifiers go after the item keyword, e.g. `fun` or `class`, but before its
+  name. For constructors, they go after the class name but before their parameter
+  lists.
 
 ### Items and Expressions
 
@@ -515,7 +521,7 @@ case of native compilation.
 * Passing `_` to a labelled argument transforms it into a partially applied
  . positional argument, to assist with functional operations.
 
-### Compile-time Metaprogramming
+### Compile-time Programming
 
 * `final` bindings must run the whole expression at compile-time, or fail
   compilation. As they are allowed in non-main packages but not `var`, it means
@@ -529,6 +535,9 @@ case of native compilation.
   callsites can't provide their arguments at compile time. This allows a
   runtime function to be changed to a compile-time function and vice-versa
   without breaking API compatibilty.
+* Constructors can also be marked as `final` by putting `final` after the class
+  name but before the constructor parameter list. This means a type can only be
+  constructed at compile-time.
 * Calling a function with `!`, e.g. `f!()`, forces it to run at compile-time
   regardless of whether it's final. If it can't run at compile-time,
   compilation fails. It isn't seen as redundent on a `final` function, because
@@ -538,67 +547,132 @@ case of native compilation.
   optimisation, but they and their callers just can't depend on the behaviour.
 * The standard `do` function that takes a block basically makes it possible to
   run any code block at compile time with `!` via a unified mechanism.
+
+### Meta-linguistic Programming
+
 * If a parameter is prefixed with `syntax`, it takes the quoted code as the
   argument rather than the result of evaluating it. These parameters can be one
-  of three types: `Pipeline`, `AstPipeline`, and `AsymmetricPipeline`.
-  Furthermore, a function can only have one `syntax` parameter. This is to avoid
-  bugs with interleaving pipeline destination emissions of different types. It
-  can only take these variants (default type arguments omitted for brevity):
+  of three types: `Pipeline`, `AstPipeline`, and `AsymmetricPipeline`. It can
+  only take these variants (default type arguments omitted for brevity):
   - `AstPipeline`
   - `AstPipeline[of: ParameterAst]`
-  - `Pipeline[of: Token]`
-  - `Pipeline[of: Token, readingFrom: ParameterReader[Token]]`
+  - `Pipeline[of: TokenTree]`
   - `Pipeline[of: Char]`
-  - `Pipeline[of: Char, readingFrom: ParameterReader[Char]]]`
-  - `AsymmetricPipeline[from: Ast, to: Token]`
-  - `AsymmetricPipeline[from: Ast, to: Token, readingFrom: ParameterReader[Ast]]`
-  - `AsymmetricPipeline[from: Ast, to: Char]`
-  - `AsymmetricPipeline[from: Ast, to: Char, readingFromParameterReader[Ast]]`
-  - `AsymmetricPipeline[from: Token, to: Ast]`
-  - `AsymmetricPipeline[from: Token, to: Ast, readingFrom: ParameterReader[Token]]`
-  - `AsymmetricPipeline[from: Token, to: Char]`
-  - `AsymmetricPipeline[from: Token, to: Char, readingFromParameterReader[Token]]`
-  - `AsymmetricPipeline[from: Char, to: Ast]`
-  - `AsymmetricPipeline[from: Char, to: Ast, readingFrom: ParameterReader[Char]]`
-  - `AsymmetricPipeline[from: Char, to: Token]`
-  - `AsymmetricPipeline[from: Char, to: Token, readingFromParameterFileReader[Char]]`
-* A final function with a `syntax` parameter pertaining to ASTs is called a
-  _macro_. One that uses parameters pertaining to tokens and characters is
-  called a _reader macro_.
+  - `Pipeline[of: TokenTree, readingFrom: ParameterTokenReader]`
+  - `Pipeline[of: Char,  readingFrom: ParameterCharReader ]`
+  - `AsymmetricPipeline[from: Ast,                  to: TokenWriter]`
+  - `AsymmetricPipeline[from: Ast,                  to: CharWriter ]`
+  - `AsymmetricPipeline[from: TokenReader,          to: CharWriter ]`
+  - `AsymmetricPipeline[from: TokenReader,          to: AstWriter  ]`
+  - `AsymmetricPipeline[from: CharReader,           to: AstWriter  ]`
+  - `AsymmetricPipeline[from: CharReader,           to: TokenWriter]`
+  - `AsymmetricPipeline[from: ParameterAst,         to: TokenWriter]`
+  - `AsymmetricPipeline[from: ParameterAst,         to: CharWriter ]`
+  - `AsymmetricPipeline[from: ParameterTokenReader, to: AstWriter  ]`
+  - `AsymmetricPipeline[from: ParameterTokenReader, to: CharWriter ]`
+  - `AsymmetricPipeline[from: ParameterChar,        to: AstWriter  ]`
+  - `AsymmetricPipeline[from: ParameterCharReader,  to: TokenWriter]`
+* `syntax` is banned from non-`final` functions. Compiled artefacts are never
+  burdened with the weight of meta-linguistic abstrations at runtime.
+* Therefore, the `!` for forcing a function at compile time doesn't suddenly
+  allow a runtime function to work as a macro. This is intended.
+* A final function with a parameter pertaining to ASTs is called a
+  _macro_. One that uses parameters receiving tokens is a _procedural
+  macro_, and one receiving characters is called a _reader macro_.
+* AST macros can take only one argument when invoked as functions. Procedural
+  macros have the same caveat, but can just parse commas themselves to emulate
+  multiple arguments. Item macros, declared with `@` can have two: the item they
+  decorate and one argument. This only works for `@` macros annotating an item;
+  if they a standalone in place of an item, they follow the same one-argument
+  restriction of macros invoked as functions.
+* When using the two-argument item-annotation form, emitting on the first
+  pipeline puts code _before_ the item; emitting on the second pipeline
+  _replaces_ the item. It's actually more useful to just not emit anything on
+  the first pipeline, instead using its input to influence what the second
+  pipeline emits.
+* AST macros and procedural macros can be invoked like functions in expressions.
+  They do not break standard lexing of Sylan, although procedural macros can
+  break tooling's _parsing_ of Sylan; utilities like syntax highlighting are
+  highly recommended to use lexing rather than parsing for this reason.
+* AST macros pose no problem to lexing and parsing because they take valid ASTs
+  and produce them. Their evalation is merely delayed, and their form
+  potentially transformed to another valid one. They needn't type check or pass
+  other _semantic_ analysis stages though, so long as the _final produced_ AST
+  does.
+* Procedural macros must take valid tokens. Furthermore, grouping tokens must be
+  evenly balanced until the end of the call. Procedural macros expect an
+  identifier to trigger the macro call, followed by one token tree. This tree
+  can be one token or one token _group_ indicated by an opening grouping token.
+  This means tooling always knows when procedural macros end. A non-grouping
+  token therefore looks like `macro1 42`, whereas a procedural macro taking a
+  grouping token looks like `macro1(1, 2, 3, 4)` or `macro1 { 1, 2, 3, 4 }`.
+  The grouping tokens are kept, meaning a macro can change behaviour based on
+  how it's called.
+* Character-based macros can not be invoked directly as functions; instead they
+  must be hooked onto the current readtable by using the compile-time dynamic
+  scoping, specifically around the `currentReadtable` variable. E.g.: `bind
+  currentReadtable = currentReadtable.dispatchingOnChars(List('{'),
+  jsonReaderPackage.read)`. There is a standard `use` AST token macro for this
+  in `sylan.lang`, allowing invocations like `@use('{', jsonReaderPackage.read)`.
+  Unloading a readtable can be done with a subsequent `unbind currentReadtable`.
+  The triggered character is not consumed off the stream before calling the
+  macro, it can be checked by the reader macro.
+* Character macros can only trigger on the start of tokens. Furthermore, they
+  must be careful about using grouping token characters to avoid confusing the
+  parsing from tooling. These are dangerous, and can therefore be blocked in
+  modules entirely by banning compile-time dynamic scoping rebinds thereby
+  making the current readtable immutable.
+* When a macro is prefixed with an `@`, it applies to the whole item which it is
+  attached to. This looks like Java annotations but is actually closer to
+  Elixir's `use`. In this use case, Sylan calls them _annotations_, just like
+  Java. In this case, the whole item AST or token stream is passed as a _final_
+  argument to the function.
+* `@` macros can be NOP macros. In fact, this is a very handy usecase: an
+  annotation can preprocess other NOP macros inside an item they annotate to
+  change their behaviour. This is vaguely similar to a class annotation enabling
+  special understanding of field annotations in Java frameworks like Spring.
+* An `@` macro not attached to an item can instead occupy its own `item` slot,
+  in which case it generates one or more items to take its place in the compiled
+  code.
+* An `@` macro where an expression is expected is an error.
 * Symmetric pipelines have extra utility methods from the fusing of readers and
   writers to the same type: _passthroughs_, a handy ability when extending
   languages rather than building them from scratch.
-* `AstPipeline`s are distinct from other symmetric pipelines, despite being
-  symmetric and, uh, pipelines. As they are eagerly evaluated, immutable trees
-  rather than mutable streams, passthrough functionality makes little sense.
-* `syntax` also gives a compile-time function a new capability: to appear in the
-  top-level of packages or class, interface, or enum bodies. Specifically, they
-  can now appear in _item_ positions as well as the usual _expression_
-  positions. This only compiles if they yield an item rather than an
-  expression, and one that works in the context. They can also generate `var`
-  bindings in function bodies by returning a `var` item too.
+* `Ast`s can never be symmetric pipelines because single ASTs are consumed as
+  parameters, yet multiple AST can be emitted as a result. As they are eagerly
+  evaluated, immutable trees rather than mutable streams, passthrough
+  functionality makes little sense.
 * `quote` takes all of the valid code in its block and turns it into an AST. It
   need only be valid according to the parser; it can use unbound identifiers and
   fail typechecking as well as using an item rather an expression. So long as the
   macro _produces_ valid code, it's OK. Like all quoting keywords, it only works
   in `final` functions, but needn't be used with `syntax`; a reusable
   compile-library can manipulate ASTs without directly emitting them themselves.
-* `quasiquote` is the same, but supports an `unquote` keyword that unquotes a
-   part inside, allowing arbitrary logic to continue. `unquote` only supports
-   two types: `Ast` and `List[Ast]`.
+* The `unquote` keyword unquotes a part inside, allowing arbitrary logic to
+  continue. `unquote` only supports two types: `Ast` and `List[Ast]`. Unquote
+  takes either a single item or expression, or a block of them. This means both
+  `unquote 42` and `unquote { 42 "foobar" }` work.
 * Sylan takes advantage of its static typing by changing `unquote` behaviour if
   a `List[Ast]` is encountered rather than an `Ast`. For lists, it adopts
   _splicing_ behaviour, unloading multiple AST nodes into the current block.
-* `syntax` is banned from non-`final` functions. Compiled artefacts are never
-  burdened with the weight of meta-linguistic abstrations at runtime.
-* Therefore, the `!` for forcing a function at compile time doesn't suddenly
-  allow a runtime function to work as a macro. This is intended.
-* `syntax` supports reader macros too; rather than using `Ast` as the type
-  parameter for the pipeline variants, use `Token` or even `Char` instead.
 * Conversions can happen like so, _without errors_: AST -> Tokens ->
   Characters. Conversations can also happen the other way, but every stage
   can potentially yield an error that must be handled: Characters ->
   Tokens -> AST.
+* Quoted ASTs will lexically resolve symbols apart from symbols prefixed with
+  `$$` which will be delay symbol resolution until its spliced into the
+  callsite.
+* The `Symbol` type constructor can be used with `unquote` to generate symbols
+  that cannot be literally mentioned, like `gensym` in Common Lisp, i.e.
+  `unquote Symbol`.
+* Special shebang formulations do more than just ease execution on some
+  Unix-like OSes; they are interpreted especially by Sylan to run the entire
+  file under a macro, creating new languages under Sylan.
+* For external languages with no knowledge of Sylan, such as a Lua script,
+  Sylan can import them as packages with invocations like:
+  `import module1.`file.lua` syntax(luaLanguagePackage.read)`.
+  So long as a macro can understand the syntax, Sylan can import it as if it
+  were Sylan.
 * Compile-time "reflection" will be based on macros, with an API inspired by
   Newspeak and Dart mirrors rather than traditional reflection APIs. Because
   macros give the ability for _anyone_ to write a compile-time reflection

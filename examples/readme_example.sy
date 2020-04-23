@@ -27,7 +27,7 @@ enum List
     }
 }
 
-// Erlang-style Concurrency & Nested Packages.
+// Erlang-style Concurrency & Nested Packages
 
 package counter {
     enum public Message(public Increment, public Get)
@@ -58,7 +58,8 @@ var n = select Int
 println($"Counter: {n}")
 
 class Name
-    /** Data Definition with Keyword & Default Arguments */
+    /** Annotated Data Definitions with Keyword & Default Arguments */
+    @derive(Equals)
 (
     var public first String: "James",
     var public last String: "Bond",
@@ -69,12 +70,10 @@ class Name
 }
 
 // Compile-time Programming & Macros (Reader Macros too; see Documentation)
-fun final repeat(times Usize, syntax pipeline AstPipeline) {
-    pipeline.finish(with: quasiquote {
-        unquote {
-            1.up(to: times).map(pipeline.source::)
-        }
-    })
+fun final repeat(times Usize, using pipeline AstPipeline) {
+    1.up(to: times)
+        .map(pipeline.source::)
+        .each(pipeline.destination::)
 }
 
 fun demoContexts

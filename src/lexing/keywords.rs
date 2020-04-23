@@ -75,7 +75,6 @@ pub fn new() -> HashMap<&'static str, Token> {
             "public",
             Token::Modifier(Modifier::Accessibility(Accessibility::Public)),
         ),
-        ("quasiquote", Token::Macros(Macros::Quasiquote)),
         ("quote", Token::Macros(Macros::Quote)),
         (
             "reject",
@@ -89,11 +88,11 @@ pub fn new() -> HashMap<&'static str, Token> {
             "select",
             Token::BranchingAndJumping(BranchingAndJumping::Select),
         ),
-        ("syntax", Token::Macros(Macros::Syntax)),
         (
             "switch",
             Token::BranchingAndJumping(BranchingAndJumping::Switch),
         ),
+        ("syntax", Token::Macros(Macros::Syntax)),
         ("throw", Token::Throw),
         ("timeout", Token::Timeout),
         ("unquote", Token::Macros(Macros::Unquote)),
@@ -156,6 +155,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("prefix", Token::ReservedKeyword),
         ("pragma", Token::ReservedKeyword),
         ("pure", Token::ReservedKeyword),
+        ("quasiquote", Token::ReservedKeyword),
         ("raw", Token::ReservedKeyword),
         ("read", Token::ReservedKeyword),
         ("reader", Token::ReservedKeyword),

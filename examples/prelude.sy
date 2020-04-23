@@ -233,13 +233,30 @@ interface LanguageReader[reading Item] {
     }
 }
 
-interface Ast {
+interface public Ast {
     //
 }
 
-interface ParameterAst extends Ast {
+interface public ParameterAst extends Ast {
     //
 }
+
+interface public Token {
+    //
+}
+
+enum TokenTree
+    /**
+     * Tokens trees are just tokens that group together in the case of grouping
+     * delimiters like `(`, `{`, and `[`.
+     *
+     * Sylan's own lexer and parser doesn't use these, they are solely for
+     * procedural macros written in Sylan.
+     */
+(
+    Group(Token.Grouping),
+    Scalar(Token),
+)
 
 interface ParameterLanguageReader[reading Item] extends LanguageReader[reading: Item] {
     fun public nextIsSubitemSeperator Boolean
@@ -250,16 +267,16 @@ interface ParameterLanguageReader[reading Item] extends LanguageReader[reading: 
     }
 }
 
-interface public TokenReader extends LanguageReader[reading: Token]
+interface public TokenReader extends LanguageReader[reading: TokenTree]
 
-interface public ParameterTokenReader extends ParameterLanguageReader[reading: Token] {
+interface public ParameterTokenReader extends ParameterLanguageReader[reading: TokenTree] {
     fun public nextIsSubitemSeperator Boolean {
-        peek.filter(_ == Token.SubItemSeperator).hasValue
+        peek.filter(_ == TokenTree.Scalar(Token.SubItemSeperator)).hasValue
     }
 
     fun public nextIsCloseCall Boolean {
         peek
-            .filter(_ == Token.Grouping(tokens.Grouping.CloseParentheses))
+            .filter(_ == TokenTree.Group(Token.Grouping(tokens.Grouping.CloseParentheses)))
             .hasValue
     }
 }
@@ -305,9 +322,8 @@ class LanguageWriter[writing Item] = (_ toWrite Item)
  */
 
 interface public CharWriter extends LanguageWriter[writing: Char]
-interface public TokenWriter extends LanguageWriter[writing: Token]
-
-class public AstFinisher = (with ast Ast)
+interface public TokenWriter extends LanguageWriter[writing: TokenTree]
+interface public AstWriter extends LanguageWriter[writing: Ast]
 
 interface ReaderWriterPipeline[
     of Item,
@@ -408,9 +424,10 @@ interface ReaderWriterPipeline[
 // define whitespace-sensitive languages.
 //
 // Unlike Sylan itself, which constrains itself to fixed lookahead to keep the
-// language simple and comprehendible, reader macros can do unlimited lookahead
-// with peek for both characters and tokens. Just because Sylan is sane enough
-// to avoid unlimited lookahead doesn't mean other languages are.
+// language simple and comprehendible, reader and procedural macros can do
+// unlimited lookahead with peek for both characters and tokens. Just because
+// Sylan is sane enough to avoid unlimited lookahead doesn't mean other
+// languages are.
 //
 // Normal consumers and parameter consumers are mostly the same, but gives the
 // macro implementor the ability to change how their language is lexed or parsed
@@ -438,7 +455,7 @@ interface ReaderWriterPipeline[
 
 class public AstPipeline[Ast extends FileAst: FileAst]
     var public source Ast,
-    var public finish AstFinisher,
+    var public finish AstWriter,
 )
 
 class public Pipeline[

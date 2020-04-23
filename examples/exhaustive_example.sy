@@ -74,10 +74,13 @@ import {
 
     // Packages can also be interpreted with specific macros, even if those
     // files have no knowledge of such macros.
-    package2 syntax(package1.readAsLisp).{item1, item2},
+    package2 syntax (package1.readAsLisp).{item1, item2},
 
     // In fact, such files might have no knowledge of even Sylan...
-    module1.`package1.lisp` syntax(package1.readAsLisp),
+    module1.`package1.lisp` syntax (package1.readAsLisp),
+    // Like shebangs, multiple macros can be specified to create a pipeline of
+    // langauge interpretation:
+    module1.`package1.lisp` syntax (package1.readAsLisp, package1.readAsKernelLisp),
 }
 
 fun fizzBuzz(_ n Int) Int {
@@ -645,18 +648,19 @@ class Person = Account
 interface Showable = ToString
 fun factorial2 = factorial
 
-final maxBound Int = 5
-/**
- * Finals are allowed in the top-level of a package, and can have SyDocs
- * underneath as well as the usual modifiers. Their values must be evaluatable
- * at compile-time, meaning that package imports never trigger arbirary
- * computations.
- *
- * Unlike vars, their types must be explicitly typed out and cannot be
- * inferred.
- *
- * Local bindings with var can occur too, but only in the main package.
- */
+final maxBound
+    /**
+     * Finals are allowed in the top-level of a package, and can have SyDocs
+     * underneath as well as the usual modifiers. Their values must be evaluatable
+     * at compile-time, meaning that package imports never trigger arbirary
+     * computations.
+     *
+     * Unlike vars, their types must be explicitly typed out and cannot be
+     * inferred.
+     *
+     * Local bindings with var can occur too, but only in the main package.
+     */
+    Int = 5
 
 fun final compileTimeAdd
     /**
@@ -670,20 +674,9 @@ fun final compileTimeAdd
 fun anyTimeAnytime(x Int, y Int) Int { x + y }
 
 fun final repeat(times Uint, syntax pipeline AstPipeline) {
-    quasiquote {
-
-        // Unquote would normally be pointless as the only block in a
-        // quasiquoted outer block. The AST could be just returned directly.
-        //
-        // However, `unquote` against a `List[Ast]` has special splicing
-        // behaviour that normal bare `Ast` results do not; all nodes in the
-        // list are spliced inline.
-        unquote {
-
-            1.up(to: times)
-                .map(pipeline.source::)
-        }
-    } |> pipeline.finish
+    1.up(to: times)
+        .map(pipeline.source::)
+        .each(pipeline.destination::)
 }
 
 fun extern json(syntax pipeline AsymmetricPipeline[from: Token, to: Ast])
@@ -709,7 +702,7 @@ fun testCompileTime {
         println("this prints at compile time")
     }
 
-    repeat(4, do -> {
+    repeat(times: 4, do -> {
         println("this is a test!")
         println("this is another test!")
     })
@@ -735,6 +728,37 @@ fun testCompileTime {
     // }
     //
 }
+
+// Putting a macro on an item definition applies it to the AST of the item.
+// This won't actually compile because Sylan will reject repeated declarations
+// of classes of the same name, but the concept applies:
+//
+// ```
+// class RepeatedClass @repeat(times: 3) (
+//     var public x Int,
+//     var public y Int,
+// )
+// ```
+//
+// In this context, the macro is known as an _annotation_.
+//
+// Annotations, like enum variants, can drop their parentheses if they take no
+// arguments.
+//
+// Annotations can also be stacked up, with the AST weaving from the first
+// annotation through to the last:
+//
+// ```
+// class RepeatedClass
+//     /** SyDocs go above annotations. */
+//     @repeat(times: 3)
+//     @repeat(times: 3)
+// (
+//     var public x Int,
+//     var public y Int,
+// )
+// ```
+// That will appear 9 times in total, if it actually compiled.
 
 fun demoClosures {
     var x = 5
