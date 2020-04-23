@@ -96,10 +96,9 @@ class Name
 
 // Compile-time Programming & Macros (Reader Macros too; see Documentation)
 fun final repeat(times Usize, using pipeline AstPipeline) {
-    pipeline.finish(with: 
-        ..1.up(to: times)
-            .map(pipeline.source::)
-    )
+    1.up(to: times)
+        .map(pipeline.source::)
+        .each(pipeline.destination::)
 }
 
 fun demoContexts
@@ -659,12 +658,15 @@ case of native compilation.
   Characters. Conversations can also happen the other way, but every stage
   can potentially yield an error that must be handled: Characters ->
   Tokens -> AST.
-* Quoted ASTs will lexically resolve symbols apart from symbols prefixed with
-  `$$` which will be delay symbol resolution until its spliced into the
-  callsite.
-* The `Symbol` type constructor can be used with `unquote` to generate symbols
+* The `gensym` function can be used with `unquote` to generate symbols
   that cannot be literally mentioned, like `gensym` in Common Lisp, i.e.
-  `unquote Symbol`.
+  `unquote gensym`. Both `gensym` and `symbol(of: "SymbolName")` just delegate
+  to the `Symbol(of name: Optional[String])` argument, an empty symbol being
+  "unmentionable" and used in many places internally and not just macros.
+* Macros have the ability to produce either `DynamicSymbol` tokens as well as
+  the usual `Symbol`, the former being dynamically scoped on the callsite rather
+  than the latter's being lexically scoped at the token's generation. This
+  allows explicit opting out of hygine when desired.
 * Special shebang formulations do more than just ease execution on some
   Unix-like OSes; they are interpreted especially by Sylan to run the entire
   file under a macro, creating new languages under Sylan.
