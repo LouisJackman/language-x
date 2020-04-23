@@ -141,6 +141,15 @@ class public Decimal {
     //
 }
 
+bind var collectGarbage Bool = true
+bind var yieldTasks Bool = true
+bind var checkNumericOverflow Bool = true
+bind var checkVectorBounds Bool = true
+bind var unlockUnsafePackage Bool = false
+bind var allowNonStandardExtern Bool = false
+
+bind var extern currentReadtable
+
 interface LanguageReader[reading Item] {
 
     fun public readMany

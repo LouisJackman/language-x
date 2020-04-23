@@ -35,6 +35,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         // Used
         //
         ("as", Token::Binding(Binding::As)),
+        ("bind", Token::Binding(Binding::DynamicBind)),
         ("class", Token::DeclarationHead(DeclarationHead::Class)),
         (
             "else",
@@ -95,6 +96,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("syntax", Token::Macros(Macros::Syntax)),
         ("throw", Token::Throw),
         ("timeout", Token::Timeout),
+        ("unbind", Token::Binding(Binding::DynamicUnbind)),
         ("unquote", Token::Macros(Macros::Unquote)),
         ("using", Token::Using),
         ("var", Token::Binding(Binding::Var)),

@@ -83,6 +83,8 @@ pub enum ModuleDefinitions {
 pub enum Binding {
     As,
     Assign,
+    DynamicBind,
+    DynamicUnbind,
     Final,
     Var,
 }
@@ -90,7 +92,6 @@ pub enum Binding {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Macros {
     Quote,
-    Quasiquote,
     Unquote,
     Syntax,
 }
