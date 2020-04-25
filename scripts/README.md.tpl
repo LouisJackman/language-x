@@ -7,9 +7,15 @@
 **Warning: this project is still early stage and is a long way from completion.
 See the "Done so Far" section for more details.**
 
+## Secure yet Expressive Computation
+
 Sylan is a work-in-progress programming language aiming to mix
 transparently-distributed programming, compile-time meta-programming, easy
 distribution, and a powerful type system with an approachable syntax.
+
+Many language features prone to security holes in other languages have been
+removed or reconsidered in Sylan. Sylan seeks to avoid the common problem of
+increased security crippling developer's productivity.
 
 It aims to be an application language designed for web applications, network
 services, command line programs, developer tooling, and scripting.
@@ -23,16 +29,6 @@ executables with no required external runtimes.
 ## Example
 
 $EXAMPLE_SOURCE
-
-## Contents
-
-* [Example](#example)
-* [Installation](#installation)
-* [Done so Far](#done-so-far)
-* [Overview](#overview)
-* [Goals](#goals)
-* [Details](#details)
-* [Implementation Details](#implementation-details)
 
 ## Installation
 
@@ -105,6 +101,8 @@ case of native compilation.
 
 ## Goals
 
+* Remove or reconsider features in other programming languages that have
+  historically caused security bugs in software.
 * Look as syntactically similar to Java and C# as possible.
 * Support mixed-ability teams by not adding footguns or abstractions that do not
   scale; powerful features should have very little action-at-a-distance.
