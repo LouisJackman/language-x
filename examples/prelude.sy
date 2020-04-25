@@ -100,7 +100,7 @@ interface public Number {
         this * 5
     }
 
-    fun public up(to n Number) List[of Number] {
+    fun public up(to n Number) List[of: Number] {
         list.generate(initial: 1) -> {
             if n < it {
                 list.generation.Finish
@@ -109,6 +109,9 @@ interface public Number {
             }
         }
     }
+
+    fun public twice() List[of: Number] { up(to: 2) }
+    fun public thrice() List[of: Number] { up(to: 3) }
 }
 
 fun public extern bitnot[N extends Number](n N) N
@@ -128,6 +131,77 @@ class public extern Int32
 class public extern Long
 class public extern Float
 class public extern Double
+
+fun final ignore
+    /**
+     * Useful for throwing away variables in contexts that are not already
+     * explicitly void, such as enum instance initialisers and implicily-typed
+     * lambdas. It works well with the pipe operator:
+     *
+     * add(40, 2) |> ignore::
+     */
+[_ Item](_ Item) { }
+
+fun final match[Item](_ item Item, syntax against pipeline AstPipline) {
+    var refuttablePattern = pipeline.source
+
+    quote {
+        switch unquote item {
+            unquote refuttablePattern { True }
+            _                         { False }
+        }
+    } |> pipeline.destination::
+}
+
+class extern Vector
+    /**
+     * The only way to create homogenous, variably-sized collections in Sylan,
+     * the building block for other collection types. Defined natively.
+     *
+     * Vectors, unlike lists, are eagerly evaluated. They also are the types of
+     * variadics.
+     *
+     * Variadics can be allocated either on the heap or on the stack. Calling
+     * code shouldn't be able to tell the difference since immutability makes
+     * pass-by-reference and pass-by-copy semantics irrelevant. They appear as
+     * vectors either way.
+     *
+     * This flexibility allows Sylan to use the stack for compile-time-known
+     * amounts of variadic arguments but the heap for amounts unknown at
+     * compile-time such as spreading other iterable items on call sites.
+     */
+[of Item]
+
+enum public List[of Item](
+    public Nil,
+    public Element(of item Item, next () This),
+)(of items ..Item) {
+
+    {
+        for var remaining = items {
+            if var Some(element) = remaining[|0|] {
+                Node.Element(of: element) -> {
+                    remaining[|1 :]
+                        |> continue::
+                }
+            } else {
+                Node.Nil
+            }
+        }
+    }
+
+    var public isEmpty Boolean = match(node, against: Nil)
+
+    var public first Optional[of: Item] = switch node {
+        Element(item, ..) { Some(item) }
+        Nil               { Empty }
+    }
+
+    var public rest Optional[of: This] = switch node {
+        Element(_, next) { Some(next) }
+        Nil              { Empty }
+    }
+}
 
 interface public ToString {
     fun public toString String
@@ -355,7 +429,7 @@ interface ReaderWriterPipeline[
          */
     {
         var items = source.read(amount)
-        items.each(destination)
+        items.each(destination::)
         items
     }
 

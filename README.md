@@ -624,19 +624,17 @@ case of native compilation.
 * Therefore, the `!` for forcing a function at compile time doesn't suddenly
   allow a runtime function to work as a macro. This is intended.
 * A final function with a parameter pertaining to ASTs is called a
-  _macro_. One that uses parameters receiving tokens is a _procedural
-  macro_, and one receiving characters is called a _reader macro_.
-* AST macros can take only one argument when invoked as functions. Procedural
-  macros have the same caveat, but can just parse commas themselves to emulate
-  multiple arguments. Item macros, declared with `@` can have two: the item they
-  decorate and one argument. This only works for `@` macros annotating an item;
-  if they a standalone in place of an item, they follow the same one-argument
-  restriction of macros invoked as functions.
-* When using the two-argument item-annotation form, emitting on the first
-  pipeline puts code _before_ the item; emitting on the second pipeline
-  _replaces_ the item. It's actually more useful to just not emit anything on
-  the first pipeline, instead using its input to influence what the second
-  pipeline emits.
+  _pattern macro_. One that uses parameters receiving tokens is a _procedural
+  macro_, and one receiving characters is called a _reader macro_. One mixing
+  different pipelines takes the name of the most low-level pipeline, where
+  characters are lower level than tokens, which are in turn lower level than
+  ASTs.
+* A procedural macro can only have one parameter which must be syntax, but it
+  can emulate multiple arguments by just lexing commas.
+* AST macros can take multiple syntax parameters. When emitting from their
+  pipelines, the emissions can be interleaved in generation but always end up
+  being emitted in final source in order: the first pipeline emissions, followed
+  by the second pipeline emissions, etc.
 * AST macros and procedural macros can be invoked like functions in expressions.
   They do not break standard lexing of Sylan, although procedural macros can
   break tooling's _parsing_ of Sylan; utilities like syntax highlighting are
@@ -674,17 +672,19 @@ case of native compilation.
   Elixir's `use`. In this use case, Sylan calls them _annotations_, just like
   Java. In this case, the whole item AST or token stream is passed as a _final_
   argument to the function.
-* `@` macros can be NOP macros. In fact, this is a very handy usecase: an
+* When annotation macros, using tokens or ASTs, are invoked with multiple
+  parameters, the item itself is always the final syntax argument.
+* Annotation macros can be NOP macros. In fact, this is a handy usecase: an
   annotation can preprocess other NOP macros inside an item they annotate to
   change their behaviour. This is vaguely similar to a class annotation enabling
   special understanding of field annotations in Java frameworks like Spring.
-* An `@` macro not attached to an item can instead occupy its own `item` slot,
-  in which case it generates one or more items to take its place in the compiled
-  code.
-* An `@` macro where an expression is expected is an error.
+* An annotation macro not attached to an item can instead occupy its own `item`
+  slot, in which case it generates one or more items to take its place in the
+  compiled code.
+* An annotation macro where an expression is expected is an error.
 * Symmetric pipelines have extra utility methods from the fusing of readers and
-  writers to the same type: _passthroughs_, a handy ability when extending
-  languages rather than building them from scratch.
+  writers to the same type: _passthroughs_, an ability when extending languages
+  rather than building them from scratch.
 * `Ast`s can never be symmetric pipelines because single ASTs are consumed as
   parameters, yet multiple AST can be emitted as a result. As they are eagerly
   evaluated, immutable trees rather than mutable streams, passthrough
@@ -703,12 +703,24 @@ case of native compilation.
   Characters. Conversations can also happen the other way, but every stage
   can potentially yield an error that must be handled: Characters ->
   Tokens -> AST.
+* Macros _consume_ their trigger to avoid accidental infinite loops. For
+  example, a procedural macro consumes its triggering identifier before giving
+  control to the function, a reader macro consumes its dispatching characters
+  before giving control, an item macro removes the item from the item syntax
+  before handing it over, a language pipeline is strictly left-to-right in
+  a syntactical import, and a shebang import deletes the leftmost mentioned
+  language from its `-l` argument list before feeding it back into the reader
+  macro as the first line.
+* Asymmetric pipelines can only convert upwards, i.e. character to token and
+  token to AST. If a pipeline wants to manipulate higher-level structures while
+  allowing reader and procedural macros to be invoked against their result, they
+  can explicitly convert downwards before feeding back into the pipeline.
 * The `gensym` function can be used with `unquote` to generate symbols
   that cannot be literally mentioned, like `gensym` in Common Lisp, i.e.
   `unquote gensym`. Both `gensym` and `symbol(of: "SymbolName")` just delegate
   to the `Symbol(of name: Optional[String])` argument, an empty symbol being
   "unmentionable" and used in many places internally and not just macros.
-* Macros have the ability to produce either `DynamicSymbol` tokens as well as
+* Macros have the ability to produce either `LateSymbol` tokens as well as
   the usual `Symbol`, the former being dynamically scoped on the callsite rather
   than the latter's being lexically scoped at the token's generation. This
   allows explicit opting out of hygine when desired.
