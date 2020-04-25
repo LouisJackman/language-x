@@ -7,11 +7,7 @@
   the same way.
 * Methods, when passed around as values, are just seen as functions that have an
   instance bundled in their closure.
-* `::` is used to pick something up without invoking it; by default, with no
-  parentheses, Sylan will invoke something with zero-arguments.
-* Invocations look like `Class.method::`, `package.function::`, and
-  `object.method::`.
 * As methods and functions are both higher-order, invoked the same way, and have
   the same type when passed around, there is no real loss of composability from
   being different constructs. They can be composed together easily: `var
-  printDouble = Number.double:: # ToString.toString:: # println::`.
+  printDouble = Number.double # ToString.toString # println`.

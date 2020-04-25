@@ -23,3 +23,6 @@
   Interpreted another way, a package is just a singleton type.
 * Setters do not exist due to Sylan being a immutable language.
 * Multiversal equality rather than universal equality.
+* Non-destructive updates by prefixing objects with a `..` and then invoking
+  them like a class constructor. Missing fields get filled in from the old
+  object.

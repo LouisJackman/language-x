@@ -32,15 +32,15 @@ executables with no required external runtimes.
 #!/usr/bin/env sylan
 
 fun fizzBuzz
-    /** The (In)famous FizzBuzz. */
+    /** The (In)famous FizzBuzz */
 (n Int) Int {
     1.up(to: n).each -> {
         switch {
             0 == (it % 15) { "FizzBuzz" }
-            0 == (it % 5) { "Fizz" }
-            0 == (it % 3) { "Buzz" }
-            _ { it }
-        } |> println::
+            0 == (it % 5)  { "Fizz" }
+            0 == (it % 3)  { "Buzz" }
+            _              { it }
+        } |> println
     }
 }
 
@@ -101,10 +101,10 @@ class Name
 }
 
 // Compile-time Programming & Macros (Reader Macros too; see Documentation)
-fun final repeat(times Usize, using pipeline AstPipeline) {
+fun final repeat(times Usize, syntax pipeline AstPipeline) {
     1.up(to: times)
-        .map(pipeline.source::)
-        .each(pipeline.destination::)
+        .map(pipeline.source)
+        .each(pipeline.destination)
 }
 
 fun demoContexts

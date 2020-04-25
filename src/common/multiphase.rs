@@ -173,7 +173,6 @@ pub enum OverloadableSliceOperator {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum PostfixOperator {
-    InvocableHandle,
     Bind,
 }
 

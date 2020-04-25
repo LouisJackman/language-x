@@ -120,7 +120,6 @@ pub enum Token {
 
     Colon,
     Dot,
-    FieldSigil,
     Eof,
     LambdaArrow,
     Rest,

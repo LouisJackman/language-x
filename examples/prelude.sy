@@ -12,7 +12,7 @@ package sylan.lang
  * fully worked out.
  */
 
-import sylan.util.collections.list as list
+import sylan.util.collections.tree as tree
 
 class public Void
 /**
@@ -28,6 +28,9 @@ enum public Boolean(
     fun public extern operator || (other This)
     fun public extern negate()
 }
+
+class public True = Boolean True
+class public False = Boolean False
 
 fun public not(_ b Boolean) Boolean {
     b.negate
@@ -63,9 +66,9 @@ interface public Number {
     fun public extern operator > (other This) This
     fun public extern operator >= (other This) This
 
-    fun public extern operator << Number
-    fun public extern operator >> Number
-    fun public extern operator >>> Number
+    fun public extern operator << (other This) This
+    fun public extern operator >> (other This) This
+    fun public extern operator >>> (other This) This
 
     fun public negate
         /**
@@ -144,7 +147,7 @@ fun final ignore
      * explicitly void, such as enum instance initialisers and implicily-typed
      * lambdas. It works well with the pipe operator:
      *
-     * add(40, 2) |> ignore::
+     * add(40, 2) |> ignore
      */
 [_ Item](_ Item) { }
 
@@ -156,7 +159,7 @@ fun final match[Item](_ item Item, syntax against pipeline AstPipline) {
             unquote refuttablePattern { True }
             _                         { False }
         }
-    } |> pipeline.destination::
+    } |> pipeline.destination
 }
 
 package unsafe
@@ -180,7 +183,7 @@ package unsafe
     /** Double UPtrUint and signed to allow arithmetic with `Offset`. */
 
     class RawPtr(var from raw UPtrInt, var byteCount Usize) {
-        fun public extern init[T, ..Args](args ..Args)
+        fun public extern init[T, Args..](args Args..)
 
         // Copy C behaviour: if `null`, allocate freshly.
         fun public extern realloc(newByteCount Usize) This
@@ -243,7 +246,7 @@ package unsafe
          */
     [to: Item](var public from raw RawPtr) implements AutoClosable {
 
-        fun public override close() = delete
+        fun public override close = delete
 
         fun public init = raw.init
 
@@ -298,7 +301,7 @@ package unsafe
          * `free` method. As the naming indicates, there are no destructors in
          * Sylan.
          */
-    [_ Item, with ..Arg](initialisers ..Arg) Ptr[to: Item] {
+    [_ Item, with Arg..](initialisers Arg..) Ptr[to: Item] {
         var ptr = alloc(itemCount)
         ptr.init()
         ptr
@@ -310,14 +313,14 @@ package unsafe
          * `free` method. As the naming indicates, there are no destructors in
          * Sylan.
          */
-    [of Item, with ..Arg](itemCount Usize, initialisers ..Arg) Ptr[to: Item] {
+    [of Item, with Arg..](itemCount Usize, initialisers Arg..) Ptr[to: Item] {
         var ptr = alloc(itemCount)
 
         for var i = 0, offsetPtr = ptr {
             if i == itemCount {
                 ptr
             } else {
-                offsetPtr.init(..initialisers)
+                offsetPtr.init(initialisers..)
                 continue(i + 1, offsetPtr.incByItem())
             }
         }
@@ -342,10 +345,10 @@ class Vector
      * Vectors, unlike lists, are eagerly evaluated. They also are the types of
      * variadics.
      */
-[of Item](of items ..Item) {
+[of Item](of items Item..) {
 
     {
-        items.each(push::)
+        items.each(push)
     }
 
     class AtomicallyMutable = unsafe.mutation.atomic.AtomicallyMutable
@@ -379,14 +382,14 @@ class Vector
 enum public List[of Item](
     public Nil,
     public Element(of item Item, next () This),
-)(of items ..Item) {
+)(of items Item..) {
 
     {
         for var remaining = items {
             if var Some(element) = remaining[|0|] {
                 Node.Element(of: element) -> {
                     remaining[|1 :]
-                        |> continue::
+                        |> continue
                 }
             } else {
                 Node.Nil
@@ -408,7 +411,7 @@ enum public List[of Item](
 }
 
 interface public ToString {
-    fun public toString String
+    fun public toString() String
 }
 
 class public String {
@@ -476,7 +479,7 @@ interface LanguageReader[reading Item] {
          * of the stream.
          */
 
-    fun public read Optional[Item] {
+    fun public read() Optional[Item] {
         readMany(amount: 1).first
     }
 
@@ -484,11 +487,11 @@ interface LanguageReader[reading Item] {
         peekMany(amount: 1, from: index).first
     }
 
-    fun isFinished Boolean {
+    var fun public isFinished Boolean {
         peek.isEmpty
     }
 
-    fun skipUntil
+    fun public skipUntil
         /**
          * Consume and discard _until_ an item passes the match, so it's the
          * next item in the stream for the caller.
@@ -507,7 +510,7 @@ interface LanguageReader[reading Item] {
         }
     }
 
-    fun skip
+    fun public skip
         /**
          * Consume and discard _until_ the item, so it's the next item in the
          * stream for the caller.
@@ -532,7 +535,7 @@ interface public Token {
     //
 }
 
-enum TokenTree
+enum public TokenTree
     /**
      * Tokens trees are just tokens that group together in the case of grouping
      * delimiters like `(`, `{`, and `[`.
@@ -541,11 +544,11 @@ enum TokenTree
      * procedural macros written in Sylan.
      */
 (
-    Group(Token.Grouping),
-    Scalar(Token),
+    public Group(Token.Grouping),
+    public Scalar(Token),
 )
 
-interface ParameterLanguageReader[reading Item] extends LanguageReader[reading: Item] {
+interface public ParameterLanguageReader[reading Item] extends LanguageReader[reading: Item] {
     fun public nextIsSubitemSeperator Boolean
     fun public nextIsCloseCall Boolean
 
@@ -557,11 +560,11 @@ interface ParameterLanguageReader[reading Item] extends LanguageReader[reading: 
 interface public TokenReader extends LanguageReader[reading: TokenTree]
 
 interface public ParameterTokenReader extends ParameterLanguageReader[reading: TokenTree] {
-    fun public nextIsSubitemSeperator Boolean {
+    var fun public nextIsSubitemSeperator Boolean {
         peek.filter(_ == TokenTree.Scalar(Token.SubItemSeperator)).hasValue
     }
 
-    fun public nextIsCloseCall Boolean {
+    var fun public nextIsCloseCall Boolean {
         peek
             .filter(_ == TokenTree.Group(Token.Grouping(tokens.Grouping.CloseParentheses)))
             .hasValue
@@ -572,13 +575,13 @@ interface public CharReader extends LanguageReader[reading: Char]
 
 interface public ParameterCharReader extends ParameterLanguageReader[reading: Char] {
 
-    fun public nextIsSubitemSeperator Boolean {
+    var fun public nextIsSubitemSeperator Boolean {
         peek
             .filter(_ == ',')
             .hasValue
     }
 
-    fun public nextIsCloseCall Boolean {
+    var fun public nextIsCloseCall Boolean {
         peek
             .filter(_ == ')')
             .hasValue
@@ -594,7 +597,7 @@ interface public ParameterCharReader extends ParameterLanguageReader[reading: Ch
          *
          * This method should help.
          */
-    {
+    (){
         if skipUntil(matches: Character.isWhitespace ~ not) {
             discard
             skipWhitespace
@@ -602,11 +605,12 @@ interface public ParameterCharReader extends ParameterLanguageReader[reading: Ch
     }
 }
 
-class LanguageWriter[writing Item] = (_ toWrite Item)
-/**
- * Class aliases usually point to other classes. There is one exception:
- * function types can also be pointed to directly.
- */
+class LanguageWriter
+    /**
+     * Class aliases usually point to other classes. There is one exception:
+     * function types can also be pointed to directly.
+     */
+    [writing Item] = (_ toWrite Item)
 
 interface public CharWriter extends LanguageWriter[writing: Char]
 interface public TokenWriter extends LanguageWriter[writing: TokenTree]
@@ -633,7 +637,7 @@ interface ReaderWriterPipeline[
          */
     {
         var items = source.read(amount)
-        items.each(destination::)
+        items.each(destination)
         items
     }
 
@@ -767,7 +771,7 @@ fun public extern currentTask Task
 
 class AssertionError implements Exception {
 
-    fun public override message String {
+    var fun public override message String {
         "assertion failed"
     }
 }

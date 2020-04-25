@@ -4,7 +4,8 @@
   a named dynamically linked library. `extern` types are defined by Sylan
   itself. `extern` finals refer to extern variables in other compiled artefacts,
   but won't assume the other artefact actually keeps it constant, thereby
-  employing memory fences on access.
+  employing memory fences on access. `extern final` functions, like types, must
+  also be implemented directly in Sylan.
 * Public exposed symbols in Sylan are accessible by either statically linking
   the result into another executable or by creating a dynamically linked library
   when building the Sylan program and then referring to it dynamically from

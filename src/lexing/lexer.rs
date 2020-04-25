@@ -813,12 +813,7 @@ impl Lexer {
 
     fn lex_with_leading_colon(&mut self) -> Token {
         self.source.discard();
-        if self.source.next_is(':') {
-            self.source.discard();
-            Token::PostfixOperator(PostfixOperator::InvocableHandle)
-        } else {
-            Token::Colon
-        }
+        Token::Colon
     }
 
     fn lex_with_leading_open_square_bracket(&mut self) -> Token {
@@ -1441,7 +1436,7 @@ mod tests {
     #[test]
     fn infix_operators() {
         let mut lexer =
-            test_lexer("    ->   |]   <= \t .   [|   \r\n ~ ^ ^^ @* - < @-  @@ [ != |> :: ");
+            test_lexer("    ->   |]   <= \t .   [|   \r\n ~ ^ ^^ @* - < @-  @@ [ != |>  ");
 
         assert_next(
             &mut lexer,
@@ -1501,20 +1496,12 @@ mod tests {
             &mut lexer,
             &Token::OverloadableInfixOperator(OverloadableInfixOperator::Pipe),
         );
-        assert_next(
-            &mut lexer,
-            &Token::PostfixOperator(PostfixOperator::InvocableHandle),
-        );
     }
 
     #[test]
     fn postfix_operators() {
-        let mut lexer = test_lexer("   ?     ::   ");
+        let mut lexer = test_lexer("   ?      ");
         assert_next(&mut lexer, &Token::PostfixOperator(PostfixOperator::Bind));
-        assert_next(
-            &mut lexer,
-            &Token::PostfixOperator(PostfixOperator::InvocableHandle),
-        );
     }
 
     #[test]
