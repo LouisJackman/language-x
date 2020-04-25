@@ -9,7 +9,7 @@ fun fizzBuzz
             0 == (it % 5) { "Fizz" }
             0 == (it % 3) { "Buzz" }
             _ { it }
-        } |> println
+        } |> println::
     }
 }
 
