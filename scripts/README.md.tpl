@@ -610,7 +610,7 @@ case of native compilation.
   language from its `-l` argument list before feeding it back into the reader
   macro as the first line.
 * Asymmetric pipelines can only convert upwards, i.e. character to token and
-  token to AST. A macro can safely generate, say, tokens safe in the knowledge
+  token to AST. A macro can generate, say, tokens safe in the knowledge
   that a reader macro won't step in and reinterpret token's based on their
   starting characters. Likewise, a macro can emit an AST knowing that procedural
   will never trigger, creating malformed ASTs.
