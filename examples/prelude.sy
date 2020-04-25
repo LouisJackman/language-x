@@ -414,7 +414,19 @@ interface public ToString {
     fun public toString() String
 }
 
-class public String {
+interface public String {
+    //
+}
+
+class public TaintedString implements String {
+    //
+}
+
+class public EscapedString implements String {
+    //
+}
+
+class public CompileTimeString implements String {
     //
 }
 

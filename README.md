@@ -86,7 +86,7 @@ var c = do -> {
 5.times -> { send(counter.Message.Increment, to: c) }
 send(counter.Message.Get, to: c)
 var n = select Int
-println($"Counter: {n}")
+println(n)
 
 class Name
     /** Annotated Data Definitions with Keyword & Default Arguments */
@@ -96,7 +96,7 @@ class Name
     var public last String: "Bond",
 ) implements ToString {
     fun public override toString String {
-        $"The name is {lastName}, {firstName} {lastName}."
+        $tainted"The name is {lastName}, {firstName} {lastName}."
     }
 }
 

@@ -115,7 +115,41 @@ fun demoIteration
      * parameter itself.
      */
 (){
-    var highlight = -> s { $">> {s} <<" }
+    final n = 42
+    final world = "World"
+
+    // String interpolation is done with `$""`.
+    println($"Hello, {world}! Number {n}.")
+    
+    var highlight = -> s {
+
+        // Compact string interpolations only work with compile-time values.
+        // The standard `tainted` string template function can be used to
+        // generated tainted strings from runtime values.
+        //
+        // Most string functions should work with tainted strings, but some
+        // places can choose not to, such as SQL libraries taking queries
+        // from strings.
+        //
+        // Custom string template functions can implement conversions from
+        // tainted back into non-tainted if they're confident in their escaping
+        // logic. For example, a SQL library could implement a `sql` template
+        // function that takes a tainted string and untaints it after escaping,
+        // e.g.:
+        //
+        // ```
+        // var name = http.parameter[|"first_name"|]
+        // 
+        // query($sql"""
+        //
+        //     select *
+        //     from accounts
+        //     where first_name = {name}
+        //
+        // """)
+        // ```
+        $tainted">> {s} <<"
+    }
 
     // The ~ operator composes invocables together, from left to right.
     1.up(to: 5)
@@ -125,11 +159,9 @@ fun demoIteration
     List { 1, 2, 3, }.each -> n {
 
         /*
-         * Dollar-prefixed strings allow interpolation. Only single symbols can
-         * be interpolated; interpolating arbitrary expressions was purposely
-         * omitted due to its ability to create cryptic one-liners.
+         * `println` takes any `ToString` type to ultimately print a string.
          */
-        println($"{n}")
+        println(n)
     }
 
     var quadruple = -> { it.doubled.doubled }
@@ -146,7 +178,7 @@ fun demoIteration
         "ghi": 987,
     }
     map.each -> key, value {
-        println($"{key}: {value}")
+        println($tainted"{key}: {value}")
     }
 
     do -> {
@@ -185,7 +217,7 @@ fun demoIteration
         while var Some(n) = select Optional[int] {
             x { x }
         } {
-            println($"{n}")
+            println(n)
         }
     }
 
@@ -219,7 +251,10 @@ fun demoIteration
         }
     }
 
-    println($"factorial: {innerFactorial}")
+    // `println` takes not just an object implementing `ToString`, but a
+    // varadic amount of them. However, it expects the _same_ implementation
+    // of `ToString`, hence the explicit `.toString()` invocation here.
+    println("factorial:", innerFactorial.toString())
 }
 
 fun internal factorial
@@ -308,7 +343,7 @@ fun printNumber
      * to other package's types. This is still not using dynamic dispatch, however.
      */
 (_ n Number) {
-    println($"{n}")
+    println(n)
 }
 
 fun demoContexts() Optional[Int] {
@@ -547,13 +582,13 @@ class Account
     // Note that all access to a field without the `this.` sigil, even from
     // inside the class itself, is going via the getter methods.
     var fun public expiry ZonedDateTime {
-        println($"the original expiry was {this.expiry}")
+        println("the original expiry was", this.expiry.toString())
 
         this.expiry + 1.year  // Ultimately yields now plus two years
     }
 
     fun public override toString() String {
-        $"{firstName} {lastName} is {ageInYears} years old"
+        $tainted"{firstName} {lastName} is {ageInYears} years old"
     }
 
     fun public override concatenate(withEnd that This) This {
@@ -567,7 +602,7 @@ class Account
         )
     }
 
-    var public name String = $"{firstName} {lastName}"
+    var public name String = firstName + " " + lastName
 
     var fun public locked Boolean {
         expiry < ZonedDateTime.now
@@ -585,7 +620,7 @@ extend class Account
 implements Concatenate[to: This, producing: String] {
 
     fun public override concatenate(withEnd: that This) String {
-        $"{firstName} {that.firstName}"
+        firstName + " " + that.firstName
     }
 }
 
@@ -595,8 +630,8 @@ fun demoPatternMatching() {
 
     if var Account(firstName, lastName: .matchingLastName) as account
             = account1 {
-        println($"Matching first name: {firstName}")
-        println($"Matching account: {account}")
+        println("Matching first name: ", firstName)
+        println("Matching account: ", account)
     }
 
     switch account1 {
@@ -796,27 +831,27 @@ fun demoClosures() {
     var z = g(account1)
 
     var n = twice(3) -> { it * 2 }
-    println($"n == {n}")
+    println("n ==", n.toString())
 }
 
 class NumericLiteralsClass implements ToString {
 
     // Non-overflowable numbers.
-    var a Int = 5
-    var b UInt = 5u
-    var c Decimal = 10.0
+    final a Int = 5
+    final b UInt = 5u
+    final c Decimal = 10.0
 
     // Overflowable, machine-width numbers.
-    var d Byte = 5u8
-    var e UInt16 = 11u16
-    var f UInt32 = 12u32
-    var g UInt64 = 13u64
-    var h Int8 = 15s8
-    var i Short = 13s16
-    var j Int32 = 7s
-    var k Long = 7s64
-    var l Float = 12f
-    var m Double = 8d
+    final d Byte = 5u8
+    final e UInt16 = 11u16
+    final f UInt32 = 12u32
+    final g UInt64 = 13u64
+    final h Int8 = 15s8
+    final i Short = 13s16
+    final j Int32 = 7s
+    final k Long = 7s64
+    final l Float = 12f
+    final m Double = 8d
 
     fun public override toString String {
         $"{a}{b}{c}{d}{e}{f}{g}{h}{i}{j}{k}{l}{m}"
@@ -878,7 +913,7 @@ fun demo() {
 
     printFactorial(42)
     var x = twice(4, do: doubled)
-    println($"{x}")
+    println(x)
 
     demoContexts()
     demoPatternMatching()
@@ -931,7 +966,7 @@ send(counter.Message.Get, to: c)
     // pattern matching or timeouts.
     var n = select Int
 
-    println($"{n}")
+    println(n)
 }
 
 send(counter.Message.Reset(to: 0), to: c)
@@ -944,17 +979,17 @@ This works with interpolated and raw strings too.
 
 println(r"Raw string in which escapes characters are now read literally: \n\r")
 
-var n = 4
+final n = 4
 
 println($"""
-Multiline interpolated strings: {n}
+Multiline compile-time interpolated strings: {n}
 """)
 
 var x = do -> {
     println("Returning 5 to be bound as x...")
     5
 }
-println($"{x}")
+println(x)
 
 /*
   A multiline comment.
