@@ -102,27 +102,50 @@ pub enum OverloadableInfixOperator {
     Xor,
 }
 
-/// How slicing is interpreted is totally up the implementor of the operator.
-/// This especially applies to the `...` pseudoidentifier, which resolves
-/// statically to the `sylan.lang.slice.SliceFragment.Ellipsis` enum data
-/// constructor which any API can use, but it is handled specially by the
+/// Slicing, dimensional-slicing, and indexing are are three seperate
+/// overloadable operators that look simliar.
+///
+/// The signature of overloaded operators looks like, in order of
+/// escalating complexity:
+///
+/// ```
+/// fun public operator [||] (n Usize) { }`
+/// fun public operator [|:|] (sliceFragments ..SliceFragment) { }`
+/// fun public operator [|:...|] (sliceFragments ..SliceFragment) { }`
+/// ```
+///
+/// When compiling slices, Sylan will choose the least complex overload for a
+/// type depending on whether `:` and `...` are used. A compile-time error
+/// if the level isn't supported, i.e. a `...` being used when only `[|:|]` or
+/// `[||]` is overloaded by a type.
+///
+/// How they are interpreted is totally up the implementor of the operator.
+/// This especially applies to the `...` pseudoidentifiers in slices, which
+/// resolves statically to the `sylan.lang.slice.SliceFragment.Ellipsis` enum
+/// data constructor which any API can use, but it is handled specially by the
 /// overloadable slice operator. This syntactical sugar transforms invocations
 /// like `[|1 : 2 : 3, ..., 1 :]` into these arguments passed variadically into
 /// the overloaded operator:
 ///
 /// ```
-/// (
-///     SliceFragment::Slice(from: 1, stepping: 2, to: 3),
-///     SliceFragment::Ellipsis,
-///     SliceFragment::Slice(from: 1),
-/// )
+/// SliceFragment.Slice(Slice(from: 1, stepping: 2, to: 3)),
+/// SliceFragment.Ellipsis,
+/// SliceFragment.Slice(Slice(from: 1)),
 /// ```
 ///
-/// The signature of overloaded operator looks like:
+/// If `[||]` is specified and a caller doesn't use ellipsis, it invokes with
+/// arguments (e.g. for `[|1 : 2 : 3, 5 : 6, 7|]):
 ///
-/// `fun public operator [||] (sliceFragments ..SliceFragment) { }`
+/// ```
+/// Slice(from: 1, stepping: 2, to: 3),
+/// Slice(from: 5, to: 6),
+/// Slice(from: 7),
+/// ```
 ///
-/// `SliceFragment` is defined as:
+/// Indexing is simpler, just taking one mandatory Usize parameter instead.
+///
+///
+/// `Slice` and `SliceFragment` is defined as:
 ///
 /// ```
 /// enum public Slice(
@@ -139,9 +162,9 @@ pub enum OverloadableInfixOperator {
 ///
 /// Examples:
 ///
-/// * `list[|1 : 3|]` from the first element to the 3rd, semi-inclusive, and
-///    considering Sylan's 0-based indexing.
-/// * `list[|: -1 : -2|]` reverses from antepenultimate element to the first.
+/// * `list[|42|]` gets the 43nd element (due to zero-based indexing).
+/// * `list[|1 : 3|]` from the 2nd element to the 4th, semi-inclusive.
+/// * `list[|: -2 : -1|]` reverses from antepenultimate element to the first.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum OverloadableSliceOperator {
     Open,
