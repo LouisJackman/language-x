@@ -142,8 +142,10 @@ pub enum OverloadableInfixOperator {
 /// Slice(from: 7),
 /// ```
 ///
-/// Indexing is simpler, just taking one mandatory Usize parameter instead.
-///
+/// Indexing is simpler, just taking one mandatory parameter instead. It will
+/// usually be `Usize` for numeric indexing, but single indexes can actually be
+/// any time such as strings. As Sylan doesn't support method overloading, each
+/// class can only define a single indexing operator of a single type.
 ///
 /// `Slice` and `SliceFragment` is defined as:
 ///
