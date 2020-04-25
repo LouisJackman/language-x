@@ -132,6 +132,12 @@ class public extern Long
 class public extern Float
 class public extern Double
 
+class public extern Usize
+/**
+ * The maximum size of a contiguously allocated slab of memory. This is an
+ * important concept in Sylan even outside of unsafe code, e.g. slice indices.
+ */
+
 fun final ignore
     /**
      * Useful for throwing away variables in contexts that are not already
@@ -153,24 +159,222 @@ fun final match[Item](_ item Item, syntax against pipeline AstPipline) {
     } |> pipeline.destination::
 }
 
-class extern Vector
+package unsafe
     /**
-     * The only way to create homogenous, variably-sized collections in Sylan,
-     * the building block for other collection types. Defined natively.
+     * Placeholder definitions for now, to understand what needs to be exposed
+     * to implement as much in Sylan as possible, such as `Vector` and garbage
+     * collection.
+     */
+{
+    // The maximum sizes of an addressable memory location. Not necessarily the
+    // same as `Usize` on all architectures.
+    class public extern UPtrInt
+    class public extern PtrInt
+
+    var rawNull UPtrInt = 0u.to[UptrInt]()
+
+    class public extern Offset
+    /** Double Usize and signed to allow offsetting in both directions. */
+
+    class extern DirectionalPtr
+    /** Double UPtrUint and signed to allow arithmetic with `Offset`. */
+
+    class RawPtr(var from raw UPtrInt, var byteCount Usize) {
+        fun public extern init[T, ..Args](args ..Args)
+
+        // Copy C behaviour: if `null`, allocate freshly.
+        fun public extern realloc(newByteCount Usize) This
+
+        fun public extern free()
+
+        fun public extern load[_ T]() T
+        fun public extern store[_ T](_ T)
+
+        fun public offset(byBytes n Offset) This {
+            var newRaw = (raw.to[DirectionalPtr] + n.to[DirectionalPtr]()).to[UPtrInt]
+            This(from: newRaw)
+        }
+    }
+
+    fun public extern rawAlloc
+        /**
+         * **Warning:** A `rawAlloc` followed by a `init` on a different OS thread
+         * will lead to a lack of "publishing safety". The current task must be
+         * pinned to the OS thread and must not allow the `RawPtr` to escape until
+         * initialised with `init`.
+         *
+         * Alternatively, the task can avoid being pinned to the thread if the user
+         * ensures no task yields happen between `alloc` and `init`.
+         *
+         * Lacking publishing safety means a read between `alloc` and `init` will
+         * read uninitialised memory. Furthermore, leaking the pointer across task
+         * threads could lead to uninitialised memory reads even after `init` has
+         * run unless combined with a memory fence.
+         */
+    (byteCount Usize) RawPtr
+
+    fun public extern final sizeInBytes[of T]() Usize
+
+    var nullPtr = RawPtr(from: 0, byteCount: 0)
+
+    class Ptr
+        /**
+         * Proposed usage style is like a mix of C and old-school Objective-C:
+         *
+         * ```
+         * var item = alloc[Type]()
+         * item.init(field1, field2)
+         * free(item)
+         * ```
+         *
+         * `AutoClosable` is implemented to make deallocating memory harder to
+         * forget:
+         *
+         * ```
+         * var item = using alloc[Type]()
+         * item.init(field1, field2)
+         * ``
+         *
+         * Use `new` to combine alloc and init in one step:
+         *
+         * ```
+         * var item = using new[Type](field1, field2)
+         * ```
+         */
+    [to: Item](var public from raw RawPtr) implements AutoClosable {
+
+        fun public override close() = delete
+
+        fun public init = raw.init
+
+        fun public realloc(newItemSize n Usize) This {
+            raw.realloc(newByteSize: sizeInBytes[of: Item] * n)
+        }
+
+        fun public free = raw.free
+
+        fun public extern load() Item { raw.load[Item]() }
+        fun public extern store(item Item) { raw.store[Item](item)}
+
+        fun public offset(byItems n Offset) This {
+            This(from: raw.offset(sizeInBytes[of: Item] * n))
+        }
+
+        fun public incByItem() This {
+            offset(byItems: 1.to[Offset]())
+        }
+
+        fun public decByItem() This {
+            offset(byItems: -1.to[Offset]())
+        }
+    }
+
+    fun null[_ Item]() Ptr {
+        Ptr[to: Item](from: nullPtr)
+    }
+
+    fun public alloc
+        /**
+         * **Warning:** An `alloc` followed by a `init` on a different OS
+         * thread will lead to a lack of "publishing safety". The current task
+         * must be pinned to the OS thread and must not allow the `Ptr` to
+         * escape until initialised with `init`.
+         *
+         * Alternatively, the task can avoid being pinned to the thread if the
+         * user ensures no task yields happen between `alloc` and `init`.
+         *
+         * Lacking publishing safety means a read between `alloc` and `init`
+         * will read uninitialised memory. Furthermore, leaking the pointer
+         * across task threads could lead to uninitialised memory reads even
+         * after `init` has run unless combined with a memory fence.
+         */
+    [_ Item](itemCount Usize: 1) Ptr[to: Item] {
+        alloc(byteCount: n * sizeInBytes[of: Item])
+    }
+
+    fun public new
+       /**
+         * Covers `new` from C++. There is no `delete` equivalent, only the
+         * `free` method. As the naming indicates, there are no destructors in
+         * Sylan.
+         */
+    [_ Item, with ..Arg](initialisers ..Arg) Ptr[to: Item] {
+        var ptr = alloc(itemCount)
+        ptr.init()
+        ptr
+    }
+
+    fun public newContiguous
+        /**
+         * Covers `new[]` from C++. There is no `delete[]` equivalent, only the
+         * `free` method. As the naming indicates, there are no destructors in
+         * Sylan.
+         */
+    [of Item, with ..Arg](itemCount Usize, initialisers ..Arg) Ptr[to: Item] {
+        var ptr = alloc(itemCount)
+
+        for var i = 0, offsetPtr = ptr {
+            if i == itemCount {
+                ptr
+            } else {
+                offsetPtr.init(..initialisers)
+                continue(i + 1, offsetPtr.incByItem())
+            }
+        }
+    }
+
+    package public mutation {
+        package public atomic {
+            
+            class public AtomicallyMutable[_ Item extends AtomicMachineType](var _ item Item) {
+                fun public extern load() Item
+                fun public extern store(_ item Item)
+            }
+        }
+    }
+}
+
+class Vector
+    /**
+     * The only way to create homogenous, variably-sized collections in safe
+     * Sylan, and a building block for other collection types.
      *
      * Vectors, unlike lists, are eagerly evaluated. They also are the types of
      * variadics.
-     *
-     * Variadics can be allocated either on the heap or on the stack. Calling
-     * code shouldn't be able to tell the difference since immutability makes
-     * pass-by-reference and pass-by-copy semantics irrelevant. They appear as
-     * vectors either way.
-     *
-     * This flexibility allows Sylan to use the stack for compile-time-known
-     * amounts of variadic arguments but the heap for amounts unknown at
-     * compile-time such as spreading other iterable items on call sites.
      */
-[of Item]
+[of Item](of items ..Item) {
+
+    {
+        items.each(push::)
+    }
+
+    class AtomicallyMutable = unsafe.mutation.atomic.AtomicallyMutable
+
+    var ptr AtomicallyMutable[unsafe.Ptr[to: Item]] = AtomicallyMutable[unsafe.null[Item]()]
+    var size AtomicallyMutable[Usize] = AtomicallyMutable(0)
+
+    fun public operator [||](index Usize) Optional[of: Item] {
+        if size < index {
+            None
+        } else {
+            var item = ptr.load().offset(byItems: index).load()
+            Some(item)
+        }
+    }
+
+    fun push(_ item Item)
+        /**
+         * Do not publish with `public`. It's not thread safe when combined with
+         * operator `[||]`.
+         */
+    {
+        var newSize = size.load() + 1
+        var reallocated = ptr.load().realloc(byItems: newSize)
+        var storeOffset = reallocated.offset(byItems: newSize - 1)
+        storeOffset.store(item)
+        ptr.store(reallocated)
+    }
+}
 
 enum public List[of Item](
     public Nil,
