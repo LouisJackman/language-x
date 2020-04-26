@@ -287,7 +287,7 @@ class public Ref
     fun public get() Value            { sendAndWait(Msg.Get, to: task) }
     fun public set(to newValue Value) { send(Msg.Set(to: newValue), to: task) }
 
-    var task = Task -> {
+    var task = spawn -> {
         for var state = value {
             select Msg {
                 Set(newValue) { continue(newValue) }
@@ -957,6 +957,17 @@ class public AsymmetricPipeline[from Source, to Destination](
     var public source Source,
     var public write Destination,
 )
+
+class public Task(var running task ()) {
+
+    fun public extern start()
+}
+
+fun public spawn(running task ()) Task {
+    var t = Task(running: task)
+    t.start()
+    t
+}
 
 fun public extern currentTask Task
 

@@ -50,12 +50,11 @@ package counter {
 
 var c = do -> {
     var parent = currentTask
-    Task -> { counter.start(task: parent) }
+    spawn -> { counter.start(task: parent) }
 }
 5.times -> { send(counter.Message.Increment, to: c) }
 send(counter.Message.Get, to: c)
-var n = select Int
-println(n)
+select Int |> println
 
 class Name
     /** Annotated Data Definitions with Keyword & Default Arguments */

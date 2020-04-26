@@ -189,7 +189,7 @@ fun demoIteration
         //
         // In this context, "closing" a task kills it, which, unlike Java
         // threads, is safe.
-        var counterService = using Task -> {
+        var counterService = using spawn -> {
             for var n = 0 {
                 var sender = select Task {
                     x { x }
@@ -949,7 +949,7 @@ if var Some(s) = optionalString {
 
 var c = do -> {
     var parent = currentTask
-    Task -> {
+    spawn -> {
         counter.start(task: parent)
     }
 }
