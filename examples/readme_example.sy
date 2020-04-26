@@ -70,10 +70,13 @@ class Name
 }
 
 // Compile-time Programming & Macros (Reader Macros too; see Documentation)
-fun final repeat(times Usize, syntax pipeline AstPipeline) {
-    1.up(to: times)
-        .map(pipeline.source)
-        .each(pipeline.destination)
+fun final repeat(times Usize, syntax pipeline AstPipeline) Throws {
+    with {
+        1.up(to: times)
+            .map(pipeline.source)
+            .each(-> ast { pipeline.write(ast)? })
+        ok()
+    }
 }
 
 fun demoContexts

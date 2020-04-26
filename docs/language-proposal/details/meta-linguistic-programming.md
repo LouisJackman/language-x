@@ -18,6 +18,7 @@
   - `AsymmetricPipeline[from: ParameterCharReader,  to: TokenWriter]`
 * `syntax` is banned from non-`final` functions. Compiled artefacts are never
   burdened with the weight of meta-linguistic abstrations at runtime.
+* A function taking a `syntax` parameter must return a `Throws` type.
 * Therefore, the `!` for forcing a function at compile time doesn't suddenly
   allow a runtime function to work as a macro. This is intended.
 * A final function with a parameter pertaining to ASTs is called a
@@ -65,9 +66,8 @@
 * Character-based macros can not be invoked directly as functions; instead they
   must be hooked onto the current readtable by using the compile-time dynamic
   scoping, specifically around the `currentReadtable` variable. E.g.:
-  `bind currentReadtable = currentReadtable.dispatchingOnChars(List('{'),
-  jsonReaderPackage.read)`. There is a standard `use` AST token macro for this
-  in `sylan.lang`, allowing invocations like `@use('{', jsonReaderPackage.read)`.
+  `bind currentReadtable = currentReadtable.dispatchingOnChars(List('{'), jsonReaderPackage.read)`. There is a standard `use` AST reader macro for this
+  in `sylan.lang`, allowing invocations like `use('{', jsonReaderPackage.read)`.
   Unloading a readtable can be done with a subsequent `unbind currentReadtable`.
   The triggered character is not consumed off the stream before calling the
   macro, it can be checked by the reader macro.

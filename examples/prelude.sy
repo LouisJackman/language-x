@@ -36,6 +36,106 @@ fun public not(_ b Boolean) Boolean {
     b.negate
 }
 
+enum public Throws[_ Exception extends Exception: Exception, otherwise Result: Void](
+    public Ok(Result)
+    public Exception(Exception)
+)
+
+fun public ok[E extends Exception: Exception]() Throws[E, otherwise: Void] {
+    Throws.Ok(Void)
+}
+
+fun final if
+    /**
+     * A hypothetical look at how `if` could be defined as a macro, creating
+     * Sylan _from_ Kernel Sylan rather than translating _to_ Kernel Sylan in
+     * Rust.
+     *
+     * This example is a bit silly because it assumes simplification steps like
+     * applicative do-notation, pattern-matching, and `var` are already defined.
+     */
+(syntax pipeline Pipeline[from: CharReader, to: AstWriter]) Throws {
+
+    var Pipeline(source, write) = pipeline
+
+    // Trigger characters for read macros (and the trigger token for a
+    // procedural macro) are available on `source.trigger` but are no longer
+    // present in the source.
+
+    // Explicit lexing triggers reader macros for characters consumed. They
+    // aren't given another opportunity to trigger again in the generated
+    // source.
+    var lexer = Lexer(lexing: source)
+
+    // Explicit parsing triggers procedural macros for tokens consumed. They
+    // aren't given another opportunity to trigger again in the generated
+    // source.
+    //
+    // Item macros can be both procudural and pattern, so the procedural kind
+    // are also processed here.
+    var parser = Parser(parsing: lexer)
+
+    // At this point, only pattern macros remain unprocessed in the
+    // generated source.
+
+    with {
+        var condition = parser.parseExpression()?
+        var ifTrue = parser.parseScope()?
+        parser.expectAndDiscard(tokens.Token.BranchingAndJumping(tokens.BranchingAndJumping.Else))?
+        var ifFalse = parser.parseScope()?
+
+        var ast = quote {
+            switch unquote condition {
+                True unquote ifTrue
+                False unquote ifFalse
+            }
+        }
+        write(ast)?
+    }
+
+    ok()
+}
+
+bind currentReadtable = currentReadtable.dispatchingOnChars(List('i', 'f'), readIf)
+// Or just the `use` reader macro: `use("if", readIf)`
+// Obviously the `use` macro itself can therefore not be initialised with `use`...
+
+fun final kernelIf
+    /**
+     * Now, a second look at how this would look in Kernel Sylan. This is done
+     * from a procedural macro rather than a reader one to keep the example
+     * small.
+     *
+     * Even this assumes that lexical scoping is already defined though, but it
+     * assumes that non-field `var`, pattern matching, and `with` do not yet
+     * exist.
+     *
+     * `switch` is a special form, so it can be relied on here. The raw switch
+     * doesn't do pattern matching or guards though.
+     */
+(syntax pipeline Pipeline[from: TokenReader, to: AstWriter]) Throws {
+    -> source, write {
+        -> parser {
+            parser.parseExpression().flatMap(-> condition {
+                parser.parseScope().flatMap(-> ifTrue {
+                    parser.expectAndDiscard(tokens.Token.BranchingAndJumping(tokens.BranchingAndJumping.Else)).flatMap(-> _ {
+                        parser.parseScope().flatMap(ifFalse -> {
+                            write(quote {
+                                switch unquote condition {
+                                    True unquote ifTrue
+                                    False unquote ifFalse
+                                }
+                            })
+                        })
+                    })
+                })
+            })
+        }(Parser(parsing: source))
+    }(pipeline.source, pipeline.dest)
+
+    ok()
+}
+
 class public extern Invokable[Result, Args..]
 
 extend class Invokable[Result, Args..] {
@@ -151,15 +251,16 @@ fun final ignore
      */
 [_ Item](_ Item) { }
 
-fun final match[Item](_ item Item, syntax against pipeline AstPipline) {
+fun final match[Item](_ item Item, syntax against pipeline AstPipline) Throws {
     var refuttablePattern = pipeline.source
 
-    quote {
+    var ast = quote {
         switch unquote item {
             unquote refuttablePattern { True }
             _                         { False }
         }
-    } |> pipeline.destination
+    }
+    pipeline.write(ast)
 }
 
 
@@ -490,13 +591,15 @@ bind var extern currentReadtable
 
 interface LanguageReader[reading Item] {
 
+    var fun trigger List[Item]
+
     fun public readMany
         /** Read from the reader, consuming them as they are returned. */
     (
         amount Usize
         /** The amount to attempt to read. */
     )
-        List[of: Item]
+        Throws[otherwise: List[of: Item]]
         /**
          * What was read; if smaller than the amount, it means the reader hit
          * the end of its source. This means that the end of the source can be
@@ -515,7 +618,7 @@ interface LanguageReader[reading Item] {
         from index Usize: 0
         /** Whence to peek onwards. */
     )
-        List[of: Item]
+        Throws[otherwise: List[of: Item]]
         /**
          * What was read; if smaller than the amount, it means the reader hit
          * the end of its source. This means that the end of the source can be
@@ -530,22 +633,24 @@ interface LanguageReader[reading Item] {
         amount Usize: 1
         /** The amount to attempt to discard. */
     )
-        Boolean
+        Throws[otherwise: Boolean]
         /**
          * Whether all `amount` items were discarded before encoutering the end
          * of the stream.
          */
 
-    fun public read() Optional[Item] {
-        readMany(amount: 1).first
+    fun public read() Throws[otherwise: Optional[Item]] {
+        readMany(amount: 1)
+            .map(List.first)
     }
 
-    fun public peek(at index: 0) Optional[Item] {
-        peekMany(amount: 1, from: index).first
+    fun public peek(at index: 0) Throws[otherwise: Optional[Item]] {
+        peekMany(amount: 1, from: index)
+            .map(List.first)
     }
 
-    var fun public isFinished Boolean {
-        peek.isEmpty
+    var fun public isFinished Throws[otherwise: Boolean] {
+        peek.map(Optional.isEmpty)
     }
 
     fun public skipUntil
@@ -554,16 +659,18 @@ interface LanguageReader[reading Item] {
          * next item in the stream for the caller.
          */
     (matches (item Item) Boolean)
-        Boolean
+        Throws[otherwise: Boolean]
         /**
          * Whether the desired item was encountered before the end of the
          * stream.
          */
     {
-        switch peek {
-            Some(.item) if matches(item) { True }
-            Some(_)                      { skip_until(matches) }
-            Empty                        { False }
+        with {
+            switch peek? {
+                Some(.item) if matches(item) { Ok(True) }
+                Some(_)                      { skip_until(matches) }
+                Empty                        { Ok(False) }
+            }
         }
     }
 
@@ -573,7 +680,7 @@ interface LanguageReader[reading Item] {
          * stream for the caller.
          */
     (until item Item)
-        Boolean
+        Throws[otherwise: Boolean]
         /** Whether the desired item was encountered before the end of the stream. */
     {
         skip_until(matches: _ == item)
@@ -606,25 +713,40 @@ enum public TokenTree
 )
 
 interface public ParameterLanguageReader[reading Item] extends LanguageReader[reading: Item] {
-    fun public nextIsSubitemSeperator Boolean
-    fun public nextIsCloseCall Boolean
+    fun public nextIsSubitemSeperator Throws[otherwise: Boolean]
+    fun public nextIsCloseCall Throws[otherwise: Boolean]
 
-    fun public resemblesEnd Boolean {
-        nextIsSubitemSeperator || nextIsCloseCall
+    fun public resemblesEnd Throws[otherwise: Boolean] {
+        with {
+            (nextIsSubitemSeperator? || nextIsCloseCall?)
+                |> Ok
+        }
     }
 }
 
 interface public TokenReader extends LanguageReader[reading: TokenTree]
 
 interface public ParameterTokenReader extends ParameterLanguageReader[reading: TokenTree] {
-    var fun public nextIsSubitemSeperator Boolean {
-        peek.filter(_ == TokenTree.Scalar(Token.SubItemSeperator)).hasValue
+    var fun public nextIsSubitemSeperator Throws[otherwise: Boolean] {
+        with {
+            peek?
+                .filter(_ == TokenTree.Scalar(Token.SubItemSeperator))
+                .hasValue
+                |> Ok
+        }
     }
 
-    var fun public nextIsCloseCall Boolean {
-        peek
-            .filter(_ == TokenTree.Group(Token.Grouping(tokens.Grouping.CloseParentheses)))
-            .hasValue
+    var fun public nextIsCloseCall Throws[otherwise: Boolean] {
+        with {
+            peek?
+                .filter(_ == (
+                    tokens.Grouping.CloseParentheses
+                    |> Token.Grouping
+                    |> TokenTree.Group
+                ))
+                .hasValue
+                |> Ok
+        }
     }
 }
 
@@ -632,16 +754,22 @@ interface public CharReader extends LanguageReader[reading: Char]
 
 interface public ParameterCharReader extends ParameterLanguageReader[reading: Char] {
 
-    var fun public nextIsSubitemSeperator Boolean {
-        peek
-            .filter(_ == ',')
-            .hasValue
+    var fun public nextIsSubitemSeperator Throws[otherwise: Boolean] {
+        with {
+            peek?
+                .filter(_ == ',')
+                .hasValue
+                |> Ok
+        }
     }
 
-    var fun public nextIsCloseCall Boolean {
-        peek
-            .filter(_ == ')')
-            .hasValue
+    var fun public nextIsCloseCall Throws[otherwise: Boolean] {
+        with {
+            peek?
+                .filter(_ == ')')
+                .hasValue
+                |> Ok
+        }
     }
 
     fun skipWhitespace
@@ -654,10 +782,12 @@ interface public ParameterCharReader extends ParameterLanguageReader[reading: Ch
          *
          * This method should help.
          */
-    (){
+    () Throws {
         if skipUntil(matches: Character.isWhitespace ~ not) {
-            discard
-            skipWhitespace
+            with {
+                discard?
+                skipWhitespace?
+            }
         }
     }
 }
@@ -678,8 +808,8 @@ interface ReaderWriterPipeline[
     readingFrom Reader extends LanguageReader[reading: Item],
     writingTo Writer extends LanguageWriter[writing: Item],
 ] {
-    fun public source Reader
-    fun public destination Writer
+    var fun public source Reader
+    var fun public write Writer
 
     fun public passthroughMany
         /** Pass items through from the source to the destination. */
@@ -687,19 +817,21 @@ interface ReaderWriterPipeline[
         amount USize: 1
         /** The amount to passthrough. */
     )
-        List[of: Item]
+        Throws[otherwise: List[of: Item]]
         /**
          * What was passed through; if smaller than the amount, it means the
          * reader hit the end of its source.
          */
     {
-        var items = source.read(amount)
-        items.each(destination)
-        items
+        with {
+            var items = source.read(amount)?
+            items.each(-> item { write(item)? })
+            items
+        }
     }
 
-    fun public passthrough Optional[Item] {
-        passthroughMany.first
+    fun public passthrough() Throws[otherwise: Optional[Item]] {
+        passthroughMany.map(List.first)
     }
 
     fun passthroughUntil
@@ -713,13 +845,15 @@ interface ReaderWriterPipeline[
          * for the caller.
          */
     (matches (item Item) Boolean)
-        Boolean
+        Throws[otherwise: Boolean]
         /** Whether the desired item was encountered before the end of the stream. */
     {
-        switch passthrough {
-            Some(.item) if matches(item) { True }
-            Some(_)                      { passthroughUntil(matches) }
-            Empty                        { False }
+        with {
+            switch passthrough? {
+                Some(.item) if matches(item) { Ok(True) }
+                Some(_)                      { passthroughUntil(matches) }
+                Empty                        { Ok(False) }
+            }
         }
     }
 
@@ -734,7 +868,7 @@ interface ReaderWriterPipeline[
          * caller.
          */
     (_ item Item)
-        Boolean
+        Throws[otherwise: Boolean]
         /** Whether the desired item was encountered before the end of the stream. */
     {
         passthroughUntil(matches: _ == item)
@@ -751,7 +885,7 @@ interface ReaderWriterPipeline[
          * for the caller.
          */
     (_ item Item)
-        Boolean
+        Throws[otherwise: Boolean]
         /** Whether the desired item was encountered before the end of the stream. */
     {
         passthroughUntil(matches: Character.isWhitespace ~ not)
@@ -803,7 +937,7 @@ interface ReaderWriterPipeline[
 
 class public AstPipeline[Ast extends FileAst: FileAst]
     var public source Ast,
-    var public finish AstWriter,
+    var public write AstWriter,
 )
 
 class public Pipeline[
@@ -816,24 +950,24 @@ class public Pipeline[
     writingTo: Destination,
 (
     var public source Source,
-    var public destination Destination,
+    var public write Destination,
 )
 
 class public AsymmetricPipeline[from Source, to Destination](
     var public source Source,
-    var public destination Destination,
+    var public write Destination,
 )
 
 fun public extern currentTask Task
 
-fun public extern send[Item](_ item Item, to task Task)
+fun public extern send[Item] Throws (_ item Item, to task Task)
 
 fun public sendAndWait[sending Item, waitingFor Delivery: Item](
     sending item Item,
     to task Task
-) Delivery {
+) Throws[otherwise: Delivery] {
     send(item, to: task)
-    select Item
+        .map(-> _ { select Item })
 }
 
 class AssertionError implements Exception {
@@ -847,15 +981,24 @@ fun public final assert
     /**
      * Assert that predicate is true, otherwise throw an `AssertionError`.
      */
-(syntax that predicate AstPipeline) {
+(syntax that AstPipeline(source, write) AstPipeline) Throws {
 
-    var msg = $"Assertion failed: {predicate.source}"
+    // AST pipelines implement `ToString`. 
+    //
+    // DO NOT USE THIS TO GENERATE NEW SOURCE TO LEX OR PARSE. Generated ASTs
+    // will not expect to trigger reader and procedural macros again, so that'll
+    // break all sorts of assumptions of macro writers.
+    // 
+    // Only use it for converting source code to strings for debugging and
+    // tooling purposes.
+    var msg = $"Assertion failed: {source}"
     
-    quote {
-        if not(unquote predicate) {
+    var ast = quote {
+        if not(unquote source) {
             throw AssertionError(msg)
         }
     }
+    write(ast)
 }
 
 fun public extern print(_ message String)

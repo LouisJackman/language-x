@@ -712,15 +712,18 @@ fun final compileTimeAdd
 
 fun anyTimeAnytime(x Int, y Int) Int { x + y }
 
-fun final repeat(times Uint, syntax pipeline AstPipeline) {
-    1.up(to: times)
-        .map(pipeline.source)
-        .each(pipeline.destination)
+fun final repeat(times Uint, syntax pipeline AstPipeline) Throws {
+    with {
+        1.up(to: times)
+            .map(pipeline.source)
+            .each(ast -> pipeline.write(ast)?)
+        ok()
+    }
 }
 
-fun extern json(syntax pipeline AsymmetricPipeline[from: Token, to: Ast])
+fun extern json(syntax pipeline AsymmetricPipeline[from: Token, to: Ast]) Throws
 
-fun extern embeddedLanguage(syntax pipeline Pipeline[of: Token])
+fun extern embeddedLanguage(syntax pipeline Pipeline[of: Token]) Throws
 
 fun testCompileTime() {
     compileTimeAdd(40, 2) |> println
