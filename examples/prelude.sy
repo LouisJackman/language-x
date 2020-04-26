@@ -20,9 +20,9 @@ class public Void
  * nothing.
  */
 
-enum public Boolean(
-    True,
-    False,
+enum public Boolean @derive(Equals, ToString) (
+    public True,
+    public False,
 ) {
     fun public extern operator && (other This)
     fun public extern operator || (other This)
@@ -87,23 +87,23 @@ interface public Number {
         }
     }
 
-    fun public double Number {
+    fun public double This {
         this * 2
     }
 
-    fun public triple Number {
+    fun public triple This {
         this * 3
     }
 
-    fun public quadruple Number {
+    fun public quadruple This {
         this * 4
     }
 
-    fun public quintuple Number {
+    fun public quintuple This {
         this * 5
     }
 
-    fun public up(to n Number) List[of: Number] {
+    fun public up(to n This) List[of: This] {
         list.generate(initial: 1) -> {
             if n < it {
                 list.generation.Finish
@@ -113,8 +113,8 @@ interface public Number {
         }
     }
 
-    fun public twice() List[of: Number] { up(to: 2) }
-    fun public thrice() List[of: Number] { up(to: 3) }
+    fun public twice() List[of: This] { up(to: 2) }
+    fun public thrice() List[of: This] { up(to: 3) }
 }
 
 fun public extern bitnot[N extends Number](n N) N
@@ -162,6 +162,50 @@ fun final match[Item](_ item Item, syntax against pipeline AstPipline) {
     } |> pipeline.destination
 }
 
+
+class public Ref
+    /**
+     * Sylan is an immutable language; data can't be modified. It's not _fully_
+     * immutable though, due to its strong support for processes, or "tasks" as
+     * Sylan calls them.
+     * 
+     * A task can hold its own state and recurse with differing data based
+     * on incoming process messages, and sent out messages with state changes.
+     * 
+     * Therefore, a mutable memory address can be implemented by a task.
+     * However, unlike a raw memory address, the updates are always atomic and
+     * always update the _entire_ value in one go, not just _part_ of its memory
+     * content.
+     */
+[to value Value] public (to value Value) {
+    enum Msg(
+        Get(dest Task: currentTask),
+        Set(to newValue Value)
+    )
+
+    fun public get() Value            { sendAndWait(Msg.Get, to: task) }
+    fun public set(to newValue Value) { send(Msg.Set(to: newValue), to: task) }
+
+    var task = Task -> {
+        for var state = value {
+            select Msg {
+                Set(newValue) { continue(newValue) }
+                Get(dest) {
+                    send(state, to: dest)
+                    continue(value)
+                }
+            }
+        }
+    }
+}
+
+//
+// `AtomicallyMutable` used in `unsafe` is for performance sensitive areas where
+// you don't mind dealing with low-level concurrency issues like atomicity,
+// memory fences, etc. Unsafe Sylan code uses it, but most of the time, for safe
+// code, the basic `Ref` above is all you need.
+//
+
 package unsafe
     /**
      * Placeholder definitions for now, to understand what needs to be exposed
@@ -179,14 +223,15 @@ package unsafe
     class public extern Offset
     /** Double Usize and signed to allow offsetting in both directions. */
 
-    class extern DirectionalPtr
+    class public extern DirectionalPtr
     /** Double UPtrUint and signed to allow arithmetic with `Offset`. */
 
-    class RawPtr(var from raw UPtrInt, var byteCount Usize) {
+    class public RawPtr public (var from raw UPtrInt, var byteCount Usize) {
         fun public extern init[T, Args..](args Args..)
 
-        // Copy C behaviour: if `null`, allocate freshly.
-        fun public extern realloc(newByteCount Usize) This
+        fun public extern realloc
+            /** Copy C behaviour: if `null`, allocate freshly. */
+        (newByteCount Usize) This
 
         fun public extern free()
 
@@ -218,9 +263,9 @@ package unsafe
 
     fun public extern final sizeInBytes[of T]() Usize
 
-    var nullPtr = RawPtr(from: 0, byteCount: 0)
+    var public nullPtr = RawPtr(from: 0, byteCount: 0)
 
-    class Ptr
+    class public Ptr
         /**
          * Proposed usage style is like a mix of C and old-school Objective-C:
          *
@@ -244,7 +289,7 @@ package unsafe
          * var item = using new[Type](field1, field2)
          * ```
          */
-    [to: Item](var public from raw RawPtr) implements AutoClosable {
+    [to: Item] public (var public from raw RawPtr) implements AutoClosable {
 
         fun public override close = delete
 
@@ -272,7 +317,7 @@ package unsafe
         }
     }
 
-    fun null[_ Item]() Ptr {
+    fun public null[_ Item]() Ptr {
         Ptr[to: Item](from: nullPtr)
     }
 
@@ -291,7 +336,7 @@ package unsafe
          * across task threads could lead to uninitialised memory reads even
          * after `init` has run unless combined with a memory fence.
          */
-    [_ Item](itemCount Usize: 1) Ptr[to: Item] {
+    [_ Item] public (itemCount Usize: 1) Ptr[to: Item] {
         alloc(byteCount: n * sizeInBytes[of: Item])
     }
 
@@ -313,7 +358,7 @@ package unsafe
          * `free` method. As the naming indicates, there are no destructors in
          * Sylan.
          */
-    [of Item, with Arg..](itemCount Usize, initialisers Arg..) Ptr[to: Item] {
+    [of Item, with Arg..] public (itemCount Usize, initialisers Arg..) Ptr[to: Item] {
         var ptr = alloc(itemCount)
 
         for var i = 0, offsetPtr = ptr {
@@ -337,7 +382,7 @@ package unsafe
     }
 }
 
-class Vector
+class public Vector
     /**
      * The only way to create homogenous, variably-sized collections in safe
      * Sylan, and a building block for other collection types.
@@ -345,7 +390,7 @@ class Vector
      * Vectors, unlike lists, are eagerly evaluated. They also are the types of
      * variadics.
      */
-[of Item](of items Item..) {
+[of Item] public (of items Item..) {
 
     {
         items.each(push)
@@ -781,6 +826,16 @@ class public AsymmetricPipeline[from Source, to Destination](
 
 fun public extern currentTask Task
 
+fun public extern send[Item](_ item Item, to task Task)
+
+fun public sendAndWait[sending Item, waitingFor Delivery: Item](
+    sending item Item,
+    to task Task
+) Delivery {
+    send(item, to: task)
+    select Item
+}
+
 class AssertionError implements Exception {
 
     var fun public override message String {
@@ -788,15 +843,18 @@ class AssertionError implements Exception {
     }
 }
 
-// TODO: this should really be a macro, but Sylan doesn't yet have a solid plan
-// for macros.
-fun public assert
+fun public final assert
     /**
      * Assert that predicate is true, otherwise throw an `AssertionError`.
      */
-(that predicate Boolean) {
-    if not(predicate) {
-        throw AssertionError
+(syntax that predicate AstPipeline) {
+
+    var msg = $"Assertion failed: {predicate.source}"
+    
+    quote {
+        if not(unquote predicate) {
+            throw AssertionError(msg)
+        }
     }
 }
 

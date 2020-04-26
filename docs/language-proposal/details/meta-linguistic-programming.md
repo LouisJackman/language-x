@@ -1,4 +1,3 @@
-
 # Meta-linguistic Programming
 
 * If a parameter is prefixed with `syntax`, it takes the quoted code as the
@@ -10,7 +9,7 @@
   - `Pipeline[of: TokenTree]`
   - `Pipeline[of: Char]`
   - `Pipeline[of: TokenTree, readingFrom: ParameterTokenReader]`
-  - `Pipeline[of: Char,  readingFrom: ParameterCharReader ]`
+  - `Pipeline[of: Char,      readingFrom: ParameterCharReader ]`
   - `AsymmetricPipeline[from: TokenReader,          to: AstWriter  ]`
   - `AsymmetricPipeline[from: CharReader,           to: AstWriter  ]`
   - `AsymmetricPipeline[from: CharReader,           to: TokenWriter]`
@@ -27,6 +26,18 @@
   different pipelines takes the name of the most low-level pipeline, where
   characters are lower level than tokens, which are in turn lower level than
   ASTs.
+* An AST has two fields: scope and data. Data is a raw AST data structure; scope
+  is the scope automatically attached to it on definition.
+* As reader and procedural macros can _produce_ ASTs even if they don't consume
+  them, this gives ample oppertunity for macros to be hygenic. Producing raw
+  token or character streams do not produce syntax scopes; they must manually
+  use `gensym`.
+* Producing raw token and character streams should be quite rare. There's no
+  reason to do it for straightforward macros. The primary usecase is when a
+  pipeline of Sylan languages has been set up, with Sylan only being the
+  final destination language to be compiled. In this case, it can't apply scopes
+  to character and token streams since their source languages might not even
+  have the comprehendible concept of Sylan-style scopes.
 * A procedural macro can only have one parameter which must be syntax, but it
   can emulate multiple arguments by just lexing commas.
 * AST macros can take multiple syntax parameters. When emitting from their
@@ -53,8 +64,8 @@
   how it's called.
 * Character-based macros can not be invoked directly as functions; instead they
   must be hooked onto the current readtable by using the compile-time dynamic
-  scoping, specifically around the `currentReadtable` variable. E.g.: `bind
-  currentReadtable = currentReadtable.dispatchingOnChars(List('{'),
+  scoping, specifically around the `currentReadtable` variable. E.g.:
+  `bind currentReadtable = currentReadtable.dispatchingOnChars(List('{'),
   jsonReaderPackage.read)`. There is a standard `use` AST token macro for this
   in `sylan.lang`, allowing invocations like `@use('{', jsonReaderPackage.read)`.
   Unloading a readtable can be done with a subsequent `unbind currentReadtable`.
@@ -110,21 +121,43 @@
   that a reader macro won't step in and reinterpret token's based on their
   starting characters. Likewise, a macro can emit an AST knowing that procedural
   will never trigger, creating malformed ASTs.
+* Pipelines can also manually convert syntax parameters upwards inside their
+  bodies, e.g. character stream to token stream and token stream to ASTs.
+  This is useful when you want to trigger based on one type of macro form but
+  then process it with higher-level tools. For example, `if` could trigger a
+  reader macro that produces a call to `sylan.lang.if` _procedure_ macro, which
+  works because Sylan guarantees to never reenter earlier phases for
+  already-processed code. This means the reader macro is concerned only with
+  grouping the tokens together for the `if` procedural macro call. That reader
+  macro could then upgrade to the character stream to a token stream, skip over
+  the whole `if/else` and put it inside the procedure macro call, which would
+  then reinterpret it as an AST that boils it down to a `switch` over
+  `sylan.lang.Boolean.True` and `sylan.lang.Boolean.False`.
 * The `gensym` function can be used with `unquote` to generate symbols
   that cannot be literally mentioned, like `gensym` in Common Lisp, i.e.
   `unquote gensym`. Both `gensym` and `symbol(of: "SymbolName")` just delegate
   to the `Symbol(of name: Optional[String])` argument, an empty symbol being
   "unmentionable" and used in many places internally and not just macros.
-* Macros have the ability to produce either `LateSymbol` tokens as well as
+* Macro expansion occurs after simplification. This might be simplified to just
+  simplification itself being just macro expansions at earlier stages, we'll
+  see. Anyway, this means it needn't parse many complex constructs to work out
+  whether a symbol is being defined, thus needing _gensym_, or being looked up
+  in an outer scope. If `var x = 5` is compiled down to `(-> x { })(5)` as
+  currently planned, and pattern matching is compiled away to manual
+  destructing and switching over enum tags, then only lambdas and other AST
+  macros need to be considered when auto-producing `gensym`.
+* `gensym` is mostly used internally; new bindings in AST types will use it
+  behind the scenes for its new bindings anyway.
+* Macros have the ability to produce either `ExpandedSymbol` tokens as well as
   the usual `Symbol`, the former being dynamically scoped on the callsite rather
-  than the latter's being lexically scoped at the token's generation. This
+  than the latter's being lexically scoped at the syntax's definition. This
   allows explicit opting out of hygine when desired.
 * Special shebang formulations do more than just ease execution on some
   Unix-like OSes; they are interpreted especially by Sylan to run the entire
   file under a macro, creating new languages under Sylan.
 * For external languages with no knowledge of Sylan, such as a Lua script,
   Sylan can import them as packages with invocations like:
-  `import module1.`file.lua` syntax(luaLanguagePackage.read)`.
+  `import module1.`file.lua`syntax(luaLanguagePackage.read)`.
   So long as a macro can understand the syntax, Sylan can import it as if it
   were Sylan.
 * Compile-time "reflection" will be based on macros, with an API inspired by
@@ -132,3 +165,15 @@
   macros give the ability for _anyone_ to write a compile-time reflection
   library, one shouldn't be blessed so much as to be fused onto the types
   themselves such as Java's `instance.getClass()` notation.
+* Crazy idea: what if lambdas were just reader macros that produced `fun`s with
+  `gensym`d names? Free identifiers would be captured in the AST, and translated
+  into parameters, which would happen recursively downwards until lexical
+  scoping had been "compiled" into the code. This would mean that only static
+  item symbols and lambda parameters would exist.
+* Another crazy idea: produce reader macros for all item definition forms that
+  produce new item definition procedure macros, but _gensym the name based on
+  the accessibility modifier_. That means accessibility is no longer a language
+  concept either.
+* And another: what if `ignorable` translated a function into a macro that
+  dropped down to the underlying function call but then emitted a `|> ignore`
+  on call sites automatically if the value is not used?
