@@ -42,46 +42,141 @@
 // whole-file macros to apply to both imported files and ones started from the
 // shell.
 
-package main
-/**
- * If no package is specified, "main" is assumed. A `module-info.sy` file is not
- * required for the top level program as there is an inferred `main` module that
- * contains top-level programs.
- */ 
 
-// Most of those imports are already in the prelude and thus already imported:
-// `sylan.lang`. They are explicitly imported here to give an idea of the
-// standard package structure.
-//
-// By default, the first identifier in a lookup is the module. If that clashes
-// with a top-level package in the current module, that can be disambiguated
-// using the `this.module` form, e.g. `import this.module.topLevelPackage`.
-//
-// For example, all the imports here are from the `sylan` module, which is
-// already available for all Sylan programs.
-import {
-    sylan.{
-        io.println,
-        uil.{
-            toString.ToString,
-            collections.{HashMap, List},
-            concurrency.Task,
-            datetime.ZonedDateTime,
-            optional.{Empty, Some},
+package main
+    /*
+     * If no package is specified, "main" is assumed. A `module-info.sy` file is
+     * not required for the top level program as there is an inferred `main`
+     * module that contains top-level programs. If a main package must import
+     * items, it needs to spell out `package main` anyway.
+     *  
+     * Unlike many other languages, import is not just name shortening; if
+     * something is not imported, it can't be used in a package. Furthermore,
+     * packages only have _one_ unified import for all imported items. This
+     * means the dependencies of any package can be enumerated comprehensively
+     * from the same place. This can assist in composing Bill of Materials
+     * manifests, for example. This means Sylan packages are more similar to
+     * Go packages than Java's or Rust's.
+     *
+     * Importing is solely for giving access to within the package. Imports are
+     * _not_ implicitly loaded into the public-facing surface of the package
+     * itself.
+     *
+     * Like Go, Sylan also bans recursive package imports.
+     *
+     * Only packages and their top-level items can be imported. A package can
+     * only refer to its own definitions or imports. Therefore, `this.module`
+     * is only usable in imports. Also, it means only one package name ever
+     * appears in a symbol resolution. There isn't the notion of "walking" a
+     * a package hierarchy, except in imports.
+     *
+     * A consequence of this is that the longest symbol in Sylan can be:
+     * `package1.enum1.variant`, for enum variants.
+     *
+     * There are no equivalents to having `java.util.List` or
+     * `java.util.concurrent.atomic.AtomicInteger`; either a package is imported
+     * or not; if it is, only then can you access its contents, and it's just
+     * one identifier at that point since it has been imported.
+     *
+     * In fact, there is no real relationship between a package and a subpackage
+     * apart from naming. If a package wants to access a subpackage or
+     * vice-versa, they must explicitly import it like anywhere else.
+     *
+     * The one exception is packages nested in a single file via
+     * `package pkg {` form. Nested packages are subpackages but in the same
+     * file, intended for smaller single-file programs. They have two extra
+     * abilities:
+     *
+     * * Nested packages are automatically imported to their immediate parent.
+     *   More than one parent up must import them as normal.
+     * * All nested packages use the imports at the top of the file. They cannot
+     *   declare their own imports.
+     *
+     * These take priority over other imported packages of the same name, in
+     * which case the aforementioned absolute symbols or `this` invocations can
+     * be used. `this.package` can be useful for importing deeply nested
+     * subpackages.
+     *
+     * There is one exception: all items from `sylan.lang` are preimported into
+     * every package. Most of the following item imports are aliased and published
+     * in that prelude package and thus already imported. They are explicitly
+     * imported here to give an idea of the standard package structure. Sylan
+     * normally won't tolerate imports with the same name, mandating `as` to
+     * give them alternative names, but makes an exception for `sylan.lang`
+     * preimports; they just get hidden. In that case, `import sylan.lang` will
+     * be necessary to get the back, with symbols like `lang.Boolean`.
+     *
+     * By default, the first identifier in a lookup is the module. If that
+     * clashes with a top-level package in the current module, the package takes
+     * priority. To refer to the module in this case, one can drop relative
+     * symbols and use _absolute symbols_ instead, which are prefixed with
+     * `global.`. There are also dotted forms of `this`, `this.module` and
+     * `this.package`, which refer to the modules and packages in which they
+     * reside. `this.package` is solely for accessing package items from a class
+     * whose methods, fields, parameters, or types parameters clash with their
+     * names.
+     *
+     * Using `this` in a list of imports brings in the package which the list
+     * is looking at. E.g.: `import sylan.core.optional { this, Empty }`
+     * imports three items: `optional` and `Empty`. Their full paths
+     * (which can't be used directly in code) are `sylan.core.optional`,
+     * and `sylan.core.optional.Empty`.
+     *
+     * For example, all the imports here are from the `sylan` module, which is
+     * already available for all Sylan programs.
+     *
+     * Importing a package only allows referring to that package or its items.
+     * For a subpackage, that must be imported explicitly too; a developer can't
+     * just walk up from a core module to any package using several dots.
+     */
+(
+    sylan {
+        core {
+            optional { this, Empty },
+            concurrency.intrinsics.AtomicMachineType,
+        },
+        base {
+            io.output.println,
+            util {
+                toString.ToString,
+                collections {
+                    this,
+                    List,
+                },
+                datetime.ZonedDateTime,
+            },
+            runtime.concurrency.Task,
         },
     },
+
+    // The invoked main file is implicitly the "main" package.
+    // If a subpackage is used, then it must be explicitly imported.
+    // If the subpackage is in the same file, it is implicitly imported.
+    // So this import is not strictly necessary and is solely illustrative.
+    main.counter,
+
     package1,
 
     // Packages can also be interpreted with specific macros, even if those
     // files have no knowledge of such macros.
-    package2 syntax (package1.readAsLisp).{item1, item2},
+    //
+    // Putting `syntax` next to a package item import rather than a package
+    // will yield an error.
+    package2 syntax (package1.readAsLisp) { item1, item2 },
 
     // In fact, such files might have no knowledge of even Sylan...
     module1.`package1.lisp` syntax (package1.readAsLisp),
+
     // Like shebangs, multiple macros can be specified to create a pipeline of
     // langauge interpretation:
     module1.`package1.lisp` syntax (package1.readAsLisp, package1.readAsKernelLisp),
-}
+
+    // Note that backquoting an import component allows using any name for the file,
+    // even otherwise-reserved keywords, and also stops putting `.sy` and the end
+    // of the file path lookup.
+)
+
+class HashMap = collections.map.Hash
 
 fun fizzBuzz(_ n Int) Int {
 
@@ -114,7 +209,12 @@ fun demoIteration
      * developer _knows_ they'll always be in sync because they're after the
      * parameter itself.
      */
-(){
+() {
+
+    // Finals must have explicit types in packages, but must infer types inside
+    // methods and functions. They cannot exist in interface and class bodies
+    // directly, as it makes no sense to "instantiate" a final and Sylan already
+    // has nested packages for similar use cases.
     final n = 42
     final world = "World"
 
@@ -153,10 +253,10 @@ fun demoIteration
 
     // The ~ operator composes invocables together, from left to right.
     1.up(to: 5)
-        .map(Number.doubled ~ ToString.toString ~ highlight)
+        .map(:doubled ~ :toString ~ highlight)
         .each(println)
 
-    List { 1, 2, 3, }.each -> n {
+    List(1, 2, 3).each -> n {
 
         /*
          * `println` takes any `ToString` type to ultimately print a string.
@@ -168,11 +268,16 @@ fun demoIteration
 
     123456789
         |> quadruple
-        |> Object.toString
+        |> :toString
         |> highlight
         |> println
 
-    var map = Map {
+    // Prefixing a function call with a dollar and ending with braces rather
+    // than quotes invokes it with _variadic entries_, a concise layout of
+    // key-value pairs to a function. One common use case could be for map
+    // types. In fact, a dollar followed immediately with a brace with no
+    // explicit name is a `sylan.base.util.collections.map.Hash`.
+    var map = ${
         "abc": 123,
         "def": 321,
         "ghi": 987,
@@ -195,7 +300,7 @@ fun demoIteration
                     x { x }
                 }
                 if n < 5 {
-                    send(Some(n), to: sender)
+                    send(Optional(of: n), to: sender)
                     continue(n + 1)
                 } else {
                     send(Empty, to: sender)
@@ -214,7 +319,7 @@ fun demoIteration
         //
         // Unlike `for`, `while var` and `if var` take refuttable patterns
         // rather than irrefuttable ones.
-        while var Some(n) = select Optional[int] {
+        while var .Some(n) = select Optional[of: int] {
             x { x }
         } {
             println(n)
@@ -361,7 +466,7 @@ fun demoContexts() Optional[Int] {
      * for any applicative type, not just optional types.
      */
     with {
-        Some(5)
+        Optional(of: 5)
         println("Doing something.")
 
         var _ = Empty?
@@ -628,7 +733,9 @@ fun demoPatternMatching() {
     var account1 = Account(firstName: "Tom", lastName: "Smith")
     var matchingLastName = "Smith"
 
-    if var Account(firstName, lastName: .matchingLastName) as account
+    // Putting two dots before an identifer in a pattern match uses the value
+    // for matching rather than binding against the symbol directly.
+    if var Account(firstName, lastName: ..matchingLastName) as account
             = account1 {
         println("Matching first name: ", firstName)
         println("Matching account: ", account)
@@ -636,10 +743,10 @@ fun demoPatternMatching() {
 
     switch account1 {
 
-        // Put a dot before an identifier to check it in the match rather than
-        // binding to it. It is used here because boolean true is a pre-imported
-        // prelude enum variant of type `sylan.lang.Boolean` rather than a
-        // keyword, unlike Java or C#.
+        // Put a dot before an identifier in a pattern match to match it
+        // against an enum variant of the type in its position. It is used
+        // here because boolean true is a pre-imported prelude enum variant of
+        // type `sylan.lang.Boolean` rather than a keyword, unlike Java or C#.
         Account(locked: .True), Account(firstName: "unlucky") {
             println("LOCKED!")
         }
@@ -662,16 +769,15 @@ fun demoPatternMatching() {
 
 /*
  * Aliasing of various constructs to allow easy code repair during large-scale
- * refactoring. Any item in any module can be aliased, which can ease module
+ * refactoring. Any item in any package can be aliased, which can ease module
  * versioning where new major module versions are effectively different modules.
- *
- * It also allows temporary "imports" in the bodies of methods, functions,
- * classes, and interfaces.
  *
  * Class aliases can also give more readable names to anonymous function types
  * and enum variants.
+ *
+ * Only items in packages can be aliased in this manner; packages and modules
+ * themselves cannot be aliased, although a package _import_ can.
  */
-package counter2 = counter
 class Person = Account
 interface Showable = ToString
 fun factorial2 = factorial
@@ -856,7 +962,7 @@ class NumericLiteralsClass implements ToString {
     final l Float = 12f
     final m Double = 8d
 
-    fun public override toString String {
+    fun public override toString() String {
         $"{a}{b}{c}{d}{e}{f}{g}{h}{i}{j}{k}{l}{m}"
     }
 }
@@ -865,12 +971,12 @@ class AutoCloseableDemo implements AutoCloseable {
 
     println("Opened")
 
-    fun public override close {
+    fun public override close() {
         println("Closed")
     }
 }
 
-fun demoAutoCloseables {
+fun demoAutoCloseables() {
 
     /*
      * Sylan, like Erlang and Go, strongly discourages catching exceptional
@@ -938,12 +1044,12 @@ fun demo() {
  * the `main` package.
  */
 
-var optionalString = Some("test string")
+var optionalString = Optional(of: "test string")
 
 // Like `for` and `while var`, `if var` supports multiple patterns seperated by
 // commas. For the refuttable bindings of `while var` and `if var`, all
 // patterns must match to continue into the block.
-if var Some(s) = optionalString {
+if var Optional(of: s) = optionalString {
     println(s)
 }
 

@@ -85,22 +85,38 @@ fn is_start_of_literal_with_escapes(c: char) -> bool {
     (c == '\'') || (c == '"') || (c == '$') || (c == '`')
 }
 
+struct CachedStringPrefixes {
+    package_prefix_str: Vec<char>,
+    module_prefix_str: Vec<char>,
+}
+
+struct LexerCache {
+    string_prefixes: CachedStringPrefixes,
+    char_escapes: HashMap<char, char>,
+    keywords: HashMap<&'static str, Token>,
+    non_word_chars: HashSet<char>,
+}
+
 /// A lexer that is used by a `LexerTask` to produce a stream of tokens. Each lexer has a source
 /// code to lex, and a set of character escapes and known keyword mappings to use.
 pub struct Lexer {
     source: Source,
-    char_escapes: HashMap<char, char>,
-    keywords: HashMap<&'static str, Token>,
-    non_word_chars: HashSet<char>,
+    cache: LexerCache,
 }
 
 impl From<Source> for Lexer {
     fn from(source: Source) -> Self {
         Self {
             source,
-            char_escapes: char_escapes::new(),
-            keywords: keywords::new(),
-            non_word_chars: non_word_chars::new(),
+            cache: LexerCache {
+                char_escapes: char_escapes::new(),
+                keywords: keywords::new(),
+                non_word_chars: non_word_chars::new(),
+                string_prefixes: CachedStringPrefixes {
+                    package_prefix_str: ".package".chars().collect(),
+                    module_prefix_str: ".module".chars().collect(),
+                },
+            },
         }
     }
 }
@@ -306,7 +322,7 @@ impl Lexer {
     fn lex_rest_of_word(&mut self, buffer: &mut String) {
         loop {
             match self.source.peek() {
-                Some(&c) if !(c.is_whitespace() || self.non_word_chars.contains(&c)) => {
+                Some(&c) if !(c.is_whitespace() || self.cache.non_word_chars.contains(&c)) => {
                     self.source.discard();
                     buffer.push(c);
                 }
@@ -330,6 +346,7 @@ impl Lexer {
 
         match self.source.read() {
             Some(escaped) => self
+                .cache
                 .char_escapes
                 .get(&escaped)
                 .map_or(self.fail(format!("invalid escape: {}", escaped)), |&c| {
@@ -635,30 +652,38 @@ impl Lexer {
     }
 
     fn lex_phrase(&mut self, word: String) -> TokenResult {
-        match self.keywords.get(&word[..]) {
-            Some(Token::PseudoIdentifier(PseudoIdentifier::This)) => self.lex_this(),
+        match self.cache.keywords.get(&word[..]) {
+            Some(Token::PseudoIdentifier(PseudoIdentifier::This)) => self.lex_rest_of_this(),
             Some(token) => Ok(token.clone()),
             None => Ok(Token::Identifier(multiphase::Identifier::from(word))),
         }
     }
 
-    fn lex_this(&mut self) -> TokenResult {
-        if self.source.next_is('.') {
-            self.source.discard();
-            if self.source.match_next(|c| c.is_alphabetic()) {
-                let mut rest = String::new();
-                self.lex_rest_of_word(&mut rest);
-                Ok(match &rest[..] {
-                    "package" => Token::PseudoIdentifier(PseudoIdentifier::ThisPackage),
-                    "module" => Token::PseudoIdentifier(PseudoIdentifier::ThisModule),
-                    _ => Token::FieldLookup(Identifier::from(rest)),
-                })
-            } else {
-                self.fail("expected an alphabetic character after `this.`")
-            }
+    fn lex_rest_of_this(&mut self) -> TokenResult {
+        let package_prefix_str = &self.cache.string_prefixes.package_prefix_str;
+        let module_prefix_str = &self.cache.string_prefixes.module_prefix_str;
+        let package_prefix_lookahead = package_prefix_str.len() + 1;
+
+        let ahead = match self.source.peek_many(package_prefix_lookahead) {
+            Some(ahead) => ahead,
+            None => Err(self.premature_eof())?,
+        };
+
+        let result = if ahead.starts_with(package_prefix_str)
+            && !ahead[package_prefix_str.len()].is_alphanumeric()
+        {
+            self.source.discard_many(package_prefix_lookahead);
+            Token::PseudoIdentifier(PseudoIdentifier::ThisPackage)
+        } else if ahead.starts_with(module_prefix_str)
+            && !ahead[module_prefix_str.len()].is_alphanumeric()
+        {
+            self.source.discard_many(module_prefix_str.len() + 1);
+            Token::PseudoIdentifier(PseudoIdentifier::ThisModule)
         } else {
-            Ok(Token::PseudoIdentifier(PseudoIdentifier::This))
-        }
+            Token::PseudoIdentifier(PseudoIdentifier::This)
+        };
+
+        Ok(result)
     }
 
     fn lex_absolute_number(&mut self) -> Result<Number, Error> {
@@ -1604,16 +1629,29 @@ mod tests {
     }
 
     #[test]
-    fn field_lookups() {
-        let mut lexer = test_lexer("  /* */this.field this.package this.FIEL3D_FIELD //");
-        assert_next(&mut lexer, &Token::FieldLookup(Identifier::from("field")));
+    fn member_lookups() {
+        let mut lexer =
+            test_lexer("  /* */this.field this.package this.FIEL3D_FIELD  this.module //");
+
+        assert_next(&mut lexer, &Token::PseudoIdentifier(PseudoIdentifier::This));
+        assert_next(&mut lexer, &Token::Dot);
+        assert_next(&mut lexer, &Token::Identifier(Identifier::from("field")));
+
         assert_next(
             &mut lexer,
             &Token::PseudoIdentifier(PseudoIdentifier::ThisPackage),
         );
+
+        assert_next(&mut lexer, &Token::PseudoIdentifier(PseudoIdentifier::This));
+        assert_next(&mut lexer, &Token::Dot);
         assert_next(
             &mut lexer,
-            &Token::FieldLookup(Identifier::from("FIEL3D_FIELD")),
+            &Token::Identifier(Identifier::from("FIEL3D_FIELD")),
+        );
+
+        assert_next(
+            &mut lexer,
+            &Token::PseudoIdentifier(PseudoIdentifier::ThisModule),
         );
     }
 }

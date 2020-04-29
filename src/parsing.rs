@@ -57,15 +57,16 @@ use crate::common::peekable_buffer::PeekableBuffer;
 use crate::common::version::Version;
 use crate::lexing::lexer::{self, LexedToken};
 use crate::lexing::tokens::{
-    self, Binding, BranchingAndJumping, DeclarationHead, Grouping, Literal, Modifier, Token,
+    self, Binding, BranchingAndJumping, DeclarationHead, Grouping, Literal, Macros, Modifier, Token,
 };
 use crate::lexing::Tokens;
 use crate::parsing::modifier_sets::{AccessibilityModifierExtractor, ModifierSets};
 use crate::parsing::nodes::{
-    Block, Case, CaseMatch, Class, CompositePattern, Cond, CondCase, Expression, Extension, For,
-    Fun, FunModifiers, FunSignature, If, Item, Lambda, LambdaSignature, LambdaValueParameter,
-    MainPackage, Method, Node, Operator, Package, Pattern, PatternGetter, PatternItem, Select,
-    Switch, Throw, Timeout, Type, TypeParameter, TypeSymbol, ValueParameter,
+    Block, Case, CaseMatch, Class, ClassValueParameterFieldUpgrade, CompositePattern, Cond,
+    CondCase, Expression, Extension, For, Fun, FunModifiers, FunSignature, If, Item, Lambda,
+    LambdaSignature, LambdaValueParameter, MainPackage, Method, Node, Operator, Package, Pattern,
+    PatternGetter, PatternItem, Select, Switch, Symbol, SymbolLookup, Throw, Timeout, Type,
+    TypeArgument, TypeParameter, TypeReference, ValueParameter,
 };
 
 mod modifier_sets;
@@ -95,8 +96,12 @@ pub enum Error {
 
 type Result<T> = result::Result<T, Error>;
 
-fn new_void() -> TypeSymbol {
-    TypeSymbol::new(vec![Identifier::from("Void")])
+fn new_void() -> TypeReference {
+    TypeReference::new(Symbol::Absolute(SymbolLookup(vec![
+        Identifier::from("sylan"),
+        Identifier::from("lang"),
+        Identifier::from("Void"),
+    ])))
 }
 
 pub struct Parser {
@@ -270,14 +275,29 @@ impl Parser {
 
     fn parse_lookup(&mut self) -> Result<nodes::Symbol> {
         let mut lookup = vec![];
-        loop {
-            lookup.push(self.parse_identifier()?);
-            if self.next_is(&Token::Dot) {
-                self.tokens.discard();
+
+        Ok(
+            if let Some(Token::PseudoIdentifier(pseudoIdentifier)) = self.peek() {
+                nodes::Symbol::Pseudo(pseudoIdentifier)
             } else {
-                break Ok(nodes::Symbol(lookup));
-            }
-        }
+                let New = if self.next_is(&Token::Global) {
+                    self.tokens.discard();
+                    self.expect_and_discard(Token::Dot);
+                    nodes::Symbol::Absolute
+                } else {
+                    nodes::Symbol::Relative
+                };
+
+                loop {
+                    lookup.push(self.parse_identifier()?);
+                    if self.next_is(&Token::Dot) {
+                        self.tokens.discard();
+                    } else {
+                        break New(SymbolLookup(lookup));
+                    }
+                }
+            },
+        )
     }
 
     fn parse_class_definition(&mut self) -> Result<nodes::Type> {
@@ -346,6 +366,7 @@ impl Parser {
 
             let upgraded_to_field = self.next_is(&Token::Binding(Binding::Var));
             if upgraded_to_field {
+                self.tokens.discard();
                 let parameter = self.parse_class_parameter_field_upgrade()?;
                 parameters.push(parameter);
             } else {
@@ -384,6 +405,13 @@ impl Parser {
     /// parser would get lost here. Sylan is therefore really committing to this
     /// design decision...
     fn parse_value_parameter(&mut self) -> Result<nodes::ValueParameter> {
+        let is_syntax = if self.match_next(|t| matches!(t, Token::Macros(Macros::Syntax))) {
+            self.tokens.discard();
+            true
+        } else {
+            false
+        };
+
         match self.peek() {
             // Either a label or the start of a parameter name.
             Some(Token::Identifier(..)) => {}
@@ -407,6 +435,7 @@ impl Parser {
                         type_annotation,
                         default_value: None,
                         sydoc: None,
+                        is_syntax,
                     }
                 }
                 Some(Token::SubItemSeparator) => {
@@ -421,6 +450,7 @@ impl Parser {
                         type_annotation,
                         default_value: None,
                         sydoc: None,
+                        is_syntax,
                     }
                 }
                 Some(Token::Colon) => {
@@ -442,6 +472,7 @@ impl Parser {
                         type_annotation,
                         default_value,
                         sydoc,
+                        is_syntax,
                     }
                 }
                 Some(_) => {
@@ -468,6 +499,7 @@ impl Parser {
                         type_annotation,
                         default_value,
                         sydoc,
+                        is_syntax,
                     }
                 }
                 None => self.premature_eof()?,
@@ -494,6 +526,7 @@ impl Parser {
                 type_annotation,
                 default_value,
                 sydoc,
+                is_syntax,
             }
         })
     }
@@ -504,11 +537,43 @@ impl Parser {
     }
 
     fn parse_class_parameter_field_upgrade(&mut self) -> Result<nodes::ClassValueParameter> {
-        todo!()
+        let modifiers = self.parse_modifiers(&self.modifier_sets.field.clone())?;
+        let is_embedded = modifiers.contains(&Modifier::Embed);
+
+        let accessibility = self
+            .accessibility_modifier_extractor
+            .extract_accessibility_modifier(&modifiers)
+            .map_err(|err| {
+                Error::Parser(ParserError {
+                    description: ParserErrorDescription::Described(err),
+                })
+            })?;
+
+        let field_upgrade = Some(ClassValueParameterFieldUpgrade {
+            is_embedded,
+            accessibility,
+        });
+
+        let parameter = nodes::ClassValueParameter {
+            parameter: self.parse_value_parameter()?,
+            field_upgrade,
+        };
+
+        Ok(parameter)
     }
 
-    fn parse_implements_clause(&mut self) -> Result<Vec<TypeSymbol>> {
-        todo!()
+    fn parse_implements_clause(&mut self) -> Result<Vec<TypeReference>> {
+        self.tokens.discard();
+
+        let mut type_symbols = vec![];
+        loop {
+            type_symbols.push(self.parse_type_lookup()?);
+            if self.next_is(&Token::SubItemSeparator) {
+                self.tokens.discard();
+            } else {
+                break Ok(type_symbols);
+            }
+        }
     }
 
     fn parse_class_body(
@@ -580,8 +645,13 @@ impl Parser {
         })
     }
 
-    fn parse_type_lookup(&mut self) -> Result<nodes::TypeSymbol> {
-        todo!()
+    fn parse_type_lookup(&mut self) -> Result<nodes::TypeReference> {
+        let symbol = self.parse_lookup()?;
+        let type_arguments = self.parse_type_argument_list()?;
+        Ok(TypeReference {
+            symbol,
+            type_arguments,
+        })
     }
 
     fn parse_composite_pattern_getter(&mut self, next: &Token) -> Result<Option<PatternGetter>> {
@@ -657,6 +727,7 @@ impl Parser {
                 r#type,
                 getters,
                 ignore_rest,
+                infer_enum_type: false, // TODO: implement this properly
             };
             Ok(composite)
         } else {
@@ -691,7 +762,7 @@ impl Parser {
         })
     }
 
-    fn parse_type_argument_list(&mut self) -> Result<()> {
+    fn parse_type_argument_list(&mut self) -> Result<Vec<TypeArgument>> {
         unimplemented!()
     }
 
@@ -701,9 +772,73 @@ impl Parser {
         unimplemented!()
     }
 
-    fn parse_import(&mut self) -> Result<nodes::Symbol> {
+    fn parse_imports(&mut self) -> Result<Vec<nodes::Import>> {
         self.tokens.discard();
-        self.parse_lookup()
+        let stems = self.parse_inside_import_stems()?;
+        self.expect_and_discard(Token::Grouping(Grouping::CloseParentheses))?;
+        Ok(stems)
+    }
+
+    fn parse_inside_import_stems(&mut self) -> Result<Vec<nodes::Import>> {
+        let mut imports = vec![];
+        loop {
+            let mut whole: Vec<Identifier> = vec![];
+            let readers = loop {
+                match self.peek() {
+                    Some(Token::Identifier(identifier)) => {
+                        self.tokens.discard();
+                        whole.push(identifier);
+                    }
+                    Some(Token::Dot) => {
+                        self.tokens.discard();
+                    }
+                    Some(Token::Macros(Macros::Syntax)) => {
+                        break self.parse_import_syntax_readers_list()?
+                    }
+                    _ => break vec![],
+                }
+            };
+
+            let (root, stem) = if self.next_is(&Token::Grouping(Grouping::OpenBrace)) {
+                self.tokens.discard();
+                let stems = self.parse_inside_import_stems()?;
+                self.expect_and_discard(Token::Grouping(Grouping::CloseBrace))?;
+                let stem = nodes::ImportStem::Multiple(stems);
+                (None, stem)
+            } else {
+                let stem = nodes::ImportStem::Single(nodes::ImportSingleStem {
+                    name: whole.pop().unwrap(),
+                    readers,
+                });
+                let root = Symbol::Relative(SymbolLookup(whole));
+                (Some(root), stem)
+            };
+
+            let import = nodes::Import { root, stem };
+            imports.push(import);
+
+            if self.next_is(&Token::SubItemSeparator) {
+                self.tokens.discard();
+            } else {
+                break Ok(imports);
+            }
+        }
+    }
+
+    fn parse_import_syntax_readers_list(&mut self) -> Result<Vec<Symbol>> {
+        self.tokens.discard();
+        self.expect_and_discard(Token::Grouping(Grouping::OpenParentheses));
+        let mut symbols = vec![];
+        loop {
+            if self.next_is(&Token::Grouping(Grouping::CloseParentheses)) {
+                self.tokens.discard();
+                break Ok(symbols);
+            }
+            symbols.push(self.parse_lookup()?);
+            if !self.next_is(&Token::Grouping(Grouping::CloseParentheses)) {
+                self.expect_and_discard(Token::SubItemSeparator)?
+            }
+        }
     }
 
     fn parse_interface_body(&mut self) -> Result<Vec<Method>> {
@@ -714,7 +849,7 @@ impl Parser {
         unimplemented!()
     }
 
-    fn parse_type_constraints(&mut self) -> Result<Vec<TypeSymbol>> {
+    fn parse_type_constraints(&mut self) -> Result<Vec<TypeReference>> {
         let mut constraints = vec![];
         loop {
             constraints.push(self.parse_type_lookup()?);
@@ -804,7 +939,7 @@ impl Parser {
         }
     }
 
-    fn parse_lambda_result_type_annotation(&mut self) -> Result<Option<TypeSymbol>> {
+    fn parse_lambda_result_type_annotation(&mut self) -> Result<Option<TypeReference>> {
         if self.next_is(&Token::Grouping(Grouping::OpenBrace)) {
             Ok(None)
         } else {
@@ -843,7 +978,7 @@ impl Parser {
 
         let accessibility = self
             .accessibility_modifier_extractor
-            .extract_accessibilty_modifier(&modifiers)
+            .extract_accessibility_modifier(&modifiers)
             .map_err(|msg| {
                 Error::Parser(ParserError {
                     description: ParserErrorDescription::Described(msg),
@@ -867,6 +1002,12 @@ impl Parser {
         self.expect_and_discard(Token::DeclarationHead(DeclarationHead::Package))?;
 
         let name = self.parse_identifier()?;
+        let has_imports = self.next_is(&Token::Grouping(Grouping::OpenParentheses));
+        let imports = if has_imports {
+            self.parse_imports()?
+        } else {
+            vec![]
+        };
         self.expect_and_discard(Token::Grouping(Grouping::OpenBrace))?;
         let items = self.parse_inside_package()?;
         self.expect_and_discard(Token::Grouping(Grouping::CloseBrace))?;
@@ -876,6 +1017,7 @@ impl Parser {
             name,
             items,
             sydoc: None,
+            imports,
         })
     }
 
@@ -926,7 +1068,7 @@ impl Parser {
         let declaration_modifiers = self.parse_modifiers(&self.modifier_sets.field.clone())?;
         let accessibility = self
             .accessibility_modifier_extractor
-            .extract_accessibilty_modifier(&declaration_modifiers)
+            .extract_accessibility_modifier(&declaration_modifiers)
             .map_err(|msg| {
                 Error::Parser(ParserError {
                     description: ParserErrorDescription::Described(msg),
@@ -1294,10 +1436,6 @@ impl Parser {
                         let extension = self.parse_extension()?;
                         items.push(Item::Extension(extension));
                     }
-                    Token::DeclarationHead(DeclarationHead::Import) => {
-                        let import = self.parse_import()?;
-                        items.push(Item::Import(import));
-                    }
                     Token::DeclarationHead(DeclarationHead::Interface) => {
                         let interface = self.parse_interface_definition()?;
                         items.push(Item::Type(interface));
@@ -1328,6 +1466,16 @@ impl Parser {
 
         let mut implicit_main = Block::new_root();
 
+        self.expect_and_discard(Token::DeclarationHead(DeclarationHead::Package))?;
+
+        let name = self.parse_identifier()?;
+        let has_imports = self.next_is(&Token::Grouping(Grouping::OpenParentheses));
+        let imports = if has_imports {
+            self.parse_imports()?
+        } else {
+            vec![]
+        };
+
         loop {
             let maybe_token = self.tokens.peek().map(|lexed| lexed.token.clone());
 
@@ -1343,10 +1491,6 @@ impl Parser {
                         Token::DeclarationHead(DeclarationHead::Extend) => {
                             let extension = self.parse_extension()?;
                             items.push(Item::Extension(extension));
-                        }
-                        Token::DeclarationHead(DeclarationHead::Import) => {
-                            let import = self.parse_import()?;
-                            items.push(Item::Import(import));
                         }
                         Token::DeclarationHead(DeclarationHead::Interface) => {
                             let interface = self.parse_interface_definition()?;
@@ -1380,8 +1524,9 @@ impl Parser {
         let package = Package {
             items,
             accessibility: Accessibility::Public,
-            name: Identifier(Arc::new(String::from("main"))),
+            name,
             sydoc: None,
+            imports,
         };
 
         Ok(MainPackage {

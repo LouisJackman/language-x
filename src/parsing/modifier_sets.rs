@@ -45,7 +45,7 @@ impl AccessibilityModifierExtractor {
         }
     }
 
-    pub fn extract_accessibilty_modifier(
+    pub fn extract_accessibility_modifier(
         &self,
         modifiers: &HashSet<Modifier>,
     ) -> Result<Accessibility, String> {

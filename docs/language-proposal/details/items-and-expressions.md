@@ -18,3 +18,7 @@
   whitespace. There are no prefix operators, but there are two non-overriddable
   postfix operators. Despite being a limited set, each can be overridden by
   user libraries.
+* Branched expressions return a type that unifies the types of all its branches.
+* Switches and selections are exhaustive, so this works.
+* Ifs are exhaustive _if_ they have _else_ clauses. If they don't, they return
+  `Optional[T]`, where `T` is the type returned by the if body.

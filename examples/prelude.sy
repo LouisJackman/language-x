@@ -11,8 +11,52 @@ package sylan.lang
  * extern, which is essentially a placeholder until how built-in types are
  * fully worked out.
  */
+(
+    sylan {
+        core.intrinsics.concurrent.atomic.AtomicMachineType,
+        base {
+            util {
+                collections.tree as treeCollection,
+                exceptions,
+            },
+            runtime.memory as memoryRuntime,
+    },
+    this.package.unsafe.atomic.mutable as atomicMutable,
+)
 
-import sylan.util.collections.tree as tree
+//
+// Dynamically-scoped variables can be used too, but can only be defined in the
+// top-level of packages.
+//
+// Dynamically-scoped variables can either be runtime or compile-time.
+// Compile-time variables can be used for macro features like controlling the
+// current readtable.
+//
+// They are bound to tasks; a task inherits a dynamically bound value from its
+// parent upon creation, but then owns its own version of it. Changes to the
+// original are no longer reflected in that task.
+//
+// A variable can be rebound by an outside package if made public. To do so,
+// the outside package must declare which variables they intend to rebind, and
+// any module requiring their module must explicitly opt in to every rebind.
+// This mean a developer can easily ascertain that a package is not utilising
+// unsafe code or unexpectedly disabling features important for correctness such
+// as automatic yielding in tasks.
+//
+
+// Publicly bind these, but set safe defaults when finishing with this package to
+// ensure they are false for importers by default, requiring a _whitelisted
+// rebind_ to get these risky capabilities for themselves.
+bind var public suggestGarbageCollectionToAllocator Bool = true
+bind var public allocater memoryRuntime.AllocatorBool = memoryRuntime.DefaultAllocator
+bind var public autoYieldTasks Bool = true
+bind var public checkNumericOverflow Bool = true
+bind var public checkVectorBounds Bool = true
+bind final public unlockUnsafePackage Bool = true
+bind final public allowExtern Bool = true
+bind final public compileInAutoTaskYields Bool = true
+
+bind final public extern currentReadtable
 
 class public Void
 /**
@@ -29,11 +73,61 @@ enum public Boolean @derive(Equals, ToString) (
     fun public extern negate()
 }
 
-class public True = Boolean True
-class public False = Boolean False
+class public True = Boolean.True
+class public False = Boolean.False
 
 fun public not(_ b Boolean) Boolean {
     b.negate
+}
+
+enum public Optional[of Value](
+    Some(Value),
+    public Empty,
+)(of present Value) {
+
+    { .Some(present) }
+
+    fun public map(_ f (x Value) Value) This {
+        if var .Some(x) = this {
+            x |> f |> Optional(of: _)
+        } else {
+            None
+        }
+    }
+
+    fun public flatMap(_ f (x Value) This) This {
+        if var .Some(x) = this {
+            if var .Some(y) = f(x) {
+                Optional(of: y)
+            } else {
+                Empty
+            }
+        } else {
+            Empty
+        }
+    }
+
+    fun public filter(_ p (x Value) Bool) This {
+        flatMap -> {
+            if p(it) {
+                Optional(of: it)
+            } else {
+                Empty
+            }
+        }
+    }
+
+    func public orElse(_ newAlternative () Value) Value {
+        if .Some(x) = this {
+            x
+        } else {
+            newAlternative()
+        }
+    }
+
+    fun public or(_ alternative Value) Value {
+        orElse(-> { alternative })
+    }
 }
 
 enum public Throws[_ Exception extends Exception: Exception, otherwise Result: Void](
@@ -45,7 +139,7 @@ fun public ok[E extends Exception: Exception]() Throws[E, otherwise: Void] {
     Throws.Ok(Void)
 }
 
-fun final if
+fun public final if
     /**
      * A hypothetical look at how `if` could be defined as a macro, creating
      * Sylan _from_ Kernel Sylan rather than translating _to_ Kernel Sylan in
@@ -71,7 +165,7 @@ fun final if
     // aren't given another opportunity to trigger again in the generated
     // source.
     //
-    // Item macros can be both procudural and pattern, so the procedural kind
+    // Item macros can be both procedural and pattern, so the procedural kind
     // are also processed here.
     var parser = Parser(parsing: lexer)
 
@@ -119,7 +213,7 @@ fun final kernelIf
             parser.parseExpression().flatMap(-> condition {
                 parser.parseScope().flatMap(-> ifTrue {
                     parser.expectAndDiscard(tokens.Token.BranchingAndJumping(tokens.BranchingAndJumping.Else)).flatMap(-> _ {
-                        parser.parseScope().flatMap(ifFalse -> {
+                        parser.parseScope().flatMap(-> ifFalse {
                             write(quote {
                                 switch unquote condition {
                                     True unquote ifTrue
@@ -179,27 +273,27 @@ interface public Number {
          * assert(4.negate == (0 - 4))
          * ```
          */
-    This {
+    () This {
         if 0 <= this {
-            this - this.doubled
+            this - this.double()
         } else {
             this
         }
     }
 
-    fun public double This {
+    fun public double() This {
         this * 2
     }
 
-    fun public triple This {
+    fun public triple() This {
         this * 3
     }
 
-    fun public quadruple This {
+    fun public quadruple() This {
         this * 4
     }
 
-    fun public quintuple This {
+    fun public quintuple() This {
         this * 5
     }
 
@@ -263,7 +357,6 @@ fun final match[Item](_ item Item, syntax against pipeline AstPipline) Throws {
     pipeline.write(ast)
 }
 
-
 class public Ref
     /**
      * Sylan is an immutable language; data can't be modified. It's not _fully_
@@ -271,9 +364,9 @@ class public Ref
      * Sylan calls them.
      * 
      * A task can hold its own state and recurse with differing data based
-     * on incoming process messages, and sent out messages with state changes.
+     * on incoming process messages, and send out messages with state changes.
      * 
-     * Therefore, a mutable memory address can be implemented by a task.
+     * Therefore, a mutable "memory address" can be implemented by a task.
      * However, unlike a raw memory address, the updates are always atomic and
      * always update the _entire_ value in one go, not just _part_ of its memory
      * content.
@@ -319,7 +412,7 @@ package unsafe
     class public extern UPtrInt
     class public extern PtrInt
 
-    var rawNull UPtrInt = 0u.to[UptrInt]()
+    final public rawNull UPtrInt = 0u.to[UptrInt]()
 
     class public extern Offset
     /** Double Usize and signed to allow offsetting in both directions. */
@@ -437,7 +530,7 @@ package unsafe
          * across task threads could lead to uninitialised memory reads even
          * after `init` has run unless combined with a memory fence.
          */
-    [_ Item] public (itemCount Usize: 1) Ptr[to: Item] {
+    [_ Item](itemCount Usize: 1) Ptr[to: Item] {
         alloc(byteCount: n * sizeInBytes[of: Item])
     }
 
@@ -459,7 +552,7 @@ package unsafe
          * `free` method. As the naming indicates, there are no destructors in
          * Sylan.
          */
-    [of Item, with Arg..] public (itemCount Usize, initialisers Arg..) Ptr[to: Item] {
+    [of Item, with Arg..](itemCount Usize, initialisers Arg..) Ptr[to: Item] {
         var ptr = alloc(itemCount)
 
         for var i = 0, offsetPtr = ptr {
@@ -483,6 +576,8 @@ package unsafe
     }
 }
 
+class AtomicallyMutable = atomicMutable.AtomicallyMutable
+
 class public Vector
     /**
      * The only way to create homogenous, variably-sized collections in safe
@@ -497,26 +592,24 @@ class public Vector
         items.each(push)
     }
 
-    class AtomicallyMutable = unsafe.mutation.atomic.AtomicallyMutable
-
     var ptr AtomicallyMutable[unsafe.Ptr[to: Item]] = AtomicallyMutable[unsafe.null[Item]()]
     var size AtomicallyMutable[Usize] = AtomicallyMutable(0)
 
-    fun public operator [||](index Usize) Optional[of: Item] {
+    fun public operator [||] (index Usize) Optional[of: Item] {
         if size < index {
-            None
+            Empty
         } else {
             var item = ptr.load().offset(byItems: index).load()
-            Some(item)
+            Optional(of: item)
         }
     }
 
-    fun push(_ item Item)
+    fun push
         /**
          * Do not publish with `public`. It's not thread safe when combined with
          * operator `[||]`.
          */
-    {
+    (_ item Item) {
         var newSize = size.load() + 1
         var reallocated = ptr.load().realloc(byItems: newSize)
         var storeOffset = reallocated.offset(byItems: newSize - 1)
@@ -532,7 +625,7 @@ enum public List[of Item](
 
     {
         for var remaining = items {
-            if var Some(element) = remaining[|0|] {
+            if var .Some(element) = remaining[|0|] {
                 Node.Element(of: element) -> {
                     remaining[|1 :]
                         |> continue
@@ -546,12 +639,12 @@ enum public List[of Item](
     var public isEmpty Boolean = match(node, against: Nil)
 
     var public first Optional[of: Item] = switch node {
-        Element(item, ..) { Some(item) }
+        Element(item, ..) { Optional(of: item) }
         Nil               { Empty }
     }
 
     var public rest Optional[of: This] = switch node {
-        Element(_, next) { Some(next) }
+        Element(_, next) { Optional(of: next) }
         Nil              { Empty }
     }
 }
@@ -579,15 +672,6 @@ class public CompileTimeString implements String {
 class public Decimal {
     //
 }
-
-bind var collectGarbage Bool = true
-bind var yieldTasks Bool = true
-bind var checkNumericOverflow Bool = true
-bind var checkVectorBounds Bool = true
-bind var unlockUnsafePackage Bool = false
-bind var allowNonStandardExtern Bool = false
-
-bind var extern currentReadtable
 
 interface LanguageReader[reading Item] {
 
@@ -641,16 +725,16 @@ interface LanguageReader[reading Item] {
 
     fun public read() Throws[otherwise: Optional[Item]] {
         readMany(amount: 1)
-            .map(List.first)
+            .map(:first)
     }
 
     fun public peek(at index: 0) Throws[otherwise: Optional[Item]] {
         peekMany(amount: 1, from: index)
-            .map(List.first)
+            .map(:first)
     }
 
     var fun public isFinished Throws[otherwise: Boolean] {
-        peek.map(Optional.isEmpty)
+        peek.map(:isEmpty)
     }
 
     fun public skipUntil
@@ -658,7 +742,7 @@ interface LanguageReader[reading Item] {
          * Consume and discard _until_ an item passes the match, so it's the
          * next item in the stream for the caller.
          */
-    (matches (item Item) Boolean)
+    (matches (desired Item) Boolean)
         Throws[otherwise: Boolean]
         /**
          * Whether the desired item was encountered before the end of the
@@ -667,9 +751,9 @@ interface LanguageReader[reading Item] {
     {
         with {
             switch peek? {
-                Some(.item) if matches(item) { Ok(True) }
-                Some(_)                      { skip_until(matches) }
-                Empty                        { Ok(False) }
+                .Some(item) if matches(desired) { Ok(True) }
+                .Some(_)                        { skipUntil(matches) }
+                Empty                          { Ok(False) }
             }
         }
     }
@@ -683,7 +767,7 @@ interface LanguageReader[reading Item] {
         Throws[otherwise: Boolean]
         /** Whether the desired item was encountered before the end of the stream. */
     {
-        skip_until(matches: _ == item)
+        skipUntil(matches: _ == item)
     }
 }
 
@@ -713,10 +797,10 @@ enum public TokenTree
 )
 
 interface public ParameterLanguageReader[reading Item] extends LanguageReader[reading: Item] {
-    fun public nextIsSubitemSeperator Throws[otherwise: Boolean]
-    fun public nextIsCloseCall Throws[otherwise: Boolean]
+    var fun public nextIsSubitemSeperator Throws[otherwise: Boolean]
+    var fun public nextIsCloseCall Throws[otherwise: Boolean]
 
-    fun public resemblesEnd Throws[otherwise: Boolean] {
+    var fun public resemblesEnd Throws[otherwise: Boolean] {
         with {
             (nextIsSubitemSeperator? || nextIsCloseCall?)
                 |> Ok
@@ -727,6 +811,7 @@ interface public ParameterLanguageReader[reading Item] extends LanguageReader[re
 interface public TokenReader extends LanguageReader[reading: TokenTree]
 
 interface public ParameterTokenReader extends ParameterLanguageReader[reading: TokenTree] {
+
     var fun public nextIsSubitemSeperator Throws[otherwise: Boolean] {
         with {
             peek?
@@ -785,8 +870,8 @@ interface public ParameterCharReader extends ParameterLanguageReader[reading: Ch
     () Throws {
         if skipUntil(matches: Character.isWhitespace ~ not) {
             with {
-                discard?
-                skipWhitespace?
+                discard()?
+                skipWhitespace()?
             }
         }
     }
@@ -825,13 +910,13 @@ interface ReaderWriterPipeline[
     {
         with {
             var items = source.read(amount)?
-            items.each(-> item { write(item)? })
+            items.each(-> { write(it)? })
             items
         }
     }
 
     fun public passthrough() Throws[otherwise: Optional[Item]] {
-        passthroughMany.map(List.first)
+        passthroughMany.map(:first)
     }
 
     fun passthroughUntil
@@ -844,15 +929,15 @@ interface ReaderWriterPipeline[
          * It skips _until_ an item passes the match, so it's the next item in the stream
          * for the caller.
          */
-    (matches (item Item) Boolean)
+    (matches (desired Item) Boolean)
         Throws[otherwise: Boolean]
         /** Whether the desired item was encountered before the end of the stream. */
     {
         with {
             switch passthrough? {
-                Some(.item) if matches(item) { Ok(True) }
-                Some(_)                      { passthroughUntil(matches) }
-                Empty                        { Ok(False) }
+                .Some(item) if matches(desired) { Ok(True) }
+                .Some(_)                        { passthroughUntil(matches) }
+                Empty                           { Ok(False) }
             }
         }
     }
@@ -888,7 +973,7 @@ interface ReaderWriterPipeline[
         Throws[otherwise: Boolean]
         /** Whether the desired item was encountered before the end of the stream. */
     {
-        passthroughUntil(matches: Character.isWhitespace ~ not)
+        passthroughUntil(matches: :isWhitespace ~ not)
     }
 }
 
@@ -1006,7 +1091,7 @@ fun public final assert
     
     var ast = quote {
         if not(unquote source) {
-            throw AssertionError(msg)
+            throw exception.AssertionError(msg)
         }
     }
     write(ast)
@@ -1028,3 +1113,7 @@ fun public constant[of T](of value T) () T {
         value
     }
 }
+
+// Flip these back to avoid unsafe being default for other packages.
+bind unlockUnsafePackage Bool = false
+bind allowExtern Bool = false

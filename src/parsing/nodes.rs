@@ -47,7 +47,7 @@ use std::rc::Rc;
 
 use crate::common::multiphase::{
     Accessibility, Identifier, InterpolatedString, OverloadableInfixOperator, PostfixOperator,
-    Shebang, SyDoc, SylanString,
+    PseudoIdentifier, Shebang, SyDoc, SylanString,
 };
 use crate::common::version::Version;
 
@@ -77,6 +77,7 @@ pub struct MainFile {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Package {
+    pub imports: Vec<Import>,
     pub accessibility: Accessibility,
     pub name: Identifier,
     pub items: Vec<Item>,
@@ -103,7 +104,6 @@ pub enum Node {
 pub enum Item {
     Extension(Extension),
     Fun(Fun),
-    Import(Symbol),
     Package(Package),
     Type(Type),
     Final(Final),
@@ -124,9 +124,10 @@ pub enum Expression {
     Context(Block),
     Literal(Literal),
     Operator(Operator),
-    SymbolLookup(Symbol),
+    Symbol(Symbol),
     Throw(Throw),
     Using(Using),
+    NonDestructiveUpdate(Call),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -175,8 +176,11 @@ pub struct ValueParameter {
     /// The same applies to lambdas and enum variants.
     pub label: Option<Identifier>,
 
+    /// TODO: tolerate any token or grouped token to tolerate procedural macros.
+    pub is_syntax: bool,
+
     pub pattern: Pattern,
-    pub type_annotation: TypeSymbol,
+    pub type_annotation: TypeReference,
     pub default_value: Option<Expression>,
     pub sydoc: Option<SyDoc>,
 }
@@ -197,7 +201,7 @@ pub struct ClassValueParameter {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ReturnType {
-    r#type: TypeSymbol,
+    r#type: TypeReference,
     ignorable: bool,
 }
 
@@ -218,6 +222,26 @@ pub struct Fun {
     pub modifiers: FunModifiers,
     pub signature: FunSignature,
     pub block: Block,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ImportSingleStem {
+    pub name: Identifier,
+
+    // Will be empty for the vast majority of imports.
+    pub readers: Vec<Symbol>,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum ImportStem {
+    Single(ImportSingleStem),
+    Multiple(Vec<Import>),
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Import {
+    pub root: Option<Symbol>,
+    pub stem: ImportStem,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -244,7 +268,7 @@ pub struct ClassModifiers {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Class {
-    pub implements: Vec<TypeSymbol>,
+    pub implements: Vec<TypeReference>,
     pub methods: Vec<ConcreteMethod>,
     pub fields: Vec<Field>,
 
@@ -264,7 +288,7 @@ pub struct Class {
 pub struct EnumVariant {
     pub label: Option<Identifier>,
     pub name: Identifier,
-    pub type_annotation: TypeSymbol,
+    pub type_annotation: TypeReference,
     pub sydoc: Option<SyDoc>,
 }
 
@@ -280,7 +304,7 @@ pub struct Enum {
 /// in implementing classes.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Interface {
-    pub extends: Vec<TypeSymbol>,
+    pub extends: Vec<TypeReference>,
     pub methods: Vec<Method>,
 }
 
@@ -300,15 +324,15 @@ pub struct Type {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct TypeSymbol {
-    pub reference: Symbol,
+pub struct TypeReference {
+    pub symbol: Symbol,
     pub type_arguments: Vec<TypeArgument>,
 }
 
-impl TypeSymbol {
-    pub fn new(lookup: Vec<Identifier>) -> Self {
+impl TypeReference {
+    pub fn new(symbol: Symbol) -> Self {
         Self {
-            reference: Symbol(lookup),
+            symbol,
             type_arguments: vec![],
         }
     }
@@ -316,7 +340,7 @@ impl TypeSymbol {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Extension {
-    pub name: Identifier,
+    pub symbol: Symbol,
     pub extension_parameters: Vec<TypeParameter>,
     pub type_parameters: Vec<TypeParameter>,
     pub item: Class,
@@ -366,8 +390,8 @@ pub enum Method {
 pub struct TypeParameter {
     pub label: Option<Identifier>,
     pub name: Identifier,
-    pub upper_bounds: Vec<TypeSymbol>,
-    pub default_value: Option<TypeSymbol>,
+    pub upper_bounds: Vec<TypeReference>,
+    pub default_value: Option<TypeReference>,
     pub sydoc: Option<SyDoc>,
 }
 
@@ -381,13 +405,13 @@ pub struct Argument<T> {
 /// positional or keyword arguments; unlike other languages it is the choice of
 /// the caller rather than the definer. If passed as a keyword argument, an
 /// identifier is carried with it in the parse tree.
-type ValueArgument = Argument<Expression>;
+pub type ValueArgument = Argument<Expression>;
 
 /// Type arguments are for values at runtime. They support being passed as
 /// positional or keyword arguments; unlike other languages it is the choice of
 /// the caller rather than the definer. If passed as a keyword argument, an
 /// identifier is carried with it in the parse tree.
-type TypeArgument = Argument<Type>;
+pub type TypeArgument = Argument<Type>;
 
 // Sylan's "symbol tables" are just a collection of bindings in the current
 // scope. Parent scopes can be looked up to find bindings in outer closures,
@@ -412,7 +436,7 @@ type TypeArgument = Argument<Type>;
 pub struct Binding {
     pub pattern: Pattern,
     pub value: Box<Expression>,
-    pub explicit_type_annotation: Option<TypeSymbol>,
+    pub explicit_type_annotation: Option<TypeReference>,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -535,7 +559,14 @@ pub struct Lambda {
 // packages.
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct Symbol(pub Vec<Identifier>);
+pub struct SymbolLookup(pub Vec<Identifier>);
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum Symbol {
+    Relative(SymbolLookup),
+    Absolute(SymbolLookup),
+    Pseudo(PseudoIdentifier),
+}
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Literal {
@@ -560,7 +591,7 @@ pub struct Timeout {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Select {
-    pub message_type: TypeSymbol,
+    pub message_type: TypeReference,
     pub cases: Vec<Case>,
     pub timeout: Option<Timeout>,
 }
@@ -673,8 +704,9 @@ pub struct PatternGetter {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct CompositePattern {
-    pub r#type: TypeSymbol,
+    pub r#type: TypeReference,
     pub getters: Vec<PatternGetter>,
+    pub infer_enum_type: bool,
     pub ignore_rest: bool,
 }
 
@@ -693,7 +725,7 @@ pub enum PatternItem {
     // Refuttable, as it's worked out at runtime from what the symbol resolves
     // to. Irrefuttable if it can be resolved at compile-time _and_ the
     // left-hand side can also be resolved at compile-time.
-    Symbol(Symbol),
+    BoundSymbol(Symbol),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

@@ -80,6 +80,11 @@ pub enum OverloadableInfixOperator {
     Or,
 
     // See: https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/functions/#function-composition-and-pipelining
+    //
+    // Sylan's variant pipes the argument into the first parameter, not the
+    // last. This is to maintain consistency with the `:` prefix operator, which
+    // converts a symbol to a function that invokes a method with that symbol on
+    // its sole argument with any provided arguments provided afterwards.
     Pipe,
 
     Power,
@@ -178,7 +183,7 @@ pub enum PostfixOperator {
     Bind,
 }
 
-/// They act as identifiers but have two distinguishing properties:
+/// They act as symbols but have two distinguishing properties:
 ///
 /// * They can be shadowed in the same block.
 /// * They cannot be defined by user code.

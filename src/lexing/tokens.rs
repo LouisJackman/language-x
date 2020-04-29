@@ -33,7 +33,6 @@ pub enum DeclarationHead {
     Implements,
     Interface,
     Module,
-    Import,
     Package,
 }
 
@@ -62,14 +61,18 @@ pub enum Modifier {
     /// values_ of said types.
     Extern,
 
-    // This is very niche, for when an extern value is exposed from an unsafe
-    // external artefact and Sylan should _not_ put memory fences in, trusting
-    // that the value doesn't every become stale.
-    NonVolatile,
-
     Ignorable,
     Operator,
     Override,
+
+    /// Only used by extern final and var bindings, to notify Sylan that it
+    /// should wrap access in a multi-thread memory fence. It provides no
+    /// guarantees about how modifications and reads to the item are
+    /// interleaved.
+    ///
+    /// This should only be used for FFI; a proper Sylan wrapper should be
+    /// provided that abstracts away such details.
+    Volatile,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -100,7 +103,6 @@ pub enum Macros {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Token {
     Identifier(Identifier),
-    FieldLookup(Identifier),
     Literal(Literal),
     Shebang(Shebang),
     SyDoc(SyDoc),
@@ -122,6 +124,13 @@ pub enum Token {
     Dot,
     Eof,
     LambdaArrow,
+
+    // Sylan resolves symbols relatively. To resolve globally, use the `global`
+    // keyword, e.g. `global.module1.package1.Class1.method1`. It isn't
+    // technically a pseudo-identifier because it doesn't mean anything by
+    // itself, needing to be combined with a dot followed by a symbol.
+    Global,
+
     Rest,
     SubItemSeparator,
     Throw,

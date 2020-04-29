@@ -104,7 +104,7 @@ fun final repeat(times Usize, syntax pipeline AstPipeline) Throws {
     with {
         1.up(to: times)
             .map(pipeline.source)
-            .each(-> ast { pipeline.write(ast)? })
+            .each(-> { pipeline.write(it)? })
         ok()
     }
 }
@@ -113,7 +113,7 @@ fun demoContexts
     /** One for the Haskell Fans: Applicative Notation */
 Optional[Int] {
     with {
-        var x = Some(5)?
+        var x = Optional(of: 5)?
         Empty?
         println("Will not be run.")
         Empty
