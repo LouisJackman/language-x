@@ -12,7 +12,7 @@ use crate::common::newlines::{check_newline, NewLine};
 use crate::common::peekable_buffer::PeekableBuffer;
 use crate::common::string_matches_char_slice;
 use crate::common::version::Version;
-use crate::lexing::tokens::{Binding, Grouping, Literal, Token};
+use crate::lexing::tokens::{Binding, Grouping, Literal, Macros, Token};
 use crate::lexing::{char_escapes, keywords, non_word_chars};
 use crate::source::in_memory::Source;
 use crate::source::Position;
@@ -972,7 +972,7 @@ impl Lexer {
 
     fn lex_with_leading_at(&mut self) -> TokenResult {
         self.source.discard();
-        match self.source.read() {
+        match self.source.peek() {
             Some(token) => match token {
                 '@' => {
                     self.source.discard();
@@ -996,6 +996,7 @@ impl Lexer {
                 '*' => {
                     self.source.discard();
                     let op = if self.source.next_is('*') {
+                        self.source.discard();
                         OverloadableInfixOperator::MatrixPower
                     } else {
                         OverloadableInfixOperator::MatrixMultiply
@@ -1008,7 +1009,7 @@ impl Lexer {
                         OverloadableInfixOperator::MatrixSubtract,
                     ))
                 }
-                unexpected => self.unexpected(unexpected),
+                _ => Ok(Token::Macros(Macros::At)),
             },
             None => Err(self.premature_eof()),
         }

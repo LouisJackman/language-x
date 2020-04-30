@@ -117,7 +117,7 @@ enum public Optional[of Value](
         }
     }
 
-    func public orElse(_ newAlternative () Value) Value {
+    fun public orElse(_ newAlternative () Value) Value {
         if .Some(x) = this {
             x
         } else {

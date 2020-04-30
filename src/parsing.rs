@@ -48,25 +48,26 @@ use std::collections::HashSet;
 use std::default::Default;
 use std::rc::Rc;
 use std::result;
-use std::sync::Arc;
 
 use crate::common::multiphase::{
     self, Accessibility, Identifier, OverloadableInfixOperator, PseudoIdentifier,
 };
 use crate::common::peekable_buffer::PeekableBuffer;
 use crate::common::version::Version;
-use crate::lexing::lexer::{self, LexedToken};
+use crate::lexing::lexer;
 use crate::lexing::tokens::{
     self, Binding, BranchingAndJumping, DeclarationHead, Grouping, Literal, Macros, Modifier, Token,
 };
 use crate::lexing::Tokens;
-use crate::parsing::modifier_sets::{AccessibilityModifierExtractor, ModifierSets};
-use crate::parsing::nodes::{
-    Block, Case, CaseMatch, Class, ClassValueParameterFieldUpgrade, CompositePattern, Cond,
-    CondCase, Expression, Extension, For, Fun, FunModifiers, FunSignature, If, Item, Lambda,
-    LambdaSignature, LambdaValueParameter, MainPackage, Method, Node, Operator, Package, Pattern,
-    PatternGetter, PatternItem, Select, Switch, Symbol, SymbolLookup, Throw, Timeout, Type,
-    TypeArgument, TypeParameter, TypeReference, ValueParameter,
+use crate::parsing::{
+    modifier_sets::{AccessibilityModifierExtractor, ModifierSets},
+    nodes::{
+        Block, Case, CaseMatch, Class, ClassValueParameterFieldUpgrade, CompositePattern, Cond,
+        CondCase, Expression, For, FunModifiers, FunSignature, If, Item, Lambda, LambdaSignature,
+        LambdaValueParameter, MainPackage, Method, Operator, Package, Pattern, PatternGetter,
+        PatternItem, Select, Switch, Symbol, SymbolLookup, Throw, Timeout, TypeArgument,
+        TypeParameter, TypeReference, ValueParameter,
+    },
 };
 
 mod modifier_sets;
@@ -273,16 +274,16 @@ impl Parser {
         }
     }
 
-    fn parse_lookup(&mut self) -> Result<nodes::Symbol> {
+    fn parse_symbol(&mut self) -> Result<nodes::Symbol> {
         let mut lookup = vec![];
 
         Ok(
-            if let Some(Token::PseudoIdentifier(pseudoIdentifier)) = self.peek() {
-                nodes::Symbol::Pseudo(pseudoIdentifier)
+            if let Some(Token::PseudoIdentifier(pseudo_identifier)) = self.peek() {
+                nodes::Symbol::Pseudo(pseudo_identifier)
             } else {
-                let New = if self.next_is(&Token::Global) {
+                let new = if self.next_is(&Token::Global) {
                     self.tokens.discard();
-                    self.expect_and_discard(Token::Dot);
+                    self.expect_and_discard(Token::Dot)?;
                     nodes::Symbol::Absolute
                 } else {
                     nodes::Symbol::Relative
@@ -293,7 +294,7 @@ impl Parser {
                     if self.next_is(&Token::Dot) {
                         self.tokens.discard();
                     } else {
-                        break New(SymbolLookup(lookup));
+                        break new(SymbolLookup(lookup));
                     }
                 }
             },
@@ -428,7 +429,7 @@ impl Parser {
                     // Must be a basic parameter name and a type.
 
                     let pattern = self.parse_pattern()?;
-                    let type_annotation = self.parse_type_lookup()?;
+                    let type_annotation = self.parse_type_reference()?;
                     ValueParameter {
                         label: None,
                         pattern,
@@ -442,7 +443,7 @@ impl Parser {
                     // Must be a basic parameter name and a type.
 
                     let pattern = self.parse_pattern()?;
-                    let type_annotation = self.parse_type_lookup()?;
+                    let type_annotation = self.parse_type_reference()?;
                     self.tokens.discard();
                     ValueParameter {
                         label: None,
@@ -458,7 +459,7 @@ impl Parser {
                     // default value.
 
                     let pattern = self.parse_pattern()?;
-                    let type_annotation = self.parse_type_lookup()?;
+                    let type_annotation = self.parse_type_reference()?;
                     let default_value = Some(self.parse_default_value()?);
                     let sydoc = if let Some(Token::SyDoc(doc)) = self.peek() {
                         self.tokens.discard();
@@ -481,7 +482,7 @@ impl Parser {
 
                     let label = Some(self.parse_identifier()?);
                     let pattern = self.parse_pattern()?;
-                    let type_annotation = self.parse_type_lookup()?;
+                    let type_annotation = self.parse_type_reference()?;
                     let default_value = if self.next_is(&Token::Colon) {
                         Some(self.parse_default_value()?)
                     } else {
@@ -508,7 +509,7 @@ impl Parser {
             // Must be the start of a complex pattern match without a label.
 
             let pattern = self.parse_pattern()?;
-            let type_annotation = self.parse_type_lookup()?;
+            let type_annotation = self.parse_type_reference()?;
             let default_value = if self.next_is(&Token::Colon) {
                 Some(self.parse_default_value()?)
             } else {
@@ -567,7 +568,7 @@ impl Parser {
 
         let mut type_symbols = vec![];
         loop {
-            type_symbols.push(self.parse_type_lookup()?);
+            type_symbols.push(self.parse_type_reference()?);
             if self.next_is(&Token::SubItemSeparator) {
                 self.tokens.discard();
             } else {
@@ -593,11 +594,13 @@ impl Parser {
         unimplemented!();
     }
 
-    fn parse_for(&mut self) -> Result<nodes::Expression> {
+    fn parse_for(&mut self) -> Result<nodes::For> {
         self.tokens.discard();
-        let label = if self.next_is(&Token::Binding(tokens::Binding::Var))
-            || self.next_is(&Token::Grouping(Grouping::OpenBrace))
-        {
+
+        let reiteration_symbol = if self.next_is(&Token::Binding(tokens::Binding::Var)) {
+            self.tokens.discard();
+            None
+        } else if self.next_is(&Token::Grouping(Grouping::OpenBrace)) {
             None
         } else {
             Some(self.parse_identifier()?)
@@ -608,7 +611,6 @@ impl Parser {
             if self.next_is(&Token::Grouping(Grouping::OpenBrace)) {
                 break self.parse_block()?;
             } else {
-                self.expect_and_discard(Token::Binding(Binding::Var))?;
                 bindings.push(self.parse_local_binding()?);
                 if self.next_is(&Token::SubItemSeparator) {
                     self.tokens.discard();
@@ -616,13 +618,11 @@ impl Parser {
             }
         };
 
-        Ok(nodes::Expression::BranchingAndJumping(
-            nodes::BranchingAndJumping::For(For {
-                bindings,
-                scope,
-                label,
-            }),
-        ))
+        Ok(For {
+            bindings,
+            scope,
+            reiteration_symbol,
+        })
     }
 
     fn parse_if(&mut self) -> Result<nodes::If> {
@@ -633,7 +633,22 @@ impl Parser {
 
         let else_clause = if self.next_is(&Token::BranchingAndJumping(BranchingAndJumping::Else)) {
             self.tokens.discard();
-            Some(self.parse_block()?)
+
+            // Ban braceless ifs except for one case: an else followed immediately by another if.
+            Some(
+                if self.next_is(&Token::BranchingAndJumping(BranchingAndJumping::If)) {
+                    let if_node = self.parse_if()?;
+                    Block {
+                        expressions: vec![Expression::BranchingAndJumping(
+                            nodes::BranchingAndJumping::If(if_node),
+                        )],
+                        bindings: vec![],
+                        parent: Some(self.current_scope.clone()),
+                    }
+                } else {
+                    self.parse_block()?
+                },
+            )
         } else {
             None
         };
@@ -645,9 +660,13 @@ impl Parser {
         })
     }
 
-    fn parse_type_lookup(&mut self) -> Result<nodes::TypeReference> {
-        let symbol = self.parse_lookup()?;
-        let type_arguments = self.parse_type_argument_list()?;
+    fn parse_type_reference(&mut self) -> Result<nodes::TypeReference> {
+        let symbol = self.parse_symbol()?;
+        let type_arguments = if self.next_is(&Token::Grouping(Grouping::OpenSquareBracket)) {
+            self.parse_type_argument_list()?
+        } else {
+            vec![]
+        };
         Ok(TypeReference {
             symbol,
             type_arguments,
@@ -655,7 +674,7 @@ impl Parser {
     }
 
     fn parse_composite_pattern_getter(&mut self, next: &Token) -> Result<Option<PatternGetter>> {
-        let next_token_is_assign = self.nth_is(1, &Token::Binding(Binding::Assign));
+        let second_token_is_colon = self.nth_is(1, &Token::Colon);
 
         match &next {
             Token::Rest => {
@@ -664,14 +683,13 @@ impl Parser {
                 Ok(None)
             }
 
-            Token::Identifier(ref identifier) if !next_token_is_assign => {
+            Token::Identifier(ref identifier) if !second_token_is_colon => {
                 self.tokens.discard();
                 let pattern = Pattern {
                     item: PatternItem::Identifier(identifier.clone()),
                     bound_match: None,
                 };
                 Ok(Some(PatternGetter {
-                    label: Some(identifier.clone()), // TODO: parse separete labels too
                     name: identifier.clone(),
                     pattern,
                 }))
@@ -679,31 +697,32 @@ impl Parser {
 
             _ => {
                 let name = self.parse_identifier()?;
-                self.expect_and_discard(Token::Binding(Binding::Assign))?;
+                self.expect_and_discard(Token::Colon)?;
                 let pattern = self.parse_pattern()?;
-                Ok(Some(PatternGetter {
-                    label: Some(name.clone()), // TODO: parse separate labels too
-                    name,
-                    pattern,
-                }))
+                Ok(Some(PatternGetter { name, pattern }))
             }
         }
     }
 
     fn parse_composite_pattern(&mut self) -> Result<nodes::CompositePattern> {
         let token = self
-            .tokens
             .peek()
-            .map(|lexed| Ok(lexed.clone().token))
+            .map(Ok)
             .unwrap_or_else(|| self.premature_eof())?;
 
+        let infer_enum_type = if self.next_is(&Token::Dot) {
+            self.tokens.discard();
+            true
+        } else {
+            false
+        };
+
         if let Token::Identifier(_) = token {
-            let r#type = self.parse_type_lookup()?;
+            let r#type = self.parse_type_reference()?;
             self.expect_and_discard(Token::Grouping(Grouping::OpenParentheses))?;
 
             let mut getters = vec![];
-            let mut ignore_rest = false;
-            loop {
+            let ignore_rest = loop {
                 let next = self
                     .tokens
                     .peek()
@@ -711,15 +730,15 @@ impl Parser {
                     .unwrap_or_else(|| self.premature_eof())?;
 
                 if next == Token::Grouping(Grouping::CloseParentheses) {
-                    break;
+                    break false;
                 } else if let Some(getter) = self.parse_composite_pattern_getter(&next)? {
                     getters.push(getter);
                 } else {
-                    ignore_rest = true;
+                    break true;
                 }
 
                 self.expect_and_discard(Token::SubItemSeparator)?;
-            }
+            };
 
             self.expect_and_discard(Token::Grouping(Grouping::CloseParentheses))?;
 
@@ -727,7 +746,7 @@ impl Parser {
                 r#type,
                 getters,
                 ignore_rest,
-                infer_enum_type: false, // TODO: implement this properly
+                infer_enum_type,
             };
             Ok(composite)
         } else {
@@ -750,6 +769,11 @@ impl Parser {
                 Token::PseudoIdentifier(PseudoIdentifier::PlaceholderIdentifier) => {
                     Ok(PatternItem::Ignored)
                 }
+                Token::Rest => {
+                    self.tokens.discard();
+                    let symbol = self.parse_symbol()?;
+                    Ok(PatternItem::BoundSymbol(symbol))
+                }
                 _ => {
                     let composite = self.parse_composite_pattern()?;
                     Ok(PatternItem::Composite(composite))
@@ -763,13 +787,14 @@ impl Parser {
     }
 
     fn parse_type_argument_list(&mut self) -> Result<Vec<TypeArgument>> {
-        unimplemented!()
-    }
+        let mut arguments = vec![];
 
-    fn parse_binary_operator(&mut self) -> Result<()> {
-        // TODO: implement precedence rather than just left-to-right.
-
-        unimplemented!()
+        loop {
+            if self.next_is(&Token::Grouping(Grouping::CloseSquareBracket)) {
+                self.tokens.discard();
+                break Ok(arguments);
+            }
+        }
     }
 
     fn parse_imports(&mut self) -> Result<Vec<nodes::Import>> {
@@ -827,14 +852,14 @@ impl Parser {
 
     fn parse_import_syntax_readers_list(&mut self) -> Result<Vec<Symbol>> {
         self.tokens.discard();
-        self.expect_and_discard(Token::Grouping(Grouping::OpenParentheses));
+        self.expect_and_discard(Token::Grouping(Grouping::OpenParentheses))?;
         let mut symbols = vec![];
         loop {
             if self.next_is(&Token::Grouping(Grouping::CloseParentheses)) {
                 self.tokens.discard();
                 break Ok(symbols);
             }
-            symbols.push(self.parse_lookup()?);
+            symbols.push(self.parse_symbol()?);
             if !self.next_is(&Token::Grouping(Grouping::CloseParentheses)) {
                 self.expect_and_discard(Token::SubItemSeparator)?
             }
@@ -850,9 +875,11 @@ impl Parser {
     }
 
     fn parse_type_constraints(&mut self) -> Result<Vec<TypeReference>> {
+        self.tokens.discard();
+
         let mut constraints = vec![];
         loop {
-            constraints.push(self.parse_type_lookup()?);
+            constraints.push(self.parse_type_reference()?);
             if self.next_is(&Token::OverloadableInfixOperator(
                 OverloadableInfixOperator::Ampersand,
             )) {
@@ -870,19 +897,26 @@ impl Parser {
             let mut list = vec![];
             self.expect_and_discard(Token::Grouping(Grouping::OpenSquareBracket))?;
             loop {
-                let name = self.parse_identifier()?;
-                let upper_bounds = if self.next_is(&Token::Colon) {
-                    self.expect_and_discard(Token::Colon)?;
+                let identifier = self.parse_identifier()?;
+                let (label, name) = if self.match_next(|t| matches!(t, Token::Identifier(..))) {
+                    (Some(identifier), self.parse_identifier()?)
+                } else {
+                    (None, identifier)
+                };
+
+                let upper_bounds = if self.next_is(&Token::Extends) {
                     self.parse_type_constraints()?
                 } else {
                     vec![]
                 };
-                let default_value = if self.next_is(&Token::Binding(Binding::Assign)) {
+
+                let default_value = if self.next_is(&Token::Colon) {
                     self.expect_and_discard(Token::Binding(Binding::Assign))?;
-                    Some(self.parse_type_lookup()?)
+                    Some(self.parse_type_reference()?)
                 } else {
                     None
                 };
+
                 let sydoc = if let Some(Token::SyDoc(doc)) = self.peek() {
                     self.tokens.discard();
                     Some(doc)
@@ -891,7 +925,7 @@ impl Parser {
                 };
 
                 list.push(TypeParameter {
-                    label: Some(name.clone()), // TODO: parse separate label too.
+                    label,
                     name,
                     upper_bounds,
                     default_value,
@@ -913,28 +947,40 @@ impl Parser {
     fn parse_lambda_value_parameter_list(&mut self) -> Result<Vec<LambdaValueParameter>> {
         let mut parameters = vec![];
 
-        let wrapped_in_parentheses = self.next_is(&Token::Grouping(Grouping::OpenBrace));
-        if wrapped_in_parentheses {
-            self.expect_and_discard(Token::Grouping(Grouping::OpenParentheses))?;
-        }
-
         loop {
+            if self.next_is(&Token::Grouping(Grouping::OpenBrace)) {
+                break Ok(parameters);
+            }
+
+            let label = if self.match_nth(1, |t| matches!(t, Token::Identifier(..))) {
+                let label = match self.read() {
+                    Some(Token::Identifier(identifier)) => identifier,
+                    Some(unexpected) => self.unexpected(unexpected)?,
+                    None => self.premature_eof()?,
+                };
+                Some(label)
+            } else {
+                None
+            };
+
             let pattern = self.parse_pattern()?;
 
+            let default_value = if self.next_is(&Token::Colon) {
+                Some(self.parse_default_value()?)
+            } else {
+                None
+            };
+
             let parameter = nodes::LambdaValueParameter {
-                label: None, // TODO: parse labels
+                label,
                 pattern,
+                default_value,
             };
 
             parameters.push(parameter);
 
             if self.next_is(&Token::SubItemSeparator) {
                 self.tokens.discard();
-            } else {
-                if wrapped_in_parentheses {
-                    self.expect_and_discard(Token::Grouping(Grouping::CloseParentheses))?;
-                }
-                break Ok(parameters);
             }
         }
     }
@@ -943,7 +989,7 @@ impl Parser {
         if self.next_is(&Token::Grouping(Grouping::OpenBrace)) {
             Ok(None)
         } else {
-            Ok(Some(self.parse_type_lookup()?))
+            Ok(Some(self.parse_type_reference()?))
         }
     }
 
@@ -963,7 +1009,6 @@ impl Parser {
     fn parse_lambda(&mut self) -> Result<nodes::Lambda> {
         self.expect_and_discard(Token::LambdaArrow)?;
         let signature = self.parse_lambda_signature()?;
-        self.expect(Token::Grouping(Grouping::OpenBrace))?;
         let block = self.parse_block()?;
 
         Ok(Lambda { signature, block })
@@ -1021,15 +1066,14 @@ impl Parser {
         })
     }
 
-    fn parse_local_binding(&mut self) -> Result<nodes::Binding> {
+    fn parse_local_var_binding(&mut self) -> Result<nodes::Binding> {
         self.tokens.discard();
+        self.parse_local_binding()
+    }
+
+    fn parse_local_binding(&mut self) -> Result<nodes::Binding> {
         let pattern = self.parse_pattern()?;
 
-        let explicit_type_annotation = if self.next_is(&Token::Binding(Binding::Assign)) {
-            None
-        } else {
-            Some(self.parse_type_lookup()?)
-        };
         self.expect_and_discard(Token::Binding(Binding::Assign))?;
 
         let value = self.parse_expression()?;
@@ -1037,7 +1081,7 @@ impl Parser {
         Ok(nodes::Binding {
             pattern,
             value: Box::new(value),
-            explicit_type_annotation,
+            explicit_type_annotation: None,
         })
     }
 
@@ -1050,7 +1094,7 @@ impl Parser {
         let explicit_type_annotation = if self.next_is(&Token::Binding(Binding::Assign)) {
             None
         } else {
-            Some(self.parse_type_lookup()?)
+            Some(self.parse_type_reference()?)
         };
         self.expect_and_discard(Token::Binding(Binding::Assign))?;
 
@@ -1080,7 +1124,7 @@ impl Parser {
         let explicit_type_annotation = if self.next_is(&Token::Binding(Binding::Assign)) {
             None
         } else {
-            Some(self.parse_type_lookup()?)
+            Some(self.parse_type_reference()?)
         };
         self.expect_and_discard(Token::Binding(Binding::Assign))?;
 
@@ -1114,7 +1158,7 @@ impl Parser {
 
     fn parse_select(&mut self) -> Result<nodes::Select> {
         self.tokens.discard();
-        let message_type = self.parse_type_lookup()?;
+        let message_type = self.parse_type_reference()?;
         self.expect_and_discard(Token::Grouping(Grouping::OpenBrace))?;
         let mut cases = vec![];
         let mut timeout = None;
@@ -1168,10 +1212,7 @@ impl Parser {
     fn parse_cond(&mut self) -> Result<Cond> {
         self.expect_and_discard(Token::Grouping(Grouping::OpenBrace))?;
 
-        // TODO: revisit the data types used for accumulating cases in switches and conds; perhaps
-        // linked list or set would be better suited?
         let mut cases = vec![];
-
         loop {
             let mut conditions = vec![];
             let then = loop {
@@ -1230,6 +1271,12 @@ impl Parser {
         }
     }
 
+    fn parse_member_handle(&mut self) -> Result<nodes::Expression> {
+        self.tokens.discard();
+        let symbol = self.parse_symbol()?;
+        Ok(nodes::Expression::MemberHandle(symbol))
+    }
+
     fn parse_switch(&mut self) -> Result<Expression> {
         self.tokens.discard();
 
@@ -1275,7 +1322,12 @@ impl Parser {
                     .unwrap_or_else(|| match token {
                         // Non-atomic tokens each delegate to a dedicated method.
                         Token::With => self.parse_with(),
-                        Token::BranchingAndJumping(BranchingAndJumping::For) => self.parse_for(),
+                        Token::Colon => self.parse_member_handle(),
+                        Token::BranchingAndJumping(BranchingAndJumping::For) => {
+                            Ok(nodes::Expression::BranchingAndJumping(
+                                nodes::BranchingAndJumping::For(self.parse_for()?),
+                            ))
+                        }
                         Token::BranchingAndJumping(BranchingAndJumping::If) => {
                             self.parse_if().map(|if_token| {
                                 nodes::Expression::BranchingAndJumping(
@@ -1296,6 +1348,9 @@ impl Parser {
                                 )
                             })
                         }
+                        Token::Identifier(..) | Token::PseudoIdentifier(..) => {
+                            Ok(nodes::Expression::Symbol(self.parse_symbol()?))
+                        }
                         Token::BranchingAndJumping(BranchingAndJumping::Switch) => {
                             self.parse_switch()
                         }
@@ -1312,19 +1367,18 @@ impl Parser {
             ),
         }?;
 
-        let next_token = self.tokens.peek().cloned();
-        if let Some(LexedToken {
-            token: Token::PostfixOperator(operator),
-            ..
-        }) = next_token
-        {
-            self.tokens.discard();
-            Ok(Expression::Operator(nodes::Operator::PostfixOperator(
-                Box::new(expression),
-                operator,
-            )))
-        } else {
-            Ok(expression)
+        match self.peek() {
+            Some(Token::PostfixOperator(operator)) => Ok(Expression::Operator(
+                nodes::Operator::Postfix(Box::new(expression), operator),
+            )),
+            Some(Token::OverloadableInfixOperator(operator)) => {
+                Ok(Expression::Operator(Operator::OverloadableInfix(
+                    Box::new(expression),
+                    operator,
+                    Box::new(self.parse_expression()?),
+                )))
+            }
+            _ => Ok(expression),
         }
     }
 
@@ -1341,13 +1395,21 @@ impl Parser {
                     .unwrap_or_else(|| match token {
                         // Non-atomic tokens each delegate to a dedicated method.
                         Token::With => self.parse_with(),
-                        Token::BranchingAndJumping(BranchingAndJumping::For) => self.parse_for(),
+                        Token::Colon => self.parse_member_handle(),
+                        Token::BranchingAndJumping(BranchingAndJumping::For) => {
+                            Ok(nodes::Expression::BranchingAndJumping(
+                                nodes::BranchingAndJumping::For(self.parse_for()?),
+                            ))
+                        }
                         Token::BranchingAndJumping(BranchingAndJumping::If) => {
                             self.parse_if().map(|if_token| {
                                 nodes::Expression::BranchingAndJumping(
                                     nodes::BranchingAndJumping::If(if_token),
                                 )
                             })
+                        }
+                        Token::Identifier(..) | Token::PseudoIdentifier(..) => {
+                            Ok(nodes::Expression::Symbol(self.parse_symbol()?))
                         }
                         Token::BranchingAndJumping(BranchingAndJumping::Select) => {
                             self.parse_select().map(|select| {
@@ -1372,19 +1434,18 @@ impl Parser {
             ),
         }?;
 
-        let next_token = self.tokens.peek().cloned();
-        if let Some(LexedToken {
-            token: Token::PostfixOperator(operator),
-            ..
-        }) = next_token
-        {
-            self.tokens.discard();
-            Ok(Expression::Operator(nodes::Operator::PostfixOperator(
-                Box::new(expression),
-                operator,
-            )))
-        } else {
-            Ok(expression)
+        match self.peek() {
+            Some(Token::PostfixOperator(operator)) => Ok(Expression::Operator(
+                nodes::Operator::Postfix(Box::new(expression), operator),
+            )),
+            Some(Token::OverloadableInfixOperator(operator)) => {
+                Ok(Expression::Operator(Operator::OverloadableInfix(
+                    Box::new(expression),
+                    operator,
+                    Box::new(self.parse_expression()?),
+                )))
+            }
+            _ => Ok(expression),
         }
     }
 
@@ -1395,7 +1456,7 @@ impl Parser {
         self.expect_and_discard(Token::Grouping(Grouping::OpenBrace))?;
         loop {
             if self.next_is(&Token::Binding(Binding::Var)) {
-                bindings.push(self.parse_local_binding()?);
+                bindings.push(self.parse_local_var_binding()?);
             } else if self.next_is(&Token::Grouping(Grouping::CloseBrace)) {
                 self.tokens.discard();
                 break;
@@ -1448,9 +1509,9 @@ impl Parser {
                         let fun = self.parse_fun()?;
                         items.push(Item::Fun(fun));
                     }
-                    Token::Binding(Binding::Var) => {
+                    Token::Binding(Binding::Final) => {
                         let binding = self.parse_binding()?;
-                        items.push(Item::Binding(binding));
+                        items.push(Item::Final(binding));
                     }
 
                     unexpected => self.unexpected(unexpected)?,
@@ -1504,12 +1565,16 @@ impl Parser {
                             let fun = self.parse_fun()?;
                             items.push(Item::Fun(fun));
                         }
+                        Token::Binding(Binding::Final) => {
+                            let binding = self.parse_binding()?;
+                            items.push(Item::Final(binding));
+                        }
 
                         // Unlike all other packages, the main package allows both variables
                         // without type annotations, falling back to type inference, and also
                         // arbritary expressions.
                         Token::Binding(Binding::Var) => {
-                            let binding = self.parse_local_binding()?;
+                            let binding = self.parse_local_var_binding()?;
                             implicit_main.bindings.push(binding);
                         }
                         _ => {

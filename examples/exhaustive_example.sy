@@ -42,7 +42,6 @@
 // whole-file macros to apply to both imported files and ones started from the
 // shell.
 
-
 package main
     /*
      * If no package is specified, "main" is assumed. A `module-info.sy` file is

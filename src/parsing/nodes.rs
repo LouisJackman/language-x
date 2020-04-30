@@ -106,14 +106,14 @@ pub enum Item {
     Fun(Fun),
     Package(Package),
     Type(Type),
-    Final(Final),
 
     // Unlike the previous variants, these can be arbitrarily nested within
     // expressions. This is to allow corecursion among other features.
     //
     // For loops also create bindings, but are not items because I can't
-    // think of a use case for mutually recursive loop continuation bindings.
-    Binding(Binding),
+    // think of a use case for mutually recursive loop reiteration bindings.
+    Var(Binding),
+    Final(Binding),
 }
 
 /// The expressions that allow Turing-complete computations, i.e. allowing
@@ -127,18 +127,19 @@ pub enum Expression {
     Symbol(Symbol),
     Throw(Throw),
     Using(Using),
-    NonDestructiveUpdate(Call),
+    MemberHandle(Symbol),
+    NonDestructiveUpdate(ExpressionCall),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Operator {
-    InfixOperator(OverloadableInfixOperator, Box<Expression>, Box<Expression>),
-    PostfixOperator(Box<Expression>, PostfixOperator),
+    OverloadableInfix(Box<Expression>, OverloadableInfixOperator, Box<Expression>),
+    Postfix(Box<Expression>, PostfixOperator),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum BranchingAndJumping {
-    Call(Call),
+    Call(ExpressionCall),
     Cond(Cond),
     For(For),
     If(If),
@@ -470,6 +471,12 @@ pub struct Final {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum MacroItem {
+    Bare(Symbol),
+    Call(Call),
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Field {
     pub is_extern: bool,
     pub is_embedded: bool,
@@ -532,6 +539,7 @@ impl Block {
 pub struct LambdaValueParameter {
     pub label: Option<Identifier>,
     pub pattern: Pattern,
+    pub default_value: Option<Expression>,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -566,6 +574,7 @@ pub enum Symbol {
     Relative(SymbolLookup),
     Absolute(SymbolLookup),
     Pseudo(PseudoIdentifier),
+    InferredEnumVariant(Identifier),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -597,10 +606,21 @@ pub struct Select {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct Call {
-    pub target: Box<Expression>,
+pub struct CallArguments {
     pub type_arguments: Vec<TypeArgument>,
     pub arguments: Vec<ValueArgument>,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Call {
+    pub target: Symbol,
+    pub arguments: CallArguments,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ExpressionCall {
+    pub target: Box<Expression>,
+    pub arguments: CallArguments,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -650,7 +670,7 @@ pub struct Case {
 }
 
 // For loop "labels" are completely different to parameter labels. They are
-// instead names of continuation identifiers that get predefined inside for loop
+// instead names of reiteration identifiers that get predefined inside for loop
 // bodies. They are inspired semantically by both Scheme's named-let and
 // syntactically by Java's loop break labels.
 //
@@ -669,7 +689,7 @@ pub struct Case {
 pub struct For {
     pub bindings: Vec<Binding>,
     pub scope: Block,
-    pub label: Option<Identifier>,
+    pub reiteration_symbol: Option<Identifier>,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -697,7 +717,6 @@ pub struct Throw(pub Box<Expression>);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PatternGetter {
-    pub label: Option<Identifier>,
     pub name: Identifier,
     pub pattern: Pattern,
 }
@@ -716,10 +735,10 @@ pub enum PatternItem {
     Identifier(Identifier),
     Ignored,
 
-    // Irrefutable unless an interpolated string is used.
+    // Refutable unless an interpolated string is used.
     Literal(Literal),
 
-    // Irrefutable if all fields are also refuttable.
+    // Irrefutable if all fields are also irefuttable.
     Composite(CompositePattern),
 
     // Refuttable, as it's worked out at runtime from what the symbol resolves

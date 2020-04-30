@@ -28,7 +28,6 @@ pub enum BranchingAndJumping {
 pub enum DeclarationHead {
     Class,
     Extend,
-    Extends,
     Fun,
     Implements,
     Interface,
@@ -94,6 +93,7 @@ pub enum Binding {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Macros {
+    At,
     Quote,
     Unquote,
     Syntax,
@@ -131,13 +131,16 @@ pub enum Token {
     // itself, needing to be combined with a dot followed by a symbol.
     Global,
 
+    // Used in both declaration heads and for upper bounds on type parameters.
+    Extends,
+
     Rest,
     SubItemSeparator,
     Throw,
     Timeout,
     Using,
 
-    /// Does nothing but reserves keywords for future use.
+    /// Does nothing but reserve keywords for future use.
     ReservedKeyword,
 
     With,
