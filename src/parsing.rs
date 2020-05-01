@@ -66,9 +66,10 @@ use crate::parsing::{
         CondCase, Expression, For, FunModifiers, FunSignature, If, Item, Lambda, LambdaSignature,
         LambdaValueParameter, MainPackage, Method, Operator, Package, Pattern, PatternGetter,
         PatternItem, Select, Switch, Symbol, SymbolLookup, Throw, Timeout, TypeArgument,
-        TypeParameter, TypeReference, ValueParameter,
+        TypeParameter, TypeReference, ValueArgument, ValueParameter,
     },
 };
+use nodes::CallArguments;
 
 mod modifier_sets;
 mod nodes;
@@ -786,14 +787,67 @@ impl Parser {
         })
     }
 
-    fn parse_type_argument_list(&mut self) -> Result<Vec<TypeArgument>> {
-        let mut arguments = vec![];
+    fn parse_value_argument_list(&mut self) -> Result<Vec<ValueArgument>> {
+        self.tokens.discard();
 
+        let mut arguments = vec![];
+        loop {
+            if self.next_is(&Token::Grouping(Grouping::CloseParentheses)) {
+                self.tokens.discard();
+                break Ok(arguments);
+            }
+
+            let identifier_follows = self.match_next(|t| matches!(t, Token::Identifier(..)));
+            let label = if identifier_follows && self.nth_is(1, &Token::Colon) {
+                let identifier = match self.read() {
+                    Some(Token::Identifier(identifier)) => identifier,
+                    Some(unexpected) => self.unexpected(unexpected)?,
+                    None => self.premature_eof()?,
+                };
+                self.tokens.discard();
+                Some(identifier)
+            } else {
+                None
+            };
+
+            let expression = self.parse_expression()?;
+            let argument = ValueArgument {
+                label,
+                value: expression,
+            };
+            arguments.push(argument)
+        }
+    }
+
+    fn parse_type_argument_list(&mut self) -> Result<Vec<TypeArgument>> {
+        self.tokens.discard();
+
+        let mut arguments = vec![];
         loop {
             if self.next_is(&Token::Grouping(Grouping::CloseSquareBracket)) {
                 self.tokens.discard();
                 break Ok(arguments);
             }
+
+            let identifier_follows = self.match_next(|t| matches!(t, Token::Identifier(..)));
+            let label = if identifier_follows && self.nth_is(1, &Token::Colon) {
+                let identifier = match self.read() {
+                    Some(Token::Identifier(identifier)) => identifier,
+                    Some(unexpected) => self.unexpected(unexpected)?,
+                    None => self.premature_eof()?,
+                };
+                self.tokens.discard();
+                Some(identifier)
+            } else {
+                None
+            };
+
+            let type_reference = self.parse_type_reference()?;
+            let argument = TypeArgument {
+                label,
+                value: type_reference,
+            };
+            arguments.push(argument)
         }
     }
 
@@ -944,6 +998,36 @@ impl Parser {
         }
     }
 
+    fn parse_fun_value_parameter_list(&mut self) -> Result<Vec<ValueParameter>> {
+        let mut parameters = vec![];
+
+        loop {
+            if self.next_is(&Token::Grouping(Grouping::CloseParentheses)) {
+                self.tokens.discard();
+                break Ok(parameters);
+            }
+
+            let parameter = self.parse_value_parameter()?;
+            parameters.push(parameter);
+
+            if self.next_is(&Token::SubItemSeparator) {
+                self.tokens.discard();
+            }
+
+            match self.peek() {
+                Some(Token::SubItemSeparator) => {
+                    self.tokens.discard();
+                }
+                Some(Token::Grouping(Grouping::CloseParentheses)) => {
+                    self.tokens.discard();
+                    break Ok(parameters);
+                }
+                Some(t) => self.unexpected(t)?,
+                None => self.premature_eof()?,
+            }
+        }
+    }
+
     fn parse_lambda_value_parameter_list(&mut self) -> Result<Vec<LambdaValueParameter>> {
         let mut parameters = vec![];
 
@@ -993,10 +1077,6 @@ impl Parser {
         }
     }
 
-    fn parse_fun_signature(&mut self) -> Result<FunSignature> {
-        unimplemented!()
-    }
-
     fn parse_lambda_signature(&mut self) -> Result<LambdaSignature> {
         let value_parameters = self.parse_lambda_value_parameter_list()?;
 
@@ -1018,7 +1098,23 @@ impl Parser {
         self.expect_and_discard(Token::DeclarationHead(DeclarationHead::Fun))?;
         let modifiers = self.parse_modifiers(&self.modifier_sets.function.clone())?;
         let name = self.parse_identifier()?;
-        let signature = self.parse_fun_signature()?;
+
+        let type_parameters = if self.next_is(&Token::Grouping(Grouping::OpenSquareBracket)) {
+            self.parse_type_parameter_list()?
+        } else {
+            vec![]
+        };
+
+        let value_parameters = self.parse_fun_value_parameter_list()?;
+
+        // TODO: resolve the parsing ambiguity between:
+        //
+        // * Extern void functions that drop return types, with a symbol on the
+        //   next line in the main package.
+        // * Extern non-void functions that state a return type in the main
+        //   package.
+        let return_type = todo!();
+
         let block = self.parse_block()?;
 
         let accessibility = self
@@ -1034,6 +1130,14 @@ impl Parser {
             accessibility,
             is_extern: modifiers.contains(&Modifier::Extern),
             is_operator: modifiers.contains(&Modifier::Operator),
+        };
+
+        let signature = FunSignature {
+            name,
+            sydoc: None,
+            type_parameters,
+            value_parameters,
+            return_type,
         };
 
         Ok(nodes::Fun {
@@ -1304,11 +1408,140 @@ impl Parser {
             Token::Literal(Literal::InterpolatedString(string)) => {
                 Some(nodes::Literal::InterpolatedString(string))
             }
-            Token::Literal(Literal::Number(decimal, fraction)) => {
-                Some(nodes::Literal::Number(decimal, fraction))
-            }
+            Token::Literal(Literal::Number(number)) => Some(nodes::Literal::Number(number)),
             Token::Literal(Literal::String(string)) => Some(nodes::Literal::String(string)),
             _ => None,
+        }
+    }
+
+    fn parse_leading_identifier(&mut self) -> Result<nodes::Expression> {
+        let symbol = self.parse_symbol()?;
+        if self.next_is(&Token::Grouping(Grouping::OpenSquareBracket)) {
+            let type_arguments = self.parse_type_argument_list()?;
+            let arguments = self.parse_value_argument_list()?;
+            let call = nodes::Call {
+                target: symbol,
+                arguments: CallArguments {
+                    type_arguments,
+                    arguments,
+                },
+            };
+            Ok(Expression::BranchingAndJumping(
+                nodes::BranchingAndJumping::Call(call),
+            ))
+        } else if self.next_is(&Token::Grouping(Grouping::OpenParentheses)) {
+            let arguments = self.parse_value_argument_list()?;
+            let call = nodes::Call {
+                target: symbol,
+                arguments: CallArguments {
+                    type_arguments: vec![],
+                    arguments,
+                },
+            };
+            Ok(Expression::BranchingAndJumping(
+                nodes::BranchingAndJumping::Call(call),
+            ))
+        } else {
+            Ok(nodes::Expression::Symbol(self.parse_symbol()?))
+        }
+    }
+
+    fn parse_typed_expression_call(
+        &mut self,
+        expression: nodes::Expression,
+    ) -> Result<nodes::ExpressionCall> {
+        let type_arguments = self.parse_type_argument_list()?;
+
+        let arguments = self.parse_value_argument_list()?;
+        Ok(nodes::ExpressionCall {
+            target: Box::new(expression),
+            arguments: CallArguments {
+                type_arguments,
+                arguments,
+            },
+        })
+    }
+
+    fn parse_expression_call(
+        &mut self,
+        expression: nodes::Expression,
+    ) -> Result<nodes::ExpressionCall> {
+        let arguments = self.parse_value_argument_list()?;
+        Ok(nodes::ExpressionCall {
+            target: Box::new(expression),
+            arguments: CallArguments {
+                type_arguments: vec![],
+                arguments,
+            },
+        })
+    }
+
+    fn parse_slice(&mut self) -> Result<nodes::MultiSlice> {
+        self.tokens.discard();
+
+        let mut slices = vec![];
+        loop {
+            if self.next_is(&Token::OverloadableSliceOperator(
+                multiphase::OverloadableSliceOperator::Close,
+            )) {
+                self.tokens.discard();
+                break Ok(nodes::MultiSlice(slices));
+            }
+
+            if self.next_is(&Token::PseudoIdentifier(PseudoIdentifier::Ellipsis)) {
+                self.tokens.discard();
+                slices.push(nodes::SliceFragment::Ellipsis);
+            } else {
+                let mut start = None;
+                let mut step = None;
+                let mut end = None;
+                let mut component_number: usize = 0;
+
+                loop {
+                    if self.next_is(&Token::Colon) {
+                        self.tokens.discard();
+                        component_number += 1;
+                    } else if self.next_is(&Token::SubItemSeparator) {
+                        self.tokens.discard();
+                        break;
+                    } else if self.next_is(&Token::OverloadableSliceOperator(
+                        multiphase::OverloadableSliceOperator::Close,
+                    )) {
+                        break;
+                    } else {
+                        let n = match self.read() {
+                            Some(Token::Literal(Literal::Number(number))) => number,
+                            Some(unexpected) => self.unexpected(unexpected)?,
+                            None => self.premature_eof()?,
+                        };
+                        match component_number {
+                            0 => {
+                                start = Some(n);
+                            }
+                            1 => {
+                                step = Some(n);
+                            }
+                            2 => {
+                                end = Some(n);
+                            }
+                            _ => unreachable!(),
+                        }
+
+                        // If only two slice components exist, assume step was
+                        // skipped rather than the end.
+                        if step.is_some() && end.is_none() {
+                            end = step;
+                            step = None;
+                        }
+                    }
+                }
+
+                slices.push(nodes::SliceFragment::Slice(nodes::Slice {
+                    start,
+                    step,
+                    end,
+                }))
+            }
         }
     }
 
@@ -1349,7 +1582,7 @@ impl Parser {
                             })
                         }
                         Token::Identifier(..) | Token::PseudoIdentifier(..) => {
-                            Ok(nodes::Expression::Symbol(self.parse_symbol()?))
+                            self.parse_leading_identifier()
                         }
                         Token::BranchingAndJumping(BranchingAndJumping::Switch) => {
                             self.parse_switch()
@@ -1368,6 +1601,21 @@ impl Parser {
         }?;
 
         match self.peek() {
+            Some(Token::Grouping(Grouping::OpenParentheses)) => Ok(
+                nodes::Expression::BranchingAndJumping(nodes::BranchingAndJumping::ExpressionCall(
+                    self.parse_expression_call(expression)?,
+                )),
+            ),
+            Some(Token::Grouping(Grouping::OpenSquareBracket)) => Ok(
+                nodes::Expression::BranchingAndJumping(nodes::BranchingAndJumping::ExpressionCall(
+                    self.parse_typed_expression_call(expression)?,
+                )),
+            ),
+            Some(Token::OverloadableSliceOperator(multiphase::OverloadableSliceOperator::Open)) => {
+                Ok(Expression::Operator(Operator::MultiSlice(
+                    self.parse_slice()?,
+                )))
+            }
             Some(Token::PostfixOperator(operator)) => Ok(Expression::Operator(
                 nodes::Operator::Postfix(Box::new(expression), operator),
             )),
@@ -1409,7 +1657,7 @@ impl Parser {
                             })
                         }
                         Token::Identifier(..) | Token::PseudoIdentifier(..) => {
-                            Ok(nodes::Expression::Symbol(self.parse_symbol()?))
+                            self.parse_leading_identifier()
                         }
                         Token::BranchingAndJumping(BranchingAndJumping::Select) => {
                             self.parse_select().map(|select| {
@@ -1435,6 +1683,21 @@ impl Parser {
         }?;
 
         match self.peek() {
+            Some(Token::Grouping(Grouping::OpenParentheses)) => Ok(
+                nodes::Expression::BranchingAndJumping(nodes::BranchingAndJumping::ExpressionCall(
+                    self.parse_expression_call(expression)?,
+                )),
+            ),
+            Some(Token::Grouping(Grouping::OpenSquareBracket)) => Ok(
+                nodes::Expression::BranchingAndJumping(nodes::BranchingAndJumping::ExpressionCall(
+                    self.parse_typed_expression_call(expression)?,
+                )),
+            ),
+            Some(Token::OverloadableSliceOperator(multiphase::OverloadableSliceOperator::Open)) => {
+                Ok(Expression::Operator(Operator::MultiSlice(
+                    self.parse_slice()?,
+                )))
+            }
             Some(Token::PostfixOperator(operator)) => Ok(Expression::Operator(
                 nodes::Operator::Postfix(Box::new(expression), operator),
             )),

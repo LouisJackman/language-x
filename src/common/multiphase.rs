@@ -37,6 +37,10 @@ pub struct InterpolatedString {
     pub interpolations: Vec<Identifier>,
 }
 
+// TODO: implement properly with a multiprecision library.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct Number(pub i64, pub u64);
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Accessibility {
     Private,
@@ -115,8 +119,8 @@ pub enum OverloadableInfixOperator {
 ///
 /// ```
 /// fun public operator [||] (n Usize) { }`
-/// fun public operator [|:|] (sliceFragments ..SliceFragment) { }`
-/// fun public operator [|:...|] (sliceFragments ..SliceFragment) { }`
+/// fun public operator [|:|] (slice ..Slice) { }`
+/// fun public operator [|:...|] (fragments ..SliceFragment) { }`
 /// ```
 ///
 /// When compiling slices, Sylan will choose the least complex overload for a
@@ -155,7 +159,7 @@ pub enum OverloadableInfixOperator {
 /// `Slice` and `SliceFragment` is defined as:
 ///
 /// ```
-/// enum public Slice(
+/// class public Slice(
 ///     Start(from start Optional[Number]),
 ///     Step(stepping step Optional[Number]),
 ///     End(to end Optional[Number]),

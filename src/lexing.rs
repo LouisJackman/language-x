@@ -161,7 +161,7 @@ impl<'a> PeekableBuffer<'a, LexedToken, LexedTokenReadMany> for Tokens {
 mod tests {
     use std::fmt::Debug;
 
-    use crate::common::multiphase::Identifier;
+    use crate::common::multiphase::{Identifier, Number};
     use crate::lexing::tokens::{Grouping, Literal, Token};
     use crate::source::in_memory::Source;
 
@@ -216,7 +216,7 @@ mod tests {
             &vec![
                 Token::Identifier(Identifier::from("List")),
                 Token::Grouping(Grouping::OpenParentheses),
-                Token::Literal(Literal::Number(1, 0)),
+                Token::Literal(Literal::Number(Number(1, 0))),
                 Token::SubItemSeparator,
             ],
         )
@@ -242,7 +242,7 @@ mod tests {
                 tokens.peek().unwrap();
                 tokens.read().unwrap().token
             },
-            &Token::Literal(Literal::Number(1, 0)),
+            &Token::Literal(Literal::Number(Number(1, 0))),
         )
     }
 
@@ -274,7 +274,7 @@ mod tests {
                 tokens.discard();
                 tokens.read().unwrap().token
             },
-            &Token::Literal(Literal::Number(2, 0)),
+            &Token::Literal(Literal::Number(Number(2, 0))),
         )
     }
 
@@ -293,7 +293,7 @@ mod tests {
     fn match_nth() {
         test(|tokens| {
             assert!(tokens.match_nth(3, |lexed| lexed.token
-                == Token::Literal(Literal::Number(1, 0))))
+                == Token::Literal(Literal::Number(Number(1, 0)))))
         })
     }
 

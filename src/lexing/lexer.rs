@@ -5,8 +5,8 @@ use std::sync::mpsc::{channel, Receiver, RecvError, SendError};
 use std::thread::{self, JoinHandle};
 
 use crate::common::multiphase::{
-    self, Identifier, InterpolatedString, OverloadableInfixOperator, OverloadableSliceOperator,
-    PostfixOperator, PseudoIdentifier, SylanString,
+    self, Identifier, InterpolatedString, Number, OverloadableInfixOperator,
+    OverloadableSliceOperator, PostfixOperator, PseudoIdentifier, SylanString,
 };
 use crate::common::newlines::{check_newline, NewLine};
 use crate::common::peekable_buffer::PeekableBuffer;
@@ -54,8 +54,6 @@ pub enum LexerTaskError {
 
 type TokenResult = Result<Token, Error>;
 type LexedTokenResult = Result<LexedToken, Error>;
-
-type Number = (i64, u64);
 
 /// The task that lexes and emitted a token stream over a channel. It's a lexed token channel
 /// combined with a join handle on the underlying thread.
@@ -299,7 +297,7 @@ impl Lexer {
         self.source.discard();
 
         self.lex_absolute_number()
-            .map(|(real, fractional)| {
+            .map(|Number(real, fractional)| {
                 // TODO: lex this properly. Unlike an absolute number, it must support more than one
                 // decimal place.
                 Token::Version(Version {
@@ -314,7 +312,9 @@ impl Lexer {
 
     fn lex_number(&mut self) -> TokenResult {
         self.lex_absolute_number()
-            .map(|(real, fractional)| Token::Literal(Literal::Number(real, fractional)))
+            .map(|Number(real, fractional)| {
+                Token::Literal(Literal::Number(Number(real, fractional)))
+            })
             .map(Ok)
             .unwrap_or_else(|_| self.fail("invalid number"))
     }
@@ -732,7 +732,7 @@ impl Lexer {
                                     real_to_parse, err
                                 )))
                             })
-                            .map(|fractional| (real, fractional))
+                            .map(|fractional| Number(real, fractional))
                     })
             }
             _ => Err(self.premature_eof()),
@@ -1387,14 +1387,14 @@ mod tests {
     #[test]
     fn numbers() {
         let mut lexer = test_lexer("    23  \t  -34   \t\t\n   23   +32 0.32    \t123123123.32");
-        assert_next(&mut lexer, &Token::Literal(Literal::Number(23, 0)));
-        assert_next(&mut lexer, &Token::Literal(Literal::Number(-34, 0)));
-        assert_next(&mut lexer, &Token::Literal(Literal::Number(23, 0)));
-        assert_next(&mut lexer, &Token::Literal(Literal::Number(32, 0)));
-        assert_next(&mut lexer, &Token::Literal(Literal::Number(0, 32)));
+        assert_next(&mut lexer, &Token::Literal(Literal::Number(Number(23, 0))));
+        assert_next(&mut lexer, &Token::Literal(Literal::Number(Number(-34, 0))));
+        assert_next(&mut lexer, &Token::Literal(Literal::Number(Number(23, 0))));
+        assert_next(&mut lexer, &Token::Literal(Literal::Number(Number(32, 0))));
+        assert_next(&mut lexer, &Token::Literal(Literal::Number(Number(0, 32))));
         assert_next(
             &mut lexer,
-            &Token::Literal(Literal::Number(123_123_123, 32)),
+            &Token::Literal(Literal::Number(Number(123_123_123, 32))),
         );
     }
 
@@ -1607,7 +1607,10 @@ mod tests {
         let mut lexer3 = test_lexer("#!/usr/local/bin/env sylan\n123 321");
         let shebang3 = Token::Shebang(Shebang::from("/usr/local/bin/env sylan"));
         assert!(start_is_shebang(&mut lexer3, &shebang3));
-        assert_next(&mut lexer3, &Token::Literal(Literal::Number(123, 0)));
+        assert_next(
+            &mut lexer3,
+            &Token::Literal(Literal::Number(Number(123, 0))),
+        );
 
         let mut failing_lexer = test_lexer("/usr/local/bin/env sylan\n123 321");
         let shebang3 = Token::Shebang(Shebang::from("/usr/local/bin/env sylan"));

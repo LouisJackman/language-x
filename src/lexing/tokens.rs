@@ -1,5 +1,5 @@
 use crate::common::multiphase::{
-    Accessibility, Identifier, InterpolatedString, OverloadableInfixOperator,
+    Accessibility, Identifier, InterpolatedString, Number, OverloadableInfixOperator,
     OverloadableSliceOperator, PostfixOperator, PseudoIdentifier, Shebang, SyDoc, SylanString,
 };
 use crate::common::version::Version;
@@ -9,9 +9,7 @@ pub enum Literal {
     Char(char),
     InterpolatedString(InterpolatedString),
     String(SylanString),
-
-    // TODO: reimplement using a variable-width numerics library, like GMP but not GPL licenced.
-    Number(i64, u64),
+    Number(Number),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

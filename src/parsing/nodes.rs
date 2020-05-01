@@ -46,8 +46,8 @@
 use std::rc::Rc;
 
 use crate::common::multiphase::{
-    Accessibility, Identifier, InterpolatedString, OverloadableInfixOperator, PostfixOperator,
-    PseudoIdentifier, Shebang, SyDoc, SylanString,
+    Accessibility, Identifier, InterpolatedString, Number, OverloadableInfixOperator,
+    PostfixOperator, PseudoIdentifier, Shebang, SyDoc, SylanString,
 };
 use crate::common::version::Version;
 
@@ -132,14 +132,32 @@ pub enum Expression {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Slice {
+    pub start: Option<Number>,
+    pub step: Option<Number>,
+    pub end: Option<Number>,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum SliceFragment {
+    Ellipsis,
+    Slice(Slice),
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct MultiSlice(pub Vec<SliceFragment>);
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Operator {
+    MultiSlice(MultiSlice),
     OverloadableInfix(Box<Expression>, OverloadableInfixOperator, Box<Expression>),
     Postfix(Box<Expression>, PostfixOperator),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum BranchingAndJumping {
-    Call(ExpressionCall),
+    ExpressionCall(ExpressionCall),
+    Call(Call),
     Cond(Cond),
     For(For),
     If(If),
@@ -412,7 +430,7 @@ pub type ValueArgument = Argument<Expression>;
 /// positional or keyword arguments; unlike other languages it is the choice of
 /// the caller rather than the definer. If passed as a keyword argument, an
 /// identifier is carried with it in the parse tree.
-pub type TypeArgument = Argument<Type>;
+pub type TypeArgument = Argument<TypeReference>;
 
 // Sylan's "symbol tables" are just a collection of bindings in the current
 // scope. Parent scopes can be looked up to find bindings in outer closures,
@@ -581,7 +599,7 @@ pub enum Symbol {
 pub enum Literal {
     Char(char),
     InterpolatedString(InterpolatedString),
-    Number(i64, u64),
+    Number(Number),
     String(SylanString),
     Lambda(Lambda),
 }
