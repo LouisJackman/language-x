@@ -1128,7 +1128,7 @@ impl Parser {
 
         let modifiers = FunModifiers {
             accessibility,
-            is_extern: modifiers.contains(&Modifier::Extern),
+            is_extern: todo!(),
             is_operator: modifiers.contains(&Modifier::Operator),
         };
 
@@ -1232,7 +1232,7 @@ impl Parser {
         };
         self.expect_and_discard(Token::Binding(Binding::Assign))?;
 
-        let is_extern = declaration_modifiers.contains(&Modifier::Extern);
+        let is_extern = todo!();
 
         let value = self.parse_expression()?;
 

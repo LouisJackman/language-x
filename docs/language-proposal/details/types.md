@@ -2,14 +2,14 @@
 
 * Externs and user-defined.
 * No difference between them from the user's perspective except for some of them
-  having literals baked into the language  and externs being predefined by the
-  compiler and runtime. No Java-like primitive vs object distinction. This is
-  different to bindings and functions, which can be `extern` and can _not_
-  defined by Sylan itself but instead by an external artefact.
+  having literals baked into the language and externs being predefined by the
+  compiler. No Java-like primitive vs object distinction. This is different to
+  bindings and functions, which can be `extern` and can _not_ defined by Sylan
+  itself but instead by an external artefact.
 * Constructors are special; this is done to allow invocable-style instantiations
   while avoiding things like statics, needing to detach constructors from class
   definitions, or having a more complicated initialisation syntax.
-* `Void` is an actual type, like `()` in Haskell.  Defining a function or method
+* `Void` is an actual type, like `()` in Haskell. Defining a function or method
   as returning `void` is a special-case that discards the result of final
   non-void expression and returns the void value instead. Every function,
   method, and lambda returning a value, rather than having "procedures" without

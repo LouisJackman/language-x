@@ -56,7 +56,7 @@ bind final public unlockUnsafePackage Bool = true
 bind final public allowExtern Bool = true
 bind final public compileInAutoTaskYields Bool = true
 
-bind final public extern currentReadtable
+bind final public currentReadtable = extern
 
 class public Void
 /**
@@ -68,9 +68,9 @@ enum public Boolean @derive(Equals, ToString) (
     public True,
     public False,
 ) {
-    fun public extern operator && (other This)
-    fun public extern operator || (other This)
-    fun public extern negate()
+    fun public operator && (other This) extern
+    fun public operator || (other This) extern
+    fun public negate() extern
 }
 
 class public True = Boolean.True
@@ -230,39 +230,39 @@ fun final kernelIf
     ok()
 }
 
-class public extern Invokable[Result, Args..]
+class public Invokable[Result, Args..] extern 
 
 extend class Invokable[Result, Args..] {
 
-    fun public extern operator |> [T](other (Result) T) T
-    fun public extern operator ~ [T](other (Result) T) (Args..) T
+    fun public operator |> [T](other (Result) T) T extern 
+    fun public operator ~ [T](other (Result) T) (Args..) T extern 
 }
 
 interface public Number {
 
     // Natively-defined arithmetic operators.
-    fun public extern operator + (other This) This
-    fun public extern operator - (other This) This
-    fun public extern operator / (other This) This
-    fun public extern operator % (other This) This
-    fun public extern operator * (other This) This
-    fun public extern operator ** (other This) This
+    fun public operator + (other This) This extern 
+    fun public operator - (other This) This extern 
+    fun public operator / (other This) This extern 
+    fun public operator % (other This) This extern 
+    fun public operator * (other This) This extern 
+    fun public operator ** (other This) This extern 
 
     // Natively-defined bitwise operators.
-    fun public extern operator & (other This) This
-    fun public extern operator | (other This) This
-    fun public extern operator ^ (other This) This
+    fun public operator & (other This) This extern 
+    fun public operator | (other This) This extern 
+    fun public operator ^ (other This) This extern 
 
-    fun public extern operator < (other This) This
-    fun public extern operator <= (other This) This
-    fun public extern operator == (other This) This
-    fun public extern operator != (other This) This
-    fun public extern operator > (other This) This
-    fun public extern operator >= (other This) This
+    fun public operator < (other This) This extern 
+    fun public operator <= (other This) This extern 
+    fun public operator == (other This) This extern 
+    fun public operator != (other This) This extern 
+    fun public operator > (other This) This extern 
+    fun public operator >= (other This) This extern 
 
-    fun public extern operator << (other This) This
-    fun public extern operator >> (other This) This
-    fun public extern operator >>> (other This) This
+    fun public operator << (other This) This extern 
+    fun public operator >> (other This) This extern 
+    fun public operator >>> (other This) This extern 
 
     fun public negate
         /**
@@ -316,20 +316,20 @@ fun public extern bitnot[N extends Number](n N) N
 // Built-in types, which look a bit like Java primitives except that they are
 // real OO-style types. These can't be defined in Sylan itself due to their
 // precise definition in raw memory.
-class public extern Int
-class public extern UInt
-class public extern Byte
-class public extern UInt16
-class public extern UInt32
-class public extern UInt64
-class public extern Int8
-class public extern Short
-class public extern Int32
-class public extern Long
-class public extern Float
-class public extern Double
+class public Int extern 
+class public UInt extern 
+class public Byte extern 
+class public UInt16 extern 
+class public UInt32 extern 
+class public UInt64 extern 
+class public Int8 extern 
+class public Short extern 
+class public Int32 extern 
+class public Long extern 
+class public Float extern 
+class public Double extern 
 
-class public extern Usize
+class public Usize extern 
 /**
  * The maximum size of a contiguously allocated slab of memory. This is an
  * important concept in Sylan even outside of unsafe code, e.g. slice indices.
@@ -409,28 +409,28 @@ package unsafe
 {
     // The maximum sizes of an addressable memory location. Not necessarily the
     // same as `Usize` on all architectures.
-    class public extern UPtrInt
-    class public extern PtrInt
+    class public UPtrInt extern 
+    class public PtrInt extern 
 
     final public rawNull UPtrInt = 0u.to[UptrInt]()
 
-    class public extern Offset
+    class public Offset extern 
     /** Double Usize and signed to allow offsetting in both directions. */
 
-    class public extern DirectionalPtr
+    class public DirectionalPtr extern 
     /** Double UPtrUint and signed to allow arithmetic with `Offset`. */
 
     class public RawPtr public (var from raw UPtrInt, var byteCount Usize) {
-        fun public extern init[T, Args..](args Args..)
+        fun public init[T, Args..](args Args..) extern 
 
-        fun public extern realloc
+        fun public realloc
             /** Copy C behaviour: if `null`, allocate freshly. */
-        (newByteCount Usize) This
+        (newByteCount Usize) This extern 
 
-        fun public extern free()
+        fun public free() extern 
 
-        fun public extern load[_ T]() T
-        fun public extern store[_ T](_ T)
+        fun public load[_ T]() T extern 
+        fun public store[_ T](_ T) extern 
 
         fun public offset(byBytes n Offset) This {
             var newRaw = (raw.to[DirectionalPtr] + n.to[DirectionalPtr]()).to[UPtrInt]
@@ -495,8 +495,8 @@ package unsafe
 
         fun public free = raw.free
 
-        fun public extern load() Item { raw.load[Item]() }
-        fun public extern store(item Item) { raw.store[Item](item)}
+        fun public load() Item extern { raw.load[Item]() }
+        fun public store(item Item) extern { raw.store[Item](item)}
 
         fun public offset(byItems n Offset) This {
             This(from: raw.offset(sizeInBytes[of: Item] * n))
@@ -569,8 +569,8 @@ package unsafe
         package public atomic {
             
             class public AtomicallyMutable[_ Item extends AtomicMachineType](var _ item Item) {
-                fun public extern load() Item
-                fun public extern store(_ item Item)
+                fun public load() Item extern 
+                fun public store(_ item Item) extern 
             }
         }
     }
@@ -1045,7 +1045,7 @@ class public AsymmetricPipeline[from Source, to Destination](
 
 class public Task(var running task ()) {
 
-    fun public extern start()
+    fun public start() extern 
 }
 
 fun public spawn(running task ()) Task {
@@ -1054,16 +1054,16 @@ fun public spawn(running task ()) Task {
     t
 }
 
-fun public extern currentTask Task
+fun public currentTask Task extern 
 
-fun public extern send[Item] Throws (_ item Item, to task Task)
+fun public send[Item](_ item Item, to task Task) Throws extern 
 
 fun public sendAndWait[sending Item, waitingFor Delivery: Item](
     sending item Item,
     to task Task
 ) Throws[otherwise: Delivery] {
     send(item, to: task)
-        .map(-> _ { select Item })
+        .map(-> Void { select Item })
 }
 
 class AssertionError implements Exception {
@@ -1097,7 +1097,7 @@ fun public final assert
     write(ast)
 }
 
-fun public extern print(_ message String)
+fun public print(_ message String) extern 
 
 fun public println(_ message String) {
     print(message)

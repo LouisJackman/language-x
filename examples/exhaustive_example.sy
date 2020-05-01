@@ -826,9 +826,9 @@ fun final repeat(times Uint, syntax pipeline AstPipeline) Throws {
     }
 }
 
-fun extern json(syntax pipeline AsymmetricPipeline[from: Token, to: Ast]) Throws
+fun json(syntax pipeline AsymmetricPipeline[from: Token, to: Ast]) Throws extern
 
-fun extern embeddedLanguage(syntax pipeline Pipeline[of: Token]) Throws
+fun embeddedLanguage(syntax pipeline Pipeline[of: Token]) Throws extern
 
 fun testCompileTime() {
     compileTimeAdd(40, 2) |> println
