@@ -460,27 +460,6 @@ pub struct Binding {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Final {
-    /// This is gaping escape hatch from Sylan's immutable worldview. If a extern
-    /// final value points to a memory location in another artefact, like a C
-    /// dynamic library, it can actually mutate the variable underneath Sylan.
-    ///
-    /// It might be helpful to think of `final` as "final from Sylan's
-    /// perspective", not "won't ever change".
-    ///
-    /// If something else is going to modify it underneath Sylan, the field
-    /// should be declared as `volatile`.
-    ///
-    /// Modifying such values, like modifying any memory location directly in
-    /// Sylan, will require unsafe FFI APIs.
-    ///
-    /// This pollution of Sylan's immutable world view cascades downwards; any
-    /// function relying on its value can no longer assume the same output even
-    /// without `select` and with consistent inputs, so such optimisations also
-    /// are discarded. This pollution also applies to function calling extern
-    /// functions, using select, or using other functions that have these same
-    /// traits.
-    pub is_extern: bool,
-
     pub accessibility: Accessibility,
     pub binding: Binding,
     pub sydoc: Option<SyDoc>,

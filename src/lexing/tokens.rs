@@ -60,15 +60,6 @@ pub enum Modifier {
     Ignorable,
     Operator,
     Override,
-
-    /// Only used by extern final and var bindings, to notify Sylan that it
-    /// should wrap access in a multi-thread memory fence. It provides no
-    /// guarantees about how modifications and reads to the item are
-    /// interleaved.
-    ///
-    /// This should only be used for FFI; a proper Sylan wrapper should be
-    /// provided that abstracts away such details.
-    Volatile,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
