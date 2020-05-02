@@ -26,3 +26,7 @@
 * Non-destructive updates by prefixing objects with a `..` and then invoking
   them like a class constructor. Missing fields get filled in from the old
   object.
+* Prefixing an enum variant with `ignorable` allows pattern matching to skip it,
+  at the cost of throwing runtime errors if calling code doesn't handle them.
+  This is a slight tradeoff of robustness for improved backwards compatibility
+  when adding new variants to enums.
