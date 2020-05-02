@@ -7,8 +7,8 @@ runtime. The IL pushes or pops values off an implicit stack, or
 manipulates tasks. Each function has its own stack (although most
 implementations will likely use a single stack for multiple functions in a
 single task in their implementation). Parameters are on the stack when a
-function starts, and the function must end with zero or one elements left on the
-stack depending on whether it declares a return value. All code is in a
+function starts, and the function must end with zero or multiple elements left
+on the stack depending on whether it declares a return value. All code is in a
 function.
 
 Arrays and indices arguments to task-related IL instructions _copy_ the array;
@@ -16,6 +16,8 @@ arrays never leak from tasks. Therefore, tasks never share memory
 _conceptually_. When it says _send_, it always means _copy across_.
 
 Arrays can store numeric data, functions, or tasks, but they cannot be mixed.
+Being able to return multiple values, including multiple array types, is how
+Sylan can return data that "mixes" numeric data, tasks, and functions.
 
 Sylan IL platforms must not allow data from non-numeric arrays to be treated
 like numeric data; if a process can bruteforce a numeric range until it finds a
