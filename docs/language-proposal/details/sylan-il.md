@@ -8,7 +8,7 @@ manipulates tasks. Each function has its own stack (although most
 implementations will likely use a single stack for multiple functions in a
 single task in their implementation). Parameters are on the stack when a
 function starts, and the function must end with zero or multiple elements left
-on the stack depending on whether it declares a return value. All code is in a
+on the stack depending on whether it declares return values. All code is in a
 function.
 
 Arrays and indices arguments to task-related IL instructions _copy_ the array;
@@ -29,30 +29,35 @@ Sylan IL has these data types, split into three categories plus indices. Indices
 are the only type with an undefined size, taking the size of a target platform's
 default memory index type.
 
--   Index
+Assume for the rest of this document that all types are `Type`, that `Int32` to
+`Int64` are `Int`, `Float` and `Double` are `Floating`, `Int32` to `Double` are
+`Numeric`, `Array` are all array types, and `MutableInitializerArray` are all
+mutable initializer array types.
+
+* Index
 
 ### Numeric
 
--   Int32
--   Int64
--   UInt32
--   UInt64
--   Float
--   Double
--   NumericArray
--   InitializerMutableNumericArray
+* Int32
+* Int64
+* UInt32
+* UInt64
+* Float
+* Double
+* [Numeric]Array
+* InitializerMutable[Numeric]Array
 
 ### Functions
 
--   Fun
--   FunArray
--   InitializerMutableFunArray
+* Fun
+* FunArray
+* InitializerMutableFunArray
 
 ### Tasks
 
--   Task
--   TaskArray
--   InitializerMutableTaskArray
+* Task
+* TaskArray
+* InitializerMutableTaskArray
 
 Items appear on the stack as the function parameter list defines. For example,
 a function `fun f(Double, Float, Task, Int32)` already has a stack in that
@@ -96,17 +101,16 @@ to even bother putting in on the heap.
 If you know WebAssembly, skip the numeric, bitwise, and comparison sections,
 which were basically taken from WebAssembly unaltered.
 
-Assume that all types above are `Type`, that `Int32` to `Int64` are `Int`,
-`Float` and `Double` are `Floating`, `Int32` to `Double` are `Numeric`, `Array`
-are all array types, and `ZeroedArray` are all zeroed array types. The
-Sylan-like syntax below represents the stack before and after invocation. The
-IL instruction set is as follows.
+The Sylan-like syntax below represents the stack before and after
+invocation. The IL instruction set is as follows.
 
 ### Structure
 
+```
 mod $mod-name
 pkg $pkg-name
-fun \$fun-name(Type...) Type
+fun $fun-name(Type...) Type
+```
 
 ### Control Flow
 
@@ -186,7 +190,9 @@ brif     = (Int                      )
 
 ### Stack Manipulation
 
+```
 [Type].peek = (Offset) Type
+```
 
 ### Task-local Storage
 
@@ -224,9 +230,8 @@ processes and green-threading might.
 All intrinsics implemented by a platform have a direct connection to an omitted
 Sylan IL instruction, except one: how to get the extern task. On start up Sylan
 sends the extern task reference to the main task, the sole starting item in its
-inbox. If the main task wants to give more powers to subtasks, it must pass the
-that value as a message to a subtask, which presumably will set that same
-dynamically-scoped variable to the value.
+inbox. If the main task wants to give more powers to subtasks, it must forward
+that task to its child tasks as a message.
 
 The `extern` task is defined by the runtime. This task handles all interaction
 with the outside world. Sylan reserves messages whose allocated message leads
