@@ -1,0 +1,58 @@
+/**
+ * This file is not loaded. These items are not evaluated; they are placeholders
+ * for _language intrinsics_ which are defined directly by Sylan.
+ *
+ * Some intrinsics 
+ */
+
+class IntrinsicPlaceholderUsed implements Exception { }
+
+fun public spawn(_ ()) Task {
+    throw IntrinsicPlaceholderUsed()
+}
+
+var fun public self Task {
+    throw IntrinsicPlaceholderUsed()
+}
+
+fun public send[Item](_ item Item, to task Task) Throws extern {
+    throw IntrinsicPlaceholderUsed()
+}
+
+class public Task {
+
+    {
+        throw IntrinsicPlaceholderUsed()
+    }
+
+    fun public kill() {
+        throw IntrinsicPlaceholderUsed()
+    }
+}
+
+interface public AbstractVector {
+    fun public operator [||] (index Usize) Optional[of: Item]
+}
+
+class internal IntrinsicVector implements AbstractVector {
+    /**
+     * The only way to create homogenous, variably-sized collections in safe
+     * Sylan, and a building block for other collection types.
+     *
+     * Vectors, unlike lists, are eagerly evaluated. AbstractVectors are the
+     * type of variadics, the concrete implementation being this class to avoid
+     * `Vector` using itself to define its own variadic constructor.
+     *
+     * Variadics are the only way to construct this type, preferably via
+     * `sylan.lang.Vector`.
+     */
+[of Item] {
+
+    {
+        throw IntrinsicPlaceholderUsed()
+    }
+    
+    fun public override operator [||] (index Usize) Optional[of: Item] {
+        throw IntrinsicPlaceholderUsed()
+    }
+}
