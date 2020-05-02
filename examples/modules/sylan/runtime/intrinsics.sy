@@ -5,6 +5,10 @@
  * Some intrinsics 
  */
 
+//
+// Sylan IL Intrinsics
+//
+
 class IntrinsicPlaceholderUsed implements Exception { }
 
 fun public spawn(_ ()) Task {
@@ -29,6 +33,10 @@ class public Task {
         throw IntrinsicPlaceholderUsed()
     }
 }
+
+//
+// Intrinsics Outside of Sylan IL
+//
 
 interface public AbstractVector {
     fun public operator [||] (index Usize) Optional[of: Item]

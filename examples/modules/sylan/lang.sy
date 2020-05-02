@@ -167,7 +167,9 @@ fun public final if
     ok()
 }
 
-readtable "if" readIf
+// Wire the characters "if" to the current read table for the rest of the
+read > if readIf
+read <
 
 fun final kernelIf
     /**
@@ -852,7 +854,7 @@ fun public spawnTrusted
     var AmbientAuthority(externTask) as auth = select AmbientAuthority {
         _ { it }
         timeout 0.seconds {
-            throw NoAuthorityToPropagate()
+            throw NoAmbientAuthority()
         }
     }
 
