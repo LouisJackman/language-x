@@ -31,9 +31,7 @@ executables with no required external runtimes.
 ```sylan
 #!/usr/bin/env sylan
 
-fun fizzBuzz
-    /** The (In)famous FizzBuzz */
-(n Int) Int {
+fun fizzBuzz(n Int) Int {
     1.up(to: n).each -> {
         switch {
             0 == (it % 15) { "FizzBuzz" }
@@ -44,9 +42,7 @@ fun fizzBuzz
     }
 }
 
-enum List
-    /** Data Structures & Pattern Matching */
-[Element](
+enum List[Element](
     Node(element Element, next This),
     Nil,
 ) {
@@ -58,9 +54,8 @@ enum List
     }
 }
 
-// Erlang-style Concurrency & Nested Packages
-
 package counter {
+
     enum public Message(public Increment, public Get)
 
     fun public start(task Task, n Int: 0) {
@@ -79,27 +74,23 @@ package counter {
     }
 }
 
-var c = do -> {
-    var parent = currentTask
-    spawn -> { counter.start(task: parent) }
+do -> {
+    var parent = self
+    var c = spawn -> { counter.start(task: parent) }
+    5.times -> { send(counter.Message.Increment, to: c) }
+    sendAndWait(counter.Message.Get, to: c) |> println
 }
-5.times -> { send(counter.Message.Increment, to: c) }
-send(counter.Message.Get, to: c)
-select Int |> println
 
-class Name
-    /** Annotated Data Definitions with Keyword & Default Arguments */
-    @derive(Equals)
-(
+class Name @derive(Equals) (
     var public first String: "James",
     var public last String: "Bond",
 ) implements ToString {
-    fun public override toString String {
+
+    fun public toString String {
         $tainted"The name is {lastName}, {firstName} {lastName}."
     }
 }
 
-// Compile-time Programming & Macros (Reader Macros too; see Documentation)
 fun final repeat(times Usize, syntax pipeline AstPipeline) Throws {
     with {
         1.up(to: times)
@@ -109,9 +100,7 @@ fun final repeat(times Usize, syntax pipeline AstPipeline) Throws {
     }
 }
 
-fun demoContexts
-    /** One for the Haskell Fans: Applicative Notation */
-Optional[Int] {
+fun demoContexts() Optional[Int] {
     with {
         var x = Optional(of: 5)?
         Empty?
