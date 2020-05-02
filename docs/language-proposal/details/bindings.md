@@ -7,11 +7,11 @@
 * Methods are namespaced to their types, although just deeper in the namespacing
   hierarchy rather than in a completely different standalone global namespace.
 * Shadowing is not allowed in the same block except for pseudoidentifiers, which
-  use keyphrases. Shadowing is allowed between packages and their subpackages
-  and classes in the same file though; a particular example is methods being
-  able to shadow package-wide functions of the same name. Explicitly specifying
-  the package lets subpackages and classes disambiguate which identifier they
-  mean, which the `this.package` pseudoidentifier can help with.
+  use keyphrases. Shadowing is allowed between different blocks; a particular
+  example is methods being able to shadow package-wide functions of the same
+  name. Explicitly specifying the package lets subpackages and classes
+  disambiguate which identifier they mean, which the `this.package`
+  pseudoidentifier can help with.
 * There are nine psuedoidentifiers: `...`, `_`, `continue`, `it`, `this`, `This`
   `this.module`, `this.package`, and `super`. `continue` and `it` are _almost_
   dynamically scoped, changing implicitly throughout scopes based on the
