@@ -288,13 +288,13 @@ fun demoIteration
 
     do -> {
 
-        // `using` invokes an expressions AutoClose method at the end of the
+        // `use` invokes an expressions AutoClose method at the end of the
         // current block, even if the program dies due to an exception (which
         // are seen as truly exceptional in Sylan and thus cannot be caught).
         //
         // In this context, "closing" a task kills it, which, unlike Java
         // threads, is safe.
-        var counterService = using spawn -> {
+        var counterService = use spawn -> {
             for var n = 0 {
                 var sender = select Task {
                     x { x }
@@ -991,11 +991,11 @@ fun demoAutoCloseables() {
      *
      * However, there still needs to be a strategy regarding closing resources
      * in tasks that have had unexpected failures. Sylan offers `AutoClosable`
-     * types and the `using` keyword for this, which are a sort of middle ground
+     * types and the `use` keyword for this, which are a sort of middle ground
      * between C#'s `IDisposable` and its `using` keyword, and Go's `defer`
      * keyword.
      *
-     * If an `AutoCloseable` type is prefixed with the `using` keyword, its
+     * If an `AutoCloseable` type is prefixed with the `use` keyword, its
      * `close` method is invoked at the end of the scope _even if the
      * code in the scope completely fails unexpectedly_. The closing is done in
      * the reverse order that they are set up. If any `defer`d `close` methods
@@ -1009,7 +1009,7 @@ fun demoAutoCloseables() {
 
     println("Entering scope")
     do -> {
-        var closeable = using AutoCloseableDemo
+        var closeable = use AutoCloseableDemo
         println("Using closeable")
     }
     println("Leaving scope")
