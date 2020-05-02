@@ -1,4 +1,4 @@
-package sylan.lang
+package
 /**
  * This is the proposed prelude file, which serves as an example of what Sylan
  * should look like and also shows what utilities are available everywhere.
@@ -24,40 +24,6 @@ package sylan.lang
     this.package.unsafe.atomic.mutable as atomicMutable,
 )
 
-//
-// Dynamically-scoped variables can be used too, but can only be defined in the
-// top-level of packages.
-//
-// Dynamically-scoped variables can either be runtime or compile-time.
-// Compile-time variables can be used for macro features like controlling the
-// current readtable.
-//
-// They are bound to tasks; a task inherits a dynamically bound value from its
-// parent upon creation, but then owns its own version of it. Changes to the
-// original are no longer reflected in that task.
-//
-// A variable can be rebound by an outside package if made public. To do so,
-// the outside package must declare which variables they intend to rebind, and
-// any module requiring their module must explicitly opt in to every rebind.
-// This mean a developer can easily ascertain that a package is not utilising
-// unsafe code or unexpectedly disabling features important for correctness such
-// as automatic yielding in tasks.
-//
-
-// Publicly bind these, but set safe defaults when finishing with this package to
-// ensure they are false for importers by default, requiring a _whitelisted
-// rebind_ to get these risky capabilities for themselves.
-bind var public suggestGarbageCollectionToAllocator Bool = true
-bind var public allocater memoryRuntime.AllocatorBool = memoryRuntime.DefaultAllocator
-bind var public autoYieldTasks Bool = true
-bind var public checkNumericOverflow Bool = true
-bind var public checkVectorBounds Bool = true
-bind final public unlockUnsafePackage Bool = true
-bind final public allowExtern Bool = true
-bind final public compileInAutoTaskYields Bool = true
-
-bind final public currentReadtable = extern
-
 class public Void
 /**
  * The unit-type, a.k.a. `void`. It can be instantiated, but contains
@@ -78,6 +44,13 @@ class public False = Boolean.False
 
 fun public not(_ b Boolean) Boolean {
     b.negate
+}
+
+class ValueMissing implements Exception {
+
+    var fun public override message String {
+        "value missing"
+    }
 }
 
 enum public Optional[of Value](
@@ -127,6 +100,10 @@ enum public Optional[of Value](
 
     fun public or(_ alternative Value) Value {
         orElse(-> { alternative })
+    }
+
+    fun public orElseThrow() Value {
+        orElse(-> { throw valueMissing() })
     }
 }
 
@@ -190,9 +167,7 @@ fun public final if
     ok()
 }
 
-bind currentReadtable = currentReadtable.dispatchingOnChars(List('i', 'f'), readIf)
-// Or just the `use` reader macro: `use("if", readIf)`
-// Obviously the `use` macro itself can therefore not be initialised with `use`...
+readtable "if" readIf
 
 fun final kernelIf
     /**
@@ -371,250 +346,59 @@ class public Ref
      * always update the _entire_ value in one go, not just _part_ of its memory
      * content.
      */
-[to value Value] public (to value Value) {
-    enum Msg(
-        Get(dest Task: currentTask),
-        Set(to newValue Value)
-    )
+[to value Value] public (to value Value) implements AutoClosable {
 
-    fun public get() Value            { sendAndWait(Msg.Get, to: task) }
-    fun public set(to newValue Value) { send(Msg.Set(to: newValue), to: task) }
+    class Alter = (_ Value) Value
+    enum Msg(Alter(with alter Alter, parent Task), Stop)
+
+    fun public sealOff() { send(.Stop, to: task) }
+    fun public override close = sealOff
+
+    fun public alter(with alter Alter) Value {
+        sendAndWait(.AlterMsg(alter, self), to: task)
+    }
+
+    var fun public value Value                 { alter(id) }
+    fun public swap(with newValue Value) Value { alter(-> _ { newValue }) }
+    fun public set(to newValue Value)          { swap(with: newValue) |> ignore }
 
     var task = spawn -> {
         for var state = value {
             select Msg {
-                Set(newValue) { continue(newValue) }
-                Get(dest) {
-                    send(state, to: dest)
-                    continue(value)
+                .Alter(alter, parent) {
+                    var Msg(alter, parent) = select Msg
+                    send(state, to: parent)
+                    continue(newState)
                 }
+                .Stop { }
             }
         }
     }
 }
 
-//
-// `AtomicallyMutable` used in `unsafe` is for performance sensitive areas where
-// you don't mind dealing with low-level concurrency issues like atomicity,
-// memory fences, etc. Unsafe Sylan code uses it, but most of the time, for safe
-// code, the basic `Ref` above is all you need.
-//
-
-package unsafe
-    /**
-     * Placeholder definitions for now, to understand what needs to be exposed
-     * to implement as much in Sylan as possible, such as `Vector` and garbage
-     * collection.
-     */
-{
-    // The maximum sizes of an addressable memory location. Not necessarily the
-    // same as `Usize` on all architectures.
-    class public UPtrInt extern 
-    class public PtrInt extern 
-
-    final public rawNull UPtrInt = 0u.to[UptrInt]()
-
-    class public Offset extern 
-    /** Double Usize and signed to allow offsetting in both directions. */
-
-    class public DirectionalPtr extern 
-    /** Double UPtrUint and signed to allow arithmetic with `Offset`. */
-
-    class public RawPtr public (var from raw UPtrInt, var byteCount Usize) {
-        fun public init[T, Args..](args Args..) extern 
-
-        fun public realloc
-            /** Copy C behaviour: if `null`, allocate freshly. */
-        (newByteCount Usize) This extern 
-
-        fun public free() extern 
-
-        fun public load[_ T]() T extern 
-        fun public store[_ T](_ T) extern 
-
-        fun public offset(byBytes n Offset) This {
-            var newRaw = (raw.to[DirectionalPtr] + n.to[DirectionalPtr]()).to[UPtrInt]
-            This(from: newRaw)
-        }
-    }
-
-    fun public extern rawAlloc
-        /**
-         * **Warning:** A `rawAlloc` followed by a `init` on a different OS thread
-         * will lead to a lack of "publishing safety". The current task must be
-         * pinned to the OS thread and must not allow the `RawPtr` to escape until
-         * initialised with `init`.
-         *
-         * Alternatively, the task can avoid being pinned to the thread if the user
-         * ensures no task yields happen between `alloc` and `init`.
-         *
-         * Lacking publishing safety means a read between `alloc` and `init` will
-         * read uninitialised memory. Furthermore, leaking the pointer across task
-         * threads could lead to uninitialised memory reads even after `init` has
-         * run unless combined with a memory fence.
-         */
-    (byteCount Usize) RawPtr
-
-    fun public extern final sizeInBytes[of T]() Usize
-
-    var public nullPtr = RawPtr(from: 0, byteCount: 0)
-
-    class public Ptr
-        /**
-         * Proposed usage style is like a mix of C and old-school Objective-C:
-         *
-         * ```
-         * var item = alloc[Type]()
-         * item.init(field1, field2)
-         * free(item)
-         * ```
-         *
-         * `AutoClosable` is implemented to make deallocating memory harder to
-         * forget:
-         *
-         * ```
-         * var item = using alloc[Type]()
-         * item.init(field1, field2)
-         * ``
-         *
-         * Use `new` to combine alloc and init in one step:
-         *
-         * ```
-         * var item = using new[Type](field1, field2)
-         * ```
-         */
-    [to: Item] public (var public from raw RawPtr) implements AutoClosable {
-
-        fun public override close = delete
-
-        fun public init = raw.init
-
-        fun public realloc(newItemSize n Usize) This {
-            raw.realloc(newByteSize: sizeInBytes[of: Item] * n)
-        }
-
-        fun public free = raw.free
-
-        fun public load() Item extern { raw.load[Item]() }
-        fun public store(item Item) extern { raw.store[Item](item)}
-
-        fun public offset(byItems n Offset) This {
-            This(from: raw.offset(sizeInBytes[of: Item] * n))
-        }
-
-        fun public incByItem() This {
-            offset(byItems: 1.to[Offset]())
-        }
-
-        fun public decByItem() This {
-            offset(byItems: -1.to[Offset]())
-        }
-    }
-
-    fun public null[_ Item]() Ptr {
-        Ptr[to: Item](from: nullPtr)
-    }
-
-    fun public alloc
-        /**
-         * **Warning:** An `alloc` followed by a `init` on a different OS
-         * thread will lead to a lack of "publishing safety". The current task
-         * must be pinned to the OS thread and must not allow the `Ptr` to
-         * escape until initialised with `init`.
-         *
-         * Alternatively, the task can avoid being pinned to the thread if the
-         * user ensures no task yields happen between `alloc` and `init`.
-         *
-         * Lacking publishing safety means a read between `alloc` and `init`
-         * will read uninitialised memory. Furthermore, leaking the pointer
-         * across task threads could lead to uninitialised memory reads even
-         * after `init` has run unless combined with a memory fence.
-         */
-    [_ Item](itemCount Usize: 1) Ptr[to: Item] {
-        alloc(byteCount: n * sizeInBytes[of: Item])
-    }
-
-    fun public new
-       /**
-         * Covers `new` from C++. There is no `delete` equivalent, only the
-         * `free` method. As the naming indicates, there are no destructors in
-         * Sylan.
-         */
-    [_ Item, with Arg..](initialisers Arg..) Ptr[to: Item] {
-        var ptr = alloc(itemCount)
-        ptr.init()
-        ptr
-    }
-
-    fun public newContiguous
-        /**
-         * Covers `new[]` from C++. There is no `delete[]` equivalent, only the
-         * `free` method. As the naming indicates, there are no destructors in
-         * Sylan.
-         */
-    [of Item, with Arg..](itemCount Usize, initialisers Arg..) Ptr[to: Item] {
-        var ptr = alloc(itemCount)
-
-        for var i = 0, offsetPtr = ptr {
-            if i == itemCount {
-                ptr
-            } else {
-                offsetPtr.init(initialisers..)
-                continue(i + 1, offsetPtr.incByItem())
-            }
-        }
-    }
-
-    package public mutation {
-        package public atomic {
-            
-            class public AtomicallyMutable[_ Item extends AtomicMachineType](var _ item Item) {
-                fun public load() Item extern 
-                fun public store(_ item Item) extern 
-            }
-        }
-    }
+interface ForEach[_ Value] {
+    fun each(_ (Value))
 }
 
-class AtomicallyMutable = atomicMutable.AtomicallyMutable
+class public Vector[of Item](of items Item..) implements AbstractVector, ForEach {
 
-class public Vector
-    /**
-     * The only way to create homogenous, variably-sized collections in safe
-     * Sylan, and a building block for other collection types.
-     *
-     * Vectors, unlike lists, are eagerly evaluated. They also are the types of
-     * variadics.
-     */
-[of Item] public (of items Item..) {
+    // This works because variadics use a concrete implementation of
+    // `AbstractVector`, `IntrinsicVector`, to instantiate themselves directly
+    // as an intrinsic.
+    var raw AbstractVector = items
+    
+    fun public operator [||] = raw.operator [||]
 
-    {
-        items.each(push)
-    }
-
-    var ptr AtomicallyMutable[unsafe.Ptr[to: Item]] = AtomicallyMutable[unsafe.null[Item]()]
-    var size AtomicallyMutable[Usize] = AtomicallyMutable(0)
-
-    fun public operator [||] (index Usize) Optional[of: Item] {
-        if size < index {
-            Empty
-        } else {
-            var item = ptr.load().offset(byItems: index).load()
-            Optional(of: item)
+    fun public override each(_ f (Value)) {
+        var size = size.value
+        
+        for var i = 0 {
+            var value = this[|i|].orElseThrow()
+            f(value)
+            if (i + 1) < size {
+                continue(i + 1)
+            }
         }
-    }
-
-    fun push
-        /**
-         * Do not publish with `public`. It's not thread safe when combined with
-         * operator `[||]`.
-         */
-    (_ item Item) {
-        var newSize = size.load() + 1
-        var reallocated = ptr.load().realloc(byItems: newSize)
-        var storeOffset = reallocated.offset(byItems: newSize - 1)
-        storeOffset.store(item)
-        ptr.store(reallocated)
     }
 }
 
@@ -1048,15 +832,48 @@ class public Task(var running task ()) {
     fun public start() extern 
 }
 
-fun public spawn(running task ()) Task {
-    var t = Task(running: task)
-    t.start()
-    t
+class public NoAmbientAuthority implements Exception {
+
+    var fun public override toString {
+        "this task has no ambient authority"
+    }
 }
 
-fun public currentTask Task extern 
+class public AmbientAuthority(var from externTask Task)
 
-fun public send[Item](_ item Item, to task Task) Throws extern 
+fun public spawnTrusted
+    /**
+     * Spawn, trusting the subprocess with implicit access to the outwide world.
+     *
+     * For untrusted processes, use `spawn`.
+     */
+(running run ()) Task {
+
+    var AmbientAuthority(externTask) as auth = select AmbientAuthority {
+        _ { it }
+        timeout 0.seconds {
+            throw NoAuthorityToPropagate()
+        }
+    }
+
+    // Refresh inbox in case `spawnTrusted` needs to be run again. Drop it with
+    // `dropAmbientAuthority` if not.
+    send(auth, to: self)
+
+    spawn(() -> {
+        send(auth, to: self)
+        run()
+    })
+}
+
+fun public dropAmbientAuthority() {
+    for {
+        select AmbientAuthority {
+            _                 { continue() }
+            timeout 0.seconds { }
+        }
+    }
+}
 
 fun public sendAndWait[sending Item, waitingFor Delivery: Item](
     sending item Item,

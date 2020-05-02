@@ -82,8 +82,6 @@ pub enum ModuleDefinitions {
 pub enum Binding {
     As,
     Assign,
-    DynamicBind,
-    DynamicUnbind,
     Final,
     Var,
 }
@@ -94,6 +92,7 @@ pub enum Macros {
     Quote,
     Unquote,
     Syntax,
+    Read,
 }
 
 /// All tokens that can currently exist in all version of a Sylan program source.
@@ -135,7 +134,7 @@ pub enum Token {
     SubItemSeparator,
     Throw,
     Timeout,
-    Using,
+    Use,
 
     /// Does nothing but reserve keywords for future use.
     ReservedKeyword,

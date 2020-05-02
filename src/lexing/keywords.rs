@@ -35,7 +35,6 @@ pub fn new() -> HashMap<&'static str, Token> {
         // Used
         //
         ("as", Token::Binding(Binding::As)),
-        ("bind", Token::Binding(Binding::DynamicBind)),
         ("class", Token::DeclarationHead(DeclarationHead::Class)),
         (
             "else",
@@ -77,6 +76,7 @@ pub fn new() -> HashMap<&'static str, Token> {
             Token::Modifier(Modifier::Accessibility(Accessibility::Public)),
         ),
         ("quote", Token::Macros(Macros::Quote)),
+        ("read", Token::Macros(Macros::Read)),
         (
             "reject",
             Token::ModuleDefinitions(ModuleDefinitions::Reject),
@@ -96,9 +96,8 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("syntax", Token::Macros(Macros::Syntax)),
         ("throw", Token::Throw),
         ("timeout", Token::Timeout),
-        ("unbind", Token::Binding(Binding::DynamicUnbind)),
         ("unquote", Token::Macros(Macros::Unquote)),
-        ("using", Token::Using),
+        ("use", Token::Use),
         ("var", Token::Binding(Binding::Var)),
         ("with", Token::With),
         (
@@ -115,6 +114,7 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("alignto", Token::ReservedKeyword),
         ("arena", Token::ReservedKeyword),
         ("atom", Token::ReservedKeyword),
+        ("bind", Token::ReservedKeyword),
         ("blittable", Token::ReservedKeyword),
         ("case", Token::ReservedKeyword),
         ("catch", Token::ReservedKeyword),
@@ -158,7 +158,6 @@ pub fn new() -> HashMap<&'static str, Token> {
         ("pure", Token::ReservedKeyword),
         ("quasiquote", Token::ReservedKeyword),
         ("raw", Token::ReservedKeyword),
-        ("read", Token::ReservedKeyword),
         ("reader", Token::ReservedKeyword),
         ("ref", Token::ReservedKeyword),
         ("restrict", Token::ReservedKeyword),
