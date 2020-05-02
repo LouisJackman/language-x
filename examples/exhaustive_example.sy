@@ -42,12 +42,13 @@
 // whole-file macros to apply to both imported files and ones started from the
 // shell.
 
-package main
+package
     /*
-     * If no package is specified, "main" is assumed. A `module-info.sy` file is
-     * not required for the top level program as there is an inferred `main`
-     * module that contains top-level programs. If a main package must import
-     * items, it needs to spell out `package main` anyway.
+     * Package names are derived from the file name. As nested packages don't
+     * have their own file, they must have a name. A package invoked directly
+     * is the _main package_, regardless of whether it's named "main" or not. A
+     * `module-info.sy` file is not required for the top level program as there
+     * is an inferred main module that contains top-level programs.
      *  
      * Unlike many other languages, import is not just name shortening; if
      * something is not imported, it can't be used in a package. Furthermore,
@@ -309,7 +310,7 @@ fun demoIteration
         }
 
         5.times -> {
-            send(currentTask, to: counterService)
+            send(self, to: counterService)
         }
 
         // `while var`, like `if var`, can handle multiple refutable patterns
@@ -1053,7 +1054,7 @@ if var Optional(of: s) = optionalString {
 }
 
 var c = do -> {
-    var parent = currentTask
+    var parent = self
     spawn -> {
         counter.start(task: parent)
     }
