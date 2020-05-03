@@ -25,16 +25,12 @@ valid task reference, Sylan's capability-based security goes out of the window.
 
 ## Data Types
 
-Sylan IL has these data types, split into three categories plus indices. Indices
-are the only type with an undefined size, taking the size of a target platform's
-default memory index type.
+Sylan IL has these data types, split into three categories.
 
 Assume for the rest of this document that all types are `Type`, that `Int32` to
-`Int64` are `Int`, `Float` and `Double` are `Floating`, `Int32` to `Double` are
-`Numeric`, `Array` are all array types, and `MutableInitializerArray` are all
-mutable initializer array types.
-
-* Index
+`Int64` are `Int`, that `Float` and `Double` are `Floating`, that `Int32` to
+`Double` are `Numeric`, `Array` are all array types, and
+`MutableInitializerArray` are all mutable initializer array types.
 
 ### Numeric
 
@@ -65,6 +61,8 @@ order when the function starts, with an `Int32` being on the top of the stack.
 Therefore, starting that function with an operation that does not take an Int32
 will cause a validation error. Swapping parameters around for the right
 operation can be done with `peek`.
+
+Any indexing or offsetting is done with `Int64` types.
 
 The types can not be mixed in IL, otherwise a validation error occurs. A
 function or task reference are opaque and cannot, say, be incremented.
@@ -197,21 +195,21 @@ brif     = (Int                      )
 ### Task-local Storage
 
 ```
-[Type].init  = (Offset, $fun-name, ...) Array
-[Array].load = (Array, Offset         ) Type
+[Type].init  = (Int64, $fun-name, ...) Array
+[Array].load = (Array, Int64         ) Type
 
-[InitializerArray].load.[Type]  = (ZereodArray, Offset      ) Type
-[InitializerArray].store.[Type] = (ZereodArray, Offset, Type)
+[InitializerArray].load.[Type]  = (ZereodArray, Int64      ) Type
+[InitializerArray].store.[Type] = (ZereodArray, Int64, Type)
 ```
 
 ### Tasks
 
 ```
-spawn   = (Fun                                    ) Task
-current = (                                       ) Task
-send    = (Task, Memory, Offset, TaskTable, Offset)
-receive = (Memory, Offset, UInt64                 )
-kill    = (Task                                   )
+spawn   = (Fun                                      ) Task
+current = (                                         ) Task
+send    = (Task, Int64, ...                         )
+receive = (NumericArray, TaskArray, FunArray, UInt64)
+kill    = (Task                                     )
 ```
 
 ## Behaviour
