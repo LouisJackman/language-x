@@ -359,6 +359,8 @@ fun final match[Item](_ item Item, syntax against pipeline AstPipline) Throws {
     pipeline.write(ast)
 }
 
+enum RefMsg(Alter(with alter RefAlter, parent Task), Stop)
+
 class public Ref
     /**
      * Sylan is an immutable language; data can't be modified. It's not _fully_
@@ -375,14 +377,13 @@ class public Ref
      */
 [to value Value] public (to value Value) implements AutoClosable {
 
-    class Alter = (_ Value) Value
-    enum Msg(Alter(with alter Alter, parent Task), Stop)
+    class RefAlter = (_ Value) Value
 
     fun public sealOff() { send(.Stop, to: task) }
     fun public override close = sealOff
 
-    fun public alter(with alter Alter) Value {
-        sendAndWait(.AlterMsg(alter, self), to: task)
+    fun public alter(with alter RefAlter) Value {
+        sendAndWait(.RefMsg(alter, self), to: task)
     }
 
     var fun public value Value                 { alter(id) }
@@ -391,7 +392,7 @@ class public Ref
 
     var task = spawn -> {
         for var state = value {
-            select Msg {
+            select RefMsg {
                 .Alter(alter, parent) {
                     var Msg(alter, parent) = select Msg
                     send(state, to: parent)

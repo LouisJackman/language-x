@@ -60,7 +60,8 @@ package
      *
      * Importing is solely for giving access to within the package. Imports are
      * _not_ implicitly loaded into the public-facing surface of the package
-     * itself.
+     * itself. Imports never become part of a package's API surface unless they
+     * made `public` via a wrapper item or a published alias with `public.
      *
      * Like Go, Sylan also bans recursive package imports.
      *
@@ -607,8 +608,8 @@ class Account
     /** 
      * Classes can implement interfaces but cannot extend other classes.
      * Interfaces can extend other interfaces though. Concrete inheritance
-     * generally causes more problems that it's worth and type embedding plus a
-     * more powerful interface system makes up for the difference.
+     * generally causes more problems that it's worth and class item aliasing
+     * plus a more powerful interface system makes up for the difference.
      */
 (
     firstName String,
@@ -658,25 +659,7 @@ class Account
         // convenience form, e.g. `this.package.println("test")`.
     }
 
-    /*
-     * Embedding a field hoists all of its _accessible_ methods and fields into
-     * the class itself. Embedded methods take the lowest priority: methods in
-     * the class itself and default methods in implementing interfaces both take
-     * priority over embedded methods, although other embedded methods will
-     * still call the embedder's method if calling it by name.
-     *
-     * Embedded classes can implement methods for implementing interfaces on the
-     * embedder's behalf, following the rules above.
-     *
-     * Note that no relationship whatsoever is established between the classes
-     * after the embedding; there is no concrete subtyping in Sylan. It's solely
-     * for DRY, a.k.a. Don't Repeat Yourself.
-     *
-     * The earlier embeddings take priority over the later ones, to be
-     * consistent with the MRO of inheritance. Therefore, changing the order of
-     * embeds can change behaviour.
-     */
-    var embed name Name = Name(first: firstName, last: lastName)
+    var internal name Name = Name(first: firstName, last: lastName)
 
     var expiry ZonedDateTime = ZonedDateTime.now + 1.year
 
@@ -697,8 +680,8 @@ class Account
     }
 
     fun public override concatenate(withEnd that This) This {
-        var first = firstName.concatenate(withEnd: that.firstName)
-        var last = lastName.concatenate(withEnd: that.lastName)
+        var first = firstName.concatenate(withEnd: that.name.firstName)
+        var last = lastName.concatenate(withEnd: that.name.lastName)
 
         Account(
             firstName: first,
