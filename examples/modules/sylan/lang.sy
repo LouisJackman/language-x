@@ -116,7 +116,7 @@ fun public ok[E extends Exception: Exception]() Throws[E, otherwise: Void] {
     Throws.Ok(Void)
 }
 
-fun public final if
+fun public final readIf
     /**
      * A hypothetical look at how `if` could be defined as a macro, creating
      * Sylan _from_ Kernel Sylan rather than translating _to_ Kernel Sylan in
@@ -167,9 +167,34 @@ fun public final if
     ok()
 }
 
-// Wire the characters "if" to the current read table for the rest of the
-read > if readIf
-read <
+//
+// Declare a reader macro in the package with a trigger character.
+//
+reader public if with "if" as readIf
+
+//
+// Use a reader macro in a package like so, until the end of the file:
+//
+with reader sylan.lang.if
+
+//
+// Unbind before the end of the file like so:
+//
+// ```
+// with reader sylan.lang.previousReader
+// ```
+//
+
+//
+// Similar to automatic item imports, all readers in `sylan.lang` are
+// automatically triggered for all packages.
+//
+// As readers can intercept their own unbinds, the user must trust them since
+// they can never truly know if it has unbound.
+//
+// The top-level reader is defined with `sylan.lang` readers pretriggered, so
+// they cannot be unbound with `previousReader`.
+//
 
 fun final kernelIf
     /**

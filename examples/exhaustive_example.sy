@@ -162,14 +162,14 @@ package
     //
     // Putting `syntax` next to a package item import rather than a package
     // will yield an error.
-    package2 syntax (package1.readAsLisp) { item1, item2 },
+    package2 with reader (package1.readAsLisp) { item1, item2 },
 
     // In fact, such files might have no knowledge of even Sylan...
-    module1.`package1.lisp` syntax (package1.readAsLisp),
+    module1.`package1.lisp` with reader (package1.readAsLisp),
 
     // Like shebangs, multiple macros can be specified to create a pipeline of
     // langauge interpretation:
-    module1.`package1.lisp` syntax (package1.readAsLisp, package1.readAsKernelLisp),
+    module1.`package1.lisp` with reader (package1.readAsLisp, package1.readAsKernelLisp),
 
     // Note that backquoting an import component allows using any name for the file,
     // even otherwise-reserved keywords, and also stops putting `.sy` and the end

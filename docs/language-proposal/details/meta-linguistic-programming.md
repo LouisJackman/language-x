@@ -54,6 +54,9 @@
   potentially transformed to another valid one. They needn't type check or pass
   other _semantic_ analysis stages though, so long as the _final produced_ AST
   does.
+* AST macros can be triggered even with no arguments, in which case the AST
+  pipeline source returns nothing. This can be used for no-arg item macros that
+  emit items for the developer.
 * Procedural macros must take valid tokens. Furthermore, grouping tokens must be
   evenly balanced until the end of the call. Procedural macros expect an
   identifier to trigger the macro call, followed by one token tree. This tree
