@@ -1,16 +1,18 @@
-package
-/**
- * This is the proposed prelude file, which serves as an example of what Sylan
- * should look like and also shows what utilities are available everywhere.
- *
- * This is similar in spirit to Java's `java.lang` package or Haskell's
- * standard prelude. Eventually it should also expose built-ins via
- * declarations without bodies, once the mechanics of that have been worked out.
- *
- * For now, we just `extend` existing built-in and types and mark them as
- * extern, which is essentially a placeholder until how built-in types are
- * fully worked out.
- */
+package public
+    /**
+     * This is the proposed prelude file, which serves as an example of what
+     * Sylan should look like and also shows what utilities are available
+     * everywhere.
+     *
+     * This is similar in spirit to Java's `java.lang` package or Haskell's
+     * standard prelude. Eventually it should also expose built-ins via
+     * declarations without bodies, once the mechanics of that have been worked
+     * out.
+     *
+     * For now, we just `extend` existing built-in and types and mark them as
+     * extern, which is essentially a placeholder until how built-in types are
+     * fully worked out.
+     */
 (
     sylan {
         core.intrinsics.concurrent.atomic.AtomicMachineType,
@@ -958,7 +960,3 @@ fun public constant[of T](of value T) () T {
         value
     }
 }
-
-// Flip these back to avoid unsafe being default for other packages.
-bind unlockUnsafePackage Bool = false
-bind allowExtern Bool = false

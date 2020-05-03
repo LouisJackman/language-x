@@ -44,8 +44,7 @@
 
 package
     /*
-     * Package names are derived from the file name. As nested packages don't
-     * have their own file, they must have a name. A package invoked directly
+     * Package names are derived from the file name. A package invoked directly
      * is the _main package_, regardless of whether it's named "main" or not. A
      * `module-info.sy` file is not required for the top level program as there
      * is an inferred main module that contains top-level programs.
@@ -83,29 +82,14 @@ package
      * apart from naming. If a package wants to access a subpackage or
      * vice-versa, they must explicitly import it like anywhere else.
      *
-     * The one exception is packages nested in a single file via
-     * `package pkg {` form. Nested packages are subpackages but in the same
-     * file, intended for smaller single-file programs. They have two extra
-     * abilities:
-     *
-     * * Nested packages are automatically imported to their immediate parent.
-     *   More than one parent up must import them as normal.
-     * * All nested packages use the imports at the top of the file. They cannot
-     *   declare their own imports.
-     *
-     * These take priority over other imported packages of the same name, in
-     * which case the aforementioned absolute symbols or `this` invocations can
-     * be used. `this.package` can be useful for importing deeply nested
-     * subpackages.
-     *
-     * There is one exception: all items from `sylan.lang` are preimported into
-     * every package. Most of the following item imports are aliased and published
-     * in that prelude package and thus already imported. They are explicitly
-     * imported here to give an idea of the standard package structure. Sylan
-     * normally won't tolerate imports with the same name, mandating `as` to
-     * give them alternative names, but makes an exception for `sylan.lang`
-     * preimports; they just get hidden. In that case, `import sylan.lang` will
-     * be necessary to get the back, with symbols like `lang.Boolean`.
+     * All items from `sylan.lang` are preimported into every package. Most of 
+     * the following item imports are aliased and published in that prelude
+     * package and thus already imported. They are explicitly imported here to
+     * give an idea of the standard package structure. Sylan normally won't
+     * tolerate imports with the same name, mandating `as` to give them
+     * alternative names, but makes an exception for `sylan.lang` preimports;
+     * they just get hidden. In that case, `import sylan.lang` will be necessary
+     * to get the back, with symbols like `lang.Boolean`.
      *
      * By default, the first identifier in a lookup is the module. If that
      * clashes with a top-level package in the current module, the package takes
@@ -214,8 +198,7 @@ fun demoIteration
 
     // Finals must have explicit types in packages, but must infer types inside
     // methods and functions. They cannot exist in interface and class bodies
-    // directly, as it makes no sense to "instantiate" a final and Sylan already
-    // has nested packages for similar use cases.
+    // directly, as it makes no sense to "instantiate" a final.
     final n = 42
     final world = "World"
 
@@ -514,44 +497,33 @@ enum List[of Element](
     // `if var Node(element, next) = this {`
 }
 
-package counter
-    /**
-     * Packages needn't always go in their own file. They can also be nested
-     * within packages in the same file.
-     *
-     * This is stike a balance between forcing good structure for larger
-     * programs yet not forcing too much bureaucracy on smaller ones.
-     */
-{
-    enum Message(
-        Increment,
-        Reset(with n Int),
-        Get,
-    )
+enum CounterMsg(Increment, Get(to recipient Task))
 
-    fun public start(task Task, n Int: 0) {
-        select Message {
-
-            // Putting a dot before a switch or select case is syntactical
-            // sugar for an enum variant of the selected or switched type.
-            .Increment {
-                start(task, n: n + 1)
-            }
-            .Reset(n) {
-
-                // Labelled arguments can omit labels _if the local variable
-                // passed in has the same name_.
-                start(task, n)
-            }
-            .Get {
-                send(n, to: task)
-                start(task, n)
-            }
-            timeout 10.seconds {
-                throw Exception("timed out!")
+fun startCounter() {
+    spawn -> {
+        for var count = 0 {
+            select CounterMsg {
+                .Increment { continue(count + 1) }
+                .Get(recipient) {
+                    send(count, to: recipient)
+                    continue(count)
+                }
+                timeout 10.seconds { throw Exception("timed out!") }
             }
         }
     }
+}
+
+//
+// Alternatively, just use `Ref`, which also makes cleanup easier:
+//
+class Counter implements AutoClosable {
+    var count Ref[to: Int] = Ref(to: 0)
+
+    fun public override close = count.close
+
+    fun public get() { count.value }
+    fun public inc() { count.alter(_ + 1) }
 }
 
 fun `test that addition works`

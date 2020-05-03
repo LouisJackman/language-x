@@ -23,31 +23,28 @@ enum List[Element](
     }
 }
 
-package counter {
+enum CounterMsg(Increment, Get(to recipient Task))
 
-    enum public Message(public Increment, public Get)
-
-    fun public start(task Task, n Int: 0) {
-        select Message {
-            .Increment {
-                start(task, n: n + 1)
-            }
-            .Get {
-                send(n, to: task)
-                start(task, n)
-            }
-            timeout 10.seconds {
-                throw Exception("timed out!")
+fun startCounter() Task {
+    spawn -> {
+        for var count = 0 {
+            select CounterMsg {
+                .Increment { continue(count + 1) }
+                .Get(recipient) {
+                    send(count, to: recipient)
+                    continue(count)
+                }
+                timeout 10.seconds { throw Exception("timed out!") }
             }
         }
     }
 }
 
 do -> {
-    var parent = self
-    var c = spawn -> { counter.start(task: parent) }
-    5.times -> { send(counter.Message.Increment, to: c) }
-    sendAndWait(counter.Message.Get, to: c) |> println
+    var counter = startCounter()
+    5.times -> { send(CounterMsg.Increment, to: counter) }
+    sendAndWait(CounterMsg.Get(to: self), to: counter)
+        |> println
 }
 
 class Name @derive(Equals) (
