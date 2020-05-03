@@ -40,7 +40,6 @@ pub fn new() -> HashMap<&'static str, Token> {
             "else",
             Token::BranchingAndJumping(BranchingAndJumping::Else),
         ),
-        ("embed", Token::Modifier(Modifier::Embed)),
         ("extend", Token::DeclarationHead(DeclarationHead::Extend)),
         ("extends", Token::Extends),
         (

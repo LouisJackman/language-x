@@ -56,7 +56,6 @@ pub enum Grouping {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Modifier {
     Accessibility(Accessibility),
-    Embed,
     Ignorable,
     Operator,
     Override,

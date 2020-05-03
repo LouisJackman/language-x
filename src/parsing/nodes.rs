@@ -206,7 +206,6 @@ pub struct ValueParameter {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ClassValueParameterFieldUpgrade {
-    pub is_embedded: bool,
     pub accessibility: Accessibility,
 }
 
@@ -282,8 +281,8 @@ pub struct ClassModifiers {
     is_extern: bool,
 }
 
-// Concrete classes that support implementing interfaces and embedding other
-// classes, but cannot extend other classes directly.
+// Concrete classes that support implementing interfaces and aliasing other
+// classes and methods inside, but cannot extend other classes directly.
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Class {
@@ -474,7 +473,6 @@ pub enum MacroItem {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Field {
     pub is_extern: bool,
-    pub is_embedded: bool,
     pub accessibility: Accessibility,
     pub binding: Binding,
 }

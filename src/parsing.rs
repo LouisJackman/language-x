@@ -540,7 +540,6 @@ impl Parser {
 
     fn parse_class_parameter_field_upgrade(&mut self) -> Result<nodes::ClassValueParameter> {
         let modifiers = self.parse_modifiers(&self.modifier_sets.field.clone())?;
-        let is_embedded = modifiers.contains(&Modifier::Embed);
 
         let accessibility = self
             .accessibility_modifier_extractor
@@ -551,10 +550,7 @@ impl Parser {
                 })
             })?;
 
-        let field_upgrade = Some(ClassValueParameterFieldUpgrade {
-            is_embedded,
-            accessibility,
-        });
+        let field_upgrade = Some(ClassValueParameterFieldUpgrade { accessibility });
 
         let parameter = nodes::ClassValueParameter {
             parameter: self.parse_value_parameter()?,
@@ -1238,7 +1234,6 @@ impl Parser {
 
         Ok(nodes::Field {
             accessibility,
-            is_embedded: declaration_modifiers.contains(&Modifier::Embed),
             is_extern,
             binding: nodes::Binding {
                 pattern,

@@ -11,7 +11,7 @@
 //! TODO: reevaluate the purity modifiers once effect-tracking is investigated more thoroughly.
 
 use crate::common::multiphase::Accessibility;
-use crate::lexing::tokens::Modifier::{self, Embed, Ignorable, Operator, Override};
+use crate::lexing::tokens::Modifier::{self, Ignorable, Operator, Override};
 use std::collections::{HashMap, HashSet};
 
 pub struct ModifierSets {
@@ -145,7 +145,6 @@ fn new_field_modifier_set() -> HashSet<Modifier> {
     set.extend(vec![
         Modifier::Accessibility(Accessibility::Public),
         Modifier::Accessibility(Accessibility::Internal),
-        Embed,
     ]);
     set
 }
