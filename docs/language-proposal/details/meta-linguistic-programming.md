@@ -67,13 +67,8 @@
   The grouping tokens are kept, meaning a macro can change behaviour based on
   how it's called.
 * Character-based macros can not be invoked directly as functions; instead they
-  must be hooked onto the current readtable by using the compile-time dynamic
-  scoping, specifically around the `currentReadtable` variable. E.g.:
-  `bind currentReadtable = currentReadtable.dispatchingOnChars(List('{'), jsonReaderPackage.read)`. There is a standard `use` AST reader macro for this
-  in `sylan.lang`, allowing invocations like `use('{', jsonReaderPackage.read)`.
-  Unloading a readtable can be done with a subsequent `unbind currentReadtable`.
-  The triggered character is not consumed off the stream before calling the
-  macro, it can be checked by the reader macro.
+  are imported as normal and then triggered with `with reader` forms, and
+  reset with `with reader sylan.core.lang.previousReader`.
 * Character macros can only trigger on the start of tokens. Furthermore, they
   must be careful about using grouping token characters to avoid confusing the
   parsing from tooling. These are dangerous, and can therefore be blocked in

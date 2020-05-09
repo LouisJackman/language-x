@@ -1,0 +1,264 @@
+package
+    /**
+     * Language Intrinsics, to be implemented in Sylan IL.
+     *
+     * Nothing in this package should be implemented in Sylan beyond the API.
+     */
+(sylan.runtime.intrinsics)
+
+// Built-in types, which look a bit like Java primitives except that they are
+// real OO-style types. These can't be defined in Sylan itself due to their
+// direct use of Sylan IL types.
+
+class internal Vector implements AbstractVector {
+    /**
+     * The only way to create homogenous, variably-sized collections in safe
+     * Sylan, and a building block for other collection types.
+     *
+     * Vectors, unlike lists, are eagerly evaluated. AbstractVectors are the
+     * type of variadics, the concrete implementation being this class to avoid
+     * `sylan.lang.Vector` using itself to define its own variadic constructor.
+     *
+     * Variadics are the only way to construct this type, preferably via
+     * `sylan.lang.Vector`.
+     */
+[of Item] {
+
+    {
+        throw intrinsics.PlaceholderUsed()
+    }
+
+    fun public override operator [||] (index Usize) Optional[of: Item] {
+        throw intrinsics.PlaceholderUsed()
+    }
+}
+
+class public Byte implements Number {
+    fun public operator + (other This) This { throw intrinsics.PlaceholderUsed() }
+    fun public operator - (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator / (other This) Floating { throw intrinsics.PlaceholderUser() }
+    fun public operator * (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ** (other This) This { throw intrinsics.PlaceholderUser() }
+
+    fun public operator < (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator <= (other This) Boolean  { throw intrinsics.PlaceholderUser() }
+    fun public operator == (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator != (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator > (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator >= (other This) Boolean { throw intrinsics.PlaceholderUser() }
+
+    fun public operator & (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator | (other this) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ^ (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator << (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >>> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public bitnot() This { throw intrinsics.PlaceholderUser() }
+}
+
+class public UInt16 {
+    fun public operator + (other This) This { throw intrinsics.PlaceholderUsed() }
+    fun public operator - (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator / (other This) Floating { throw intrinsics.PlaceholderUser() }
+    fun public operator * (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ** (other This) This { throw intrinsics.PlaceholderUser() }
+
+    fun public operator < (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator <= (other This) Boolean  { throw intrinsics.PlaceholderUser() }
+    fun public operator == (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator != (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator > (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator >= (other This) Boolean { throw intrinsics.PlaceholderUser() }
+
+    fun public operator & (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator | (other this) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ^ (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator << (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >>> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public bitnot() This { throw intrinsics.PlaceholderUser() }
+}
+
+class public UInt32 {
+    fun public operator + (other This) This { throw intrinsics.PlaceholderUsed() }
+    fun public operator - (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator / (other This) Floating { throw intrinsics.PlaceholderUser() }
+    fun public operator * (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ** (other This) This { throw intrinsics.PlaceholderUser() }
+
+    fun public operator < (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator <= (other This) Boolean  { throw intrinsics.PlaceholderUser() }
+    fun public operator == (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator != (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator > (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator >= (other This) Boolean { throw intrinsics.PlaceholderUser() }
+
+    fun public operator & (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator | (other this) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ^ (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator << (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >>> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public bitnot() This { throw intrinsics.PlaceholderUser() }
+}
+
+class public UInt64 {
+    fun public operator + (other This) This { throw intrinsics.PlaceholderUsed() }
+    fun public operator - (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator / (other This) Floating { throw intrinsics.PlaceholderUser() }
+    fun public operator * (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ** (other This) This { throw intrinsics.PlaceholderUser() }
+
+    fun public operator < (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator <= (other This) Boolean  { throw intrinsics.PlaceholderUser() }
+    fun public operator == (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator != (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator > (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator >= (other This) Boolean { throw intrinsics.PlaceholderUser() }
+
+    fun public operator & (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator | (other this) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ^ (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator << (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >>> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public bitnot() This { throw intrinsics.PlaceholderUser() }
+}
+
+class public Int8 {
+    fun public operator + (other This) This { throw intrinsics.PlaceholderUsed() }
+    fun public operator - (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator / (other This) Floating { throw intrinsics.PlaceholderUser() }
+    fun public operator * (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ** (other This) This { throw intrinsics.PlaceholderUser() }
+
+    fun public operator < (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator <= (other This) Boolean  { throw intrinsics.PlaceholderUser() }
+    fun public operator == (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator != (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator > (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator >= (other This) Boolean { throw intrinsics.PlaceholderUser() }
+
+    fun public operator & (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator | (other this) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ^ (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator << (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >>> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public bitnot() This { throw intrinsics.PlaceholderUser() }
+}
+
+class public Short {
+    fun public operator + (other This) This { throw intrinsics.PlaceholderUsed() }
+    fun public operator - (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator / (other This) Floating { throw intrinsics.PlaceholderUser() }
+    fun public operator * (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ** (other This) This { throw intrinsics.PlaceholderUser() }
+
+    fun public operator < (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator <= (other This) Boolean  { throw intrinsics.PlaceholderUser() }
+    fun public operator == (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator != (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator > (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator >= (other This) Boolean { throw intrinsics.PlaceholderUser() }
+
+    fun public operator & (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator | (other this) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ^ (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator << (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >>> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public bitnot() This { throw intrinsics.PlaceholderUser() }
+}
+
+class public Int32 {
+    fun public operator + (other This) This { throw intrinsics.PlaceholderUsed() }
+    fun public operator - (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator / (other This) Floating { throw intrinsics.PlaceholderUser() }
+    fun public operator * (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ** (other This) This { throw intrinsics.PlaceholderUser() }
+
+    fun public operator < (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator <= (other This) Boolean  { throw intrinsics.PlaceholderUser() }
+    fun public operator == (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator != (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator > (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator >= (other This) Boolean { throw intrinsics.PlaceholderUser() }
+
+    fun public operator & (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator | (other this) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ^ (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator << (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >>> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public bitnot() This { throw intrinsics.PlaceholderUser() }
+}
+
+class public ULong {
+    fun public operator + (other This) This { throw intrinsics.PlaceholderUsed() }
+    fun public operator - (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator / (other This) Floating { throw intrinsics.PlaceholderUser() }
+    fun public operator * (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ** (other This) This { throw intrinsics.PlaceholderUser() }
+
+    fun public operator < (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator <= (other This) Boolean  { throw intrinsics.PlaceholderUser() }
+    fun public operator == (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator != (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator > (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator >= (other This) Boolean { throw intrinsics.PlaceholderUser() }
+
+    fun public operator & (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator | (other this) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ^ (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator << (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >>> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public bitnot() This { throw intrinsics.PlaceholderUser() }
+}
+
+class public Float {
+    fun public operator + (other This) This { throw intrinsics.PlaceholderUsed() }
+    fun public operator - (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator / (other This) Floating { throw intrinsics.PlaceholderUser() }
+    fun public operator * (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ** (other This) This { throw intrinsics.PlaceholderUser() }
+
+    fun public operator < (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator <= (other This) Boolean  { throw intrinsics.PlaceholderUser() }
+    fun public operator == (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator != (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator > (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator >= (other This) Boolean { throw intrinsics.PlaceholderUser() }
+
+    fun public operator & (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator | (other this) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ^ (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator << (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >>> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public bitnot() This { throw intrinsics.PlaceholderUser() }
+}
+
+class public Double {
+    fun public operator + (other This) This { throw intrinsics.PlaceholderUsed() }
+    fun public operator - (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator / (other This) Floating { throw intrinsics.PlaceholderUser() }
+    fun public operator * (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ** (other This) This { throw intrinsics.PlaceholderUser() }
+
+    fun public operator < (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator <= (other This) Boolean  { throw intrinsics.PlaceholderUser() }
+    fun public operator == (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator != (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator > (other This) Boolean { throw intrinsics.PlaceholderUser() }
+    fun public operator >= (other This) Boolean { throw intrinsics.PlaceholderUser() }
+
+    fun public operator & (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator | (other this) This { throw intrinsics.PlaceholderUser() }
+    fun public operator ^ (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator << (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public operator >>> (other This) This { throw intrinsics.PlaceholderUser() }
+    fun public bitnot() This { throw intrinsics.PlaceholderUser() }
+}

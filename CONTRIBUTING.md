@@ -41,8 +41,8 @@ necessary for passable performance.
 
 ## Rust Versions
 
-Assume that Sylan will run on the latest _stable_ Rust unless there is a good
-reason to suggest otherwise.
+Assume that Sylan will run on the latest _stable_ Rust, specifically the version
+number specified in the `rust` field within `Cargo.toml`.
 
 ## Formatting
 

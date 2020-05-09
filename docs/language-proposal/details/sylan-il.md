@@ -225,7 +225,7 @@ Killing tasks will likely be the hardest feature to implement: obvious
 implementations like most OS threading systems won't work here, although OS
 processes and green-threading might.
 
-All intrinsics implemented by a platform have a direct connection to an omitted
+A lot of intrinsics implemented by a platform have a direct connection to an omitted
 Sylan IL instruction, except one: how to get the extern task. On start up Sylan
 sends the extern task reference to the main task, the sole starting item in its
 inbox. If the main task wants to give more powers to subtasks, it must forward

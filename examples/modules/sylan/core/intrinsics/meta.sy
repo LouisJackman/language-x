@@ -1,0 +1,97 @@
+package
+    /**
+     * Not actually intrinsics, but types that intrinsics rely on. This is
+     * to resolve a recursive dependency between `sylan.core.intrinsics` and
+     * `sylan.core.lang`.
+     *
+     * For _actual_ intrinsics, see `language.sy` and `il.sy`.
+     */
+
+class internal Void
+    /**
+     * The unit-type, a.k.a. `void`. It can be instantiated, but contains
+     * nothing.
+     */
+
+interface internal Exception {
+    var public message String
+}
+
+class internal PlaceholderUsed implements Exception
+
+interface internal AbstractVector {
+    fun public operator [||] (index Usize) Optional[of: Item]
+}
+
+enum internal Boolean @derive(Equals, ToString) (
+    public True,
+    public False,
+) {
+    fun public operator && (other This) {
+        if this {
+            other
+        } else {
+            this
+        }
+    }
+
+    fun public operator || (other This) {
+        if this {
+            this
+        } else {
+            other
+        }
+    }
+
+    fun public negate() {
+        if this {
+            .False
+        } else {
+            .True
+        }
+    }
+}
+
+interface internal Numeric[Floating extends Floating] {
+    fun public operator + (other This) This
+    fun public operator - (other This) This
+    fun public operator / (other This) Floating
+    fun public operator * (other This) This
+    fun public operator ** (other This) This
+}
+
+interface internal Equal[to T] {
+    fun public equal(to that T) Boolean
+
+    fun public notEqual(to that T) Boolean {
+        not(equal(to: that))
+    }
+}
+
+interface internal Comparable {
+    fun public operator < (other This) Boolean
+    fun public operator <= (other This) Boolean
+    fun public operator == (other This) Boolean
+    fun public operator != (other This) Boolean
+    fun public operator > (other This) Boolean
+    fun public operator >= (other This) Boolean
+}
+
+interface internal Number[Floating] extends Numeric[Floating], Comparable
+
+interface internal Bits {
+    fun public operator & (other This) This
+    fun public operator | (other This) This
+    fun public operator ^ (other This) This
+    fun public operator << (other This) This
+    fun public operator >> (other This) This
+    fun public operator >>> (other This) This
+
+    fun public bitnot() This
+}
+
+interface internal Integer extends Number, Bits {
+    fun public operator % (other This) This
+}
+
+interface internal Floating externs Number[Floating: This]

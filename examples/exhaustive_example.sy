@@ -117,9 +117,9 @@ package
 (
     sylan {
         core {
-            optional { this, Empty },
+            optional { this, Empty }
             concurrency.intrinsics.AtomicMachineType,
-        },
+        }
         base {
             io.output.println,
             util {
@@ -127,12 +127,12 @@ package
                 collections {
                     this,
                     List,
-                },
+                }
                 datetime.ZonedDateTime,
-            },
+            }
             runtime.concurrency.Task,
-        },
-    },
+        }
+    }
 
     // The invoked main file is implicitly the "main" package.
     // If a subpackage is used, then it must be explicitly imported.
@@ -147,7 +147,7 @@ package
     //
     // Putting `syntax` next to a package item import rather than a package
     // will yield an error.
-    package2 with reader (package1.readAsLisp) { item1, item2 },
+    package2 with reader (package1.readAsLisp) { item1, item2 }
 
     // In fact, such files might have no knowledge of even Sylan...
     module1.`package1.lisp` with reader (package1.readAsLisp),
@@ -547,19 +547,6 @@ interface Concatenate[with T, producing U extends T] {
     fun public concatenate(withEnd that T) T
 }
 
-interface Equal[to T] {
-    fun public equal(to that T) Boolean
-
-    fun public notEqual
-        /**
-         * Sylan's interface methods can have bodies like Java 8's defender methods.
-         * Unlike Java 8, private methods with bodies are also allowed with them.
-         */
-    (to that T) Boolean {
-        not(equal(to: that))
-    }
-}
-
 class Name
     /**
      * Hashing, equality checking, and the constructor all just exist
@@ -592,12 +579,11 @@ class Account
     // for passing a normal parameter and assigning it to a new field in a class
     // body.
     //
-    // Fields are either `var`s or `var fun`. The latter is just a no-argument
-    // method that must be invoked with no parentheses and are guaranteed to be
-    // API-compatible with a `var` field. A var is set once, whereas a `var fun`
-    // reevaluates every time it is looked up.
+    // Fields, like variables, are declared with `var`. If declared with braces
+    // rather than the assignment operator, they are getters that are reevaluated
+    // per lookup rather than simple variables.
     //
-    // If a developers wants to back a public `var fun` with a backing field,
+    // If a developers wants to back a public `var` with a backing field,
     // they must use a private backing field with a different name since fields
     // and methods use the same namespace.
     var internal ageInYears Int,
@@ -641,7 +627,7 @@ class Account
     //
     // Note that all access to a field without the `this.` sigil, even from
     // inside the class itself, is going via the getter methods.
-    var fun public expiry ZonedDateTime {
+    var public expiry ZonedDateTime {
         println("the original expiry was", this.expiry.toString())
 
         this.expiry + 1.year  // Ultimately yields now plus two years
@@ -664,7 +650,7 @@ class Account
 
     var public name String = firstName + " " + lastName
 
-    var fun public locked Boolean {
+    var public locked Boolean {
         expiry < ZonedDateTime.now
     }
 }
@@ -753,9 +739,10 @@ final maxBound
      */
     Int = 5
 
-var fun meaningOfLife
+var meaningOfLife
     /**
-     * Unlike `var`s, `var fun`s can be in the top level of non-main packages.
+     * Unlike `var`s with assignment operators, `var`s with blocks can be in
+     * the top level of non-main packages.
      */
 {
     println("this is displayed every time this value is looked up")

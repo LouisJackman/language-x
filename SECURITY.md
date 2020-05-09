@@ -28,7 +28,7 @@ submitted as general issues.
 
 See [my personal contact page](https://volatilethunk.com/pages/contact.html).
 
-If Sylan actually becomes more than an unheard of toy project, a more formal
+If Sylan actually becomes more than an unheard-of toy project, a more formal
 channel for reporting vulnerabilities will be set up.
 
 While I would appreciate [Coordinated

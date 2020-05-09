@@ -867,9 +867,7 @@ impl Parser {
                     Some(Token::Dot) => {
                         self.tokens.discard();
                     }
-                    Some(Token::Macros(Macros::Syntax)) => {
-                        break self.parse_import_syntax_readers_list()?
-                    }
+                    Some(Token::With) => break self.parse_import_readers_list()?,
                     _ => break vec![],
                 }
             };
@@ -900,8 +898,9 @@ impl Parser {
         }
     }
 
-    fn parse_import_syntax_readers_list(&mut self) -> Result<Vec<Symbol>> {
+    fn parse_import_readers_list(&mut self) -> Result<Vec<Symbol>> {
         self.tokens.discard();
+        self.expect_and_discard(Token::Macros(Macros::Reader))?;
         self.expect_and_discard(Token::Grouping(Grouping::OpenParentheses))?;
         let mut symbols = vec![];
         loop {

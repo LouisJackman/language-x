@@ -106,6 +106,7 @@ pub enum Item {
     Fun(Fun),
     Package(Package),
     Type(Type),
+    Macro(Macro),
 
     // Unlike the previous variants, these can be arbitrarily nested within
     // expressions. This is to allow corecursion among other features.
@@ -126,9 +127,10 @@ pub enum Expression {
     Operator(Operator),
     Symbol(Symbol),
     Throw(Throw),
-    Using(Using),
+    Use(Use),
     MemberHandle(Symbol),
     NonDestructiveUpdate(ExpressionCall),
+    ReaderMacroActivation(ReaderMacroActivation),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -471,6 +473,23 @@ pub enum MacroItem {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ReaderMacroDefinition {
+    name: Identifier,
+    r#macro: Symbol,
+    trigger: SylanString,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ReaderMacroActivation(pub Symbol);
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum Macro {
+    Item(MacroItem),
+    ReaderDefinition(ReaderMacroDefinition),
+    ReaderActivation(ReaderMacroActivation),
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Field {
     pub is_extern: bool,
     pub accessibility: Accessibility,
@@ -617,7 +636,7 @@ pub struct ExpressionCall {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct Using(Box<Expression>);
+pub struct Use(Box<Expression>);
 
 // Ifs must have braces for both the matching body and the else clause if one
 // exists, like any other control statement. There's one exception: if the else

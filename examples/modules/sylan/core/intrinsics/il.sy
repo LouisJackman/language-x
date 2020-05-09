@@ -1,0 +1,39 @@
+package
+    /**
+     * IL Intrinsics, to be implemented in a Sylan platform.
+     *
+     * Nothing in this package should be implemented in Sylan beyond the API.
+     */
+(sylan.runtime.intrinsics)
+
+fun public spawn(_ ()) Task {
+    throw IntrinsicPlaceholderUsed()
+}
+
+var public self Task {
+    throw IntrinsicPlaceholderUsed()
+}
+
+fun public send[Item](_ item Item, to task Task) Throws extern {
+    throw IntrinsicPlaceholderUsed()
+}
+
+class public Task {
+
+    {
+        throw IntrinsicPlaceholderUsed()
+    }
+
+    fun public kill() {
+        throw IntrinsicPlaceholderUsed()
+    }
+}
+
+fun public externTask
+    /**
+     * The intrinsic implementation must allow this to be invoked only once,
+     * all subsequent implementations throwing an exception.
+     */
+() Task {
+    throw IntrinsicPlaceholderUsed()
+}

@@ -15,98 +15,50 @@ package public
      */
 (
     sylan {
-        core.intrinsics.concurrent.atomic.AtomicMachineType,
+        core.intrinsics,
         base {
             util {
                 collections.tree as treeCollection,
                 exceptions,
-            },
-            runtime.memory as memoryRuntime,
-    },
-    this.package.unsafe.atomic.mutable as atomicMutable,
+            }
+        }
+    }
 )
 
-class public Void
-/**
- * The unit-type, a.k.a. `void`. It can be instantiated, but contains
- * nothing.
- */
-
-enum public Boolean @derive(Equals, ToString) (
-    public True,
-    public False,
-) {
-    fun public operator && (other This) extern
-    fun public operator || (other This) extern
-    fun public negate() extern
-}
-
+//
+// Bring intrinsics into the implicit scope of all packages.
+//
+class public Void = intrinsics.meta.Void
+interface public Void = intrinsics.meta.Exception
+enum public Boolean = intrinsics.meta.Boolean
 class public True = Boolean.True
 class public False = Boolean.False
+interface public Numeric = intrinsics.meta.Numeric
+interface public Equal = intrinsics.meta.Equal
+interface public Comparable = intrinsics.meta.Comparable
+interface public Number = intrinsics.meta.Number
+interface public Bits = intrinsics.meta.Bits
+interface public Integer = intrinsics.meta.Integer
+interface public Floating = intrinsics.meta.Floating
+interface public AbstractVector = intrinsics.language.AbstractVector
+class public Byte = intrinsics.language.Byte
+class public UInt16 = intrinsics.language.UInt16
+class public UInt32 = intrinsics.language.UInt32
+class public UInt64 = intrinsics.language.UInt64
+class public Int8 = intrinsics.language.Int8
+class public Short = intrinsics.language.Short
+class public Int32 = intrinsics.language.Int32
+class public Long = intrinsics.language.Long
+class public Float = intrinsics.language.Float
+class public Double = intrinsics.language.Double
+fun public spawn = intrinsics.il.spawn
+fun public self = intrinsics.il.self
+fun public send = intrinsics.il.send
+class public Task = intrinsics.il.Task
+fun public externTask = intrinsics.il.externTask
 
 fun public not(_ b Boolean) Boolean {
     b.negate
-}
-
-class ValueMissing implements Exception {
-
-    var fun public override message String {
-        "value missing"
-    }
-}
-
-enum public Optional[of Value](
-    Some(Value),
-    public Empty,
-)(of present Value) {
-
-    { .Some(present) }
-
-    fun public map(_ f (x Value) Value) This {
-        if var .Some(x) = this {
-            x |> f |> Optional(of: _)
-        } else {
-            None
-        }
-    }
-
-    fun public flatMap(_ f (x Value) This) This {
-        if var .Some(x) = this {
-            if var .Some(y) = f(x) {
-                Optional(of: y)
-            } else {
-                Empty
-            }
-        } else {
-            Empty
-        }
-    }
-
-    fun public filter(_ p (x Value) Bool) This {
-        flatMap -> {
-            if p(it) {
-                Optional(of: it)
-            } else {
-                Empty
-            }
-        }
-    }
-
-    fun public orElse(_ newAlternative () Value) Value {
-        if .Some(x) = this {
-            x
-        } else {
-            newAlternative()
-        }
-    }
-
-    fun public or(_ alternative Value) Value {
-        orElse(-> { alternative })
-    }
-
-    fun public orElseThrow() Value {
-        orElse(-> { throw valueMissing() })
-    }
 }
 
 enum public Throws[_ Exception extends Exception: Exception, otherwise Result: Void](
@@ -170,24 +122,6 @@ fun public final readIf
 }
 
 //
-// Declare a reader macro in the package with a trigger character.
-//
-reader public if with "if" as readIf
-
-//
-// Use a reader macro in a package like so, until the end of the file:
-//
-with reader sylan.lang.if
-
-//
-// Unbind before the end of the file like so:
-//
-// ```
-// with reader sylan.lang.previousReader
-// ```
-//
-
-//
 // Similar to automatic item imports, all readers in `sylan.lang` are
 // automatically triggered for all packages.
 //
@@ -198,40 +132,85 @@ with reader sylan.lang.if
 // they cannot be unbound with `previousReader`.
 //
 
-fun final kernelIf
-    /**
-     * Now, a second look at how this would look in Kernel Sylan. This is done
-     * from a procedural macro rather than a reader one to keep the example
-     * small.
-     *
-     * Even this assumes that lexical scoping is already defined though, but it
-     * assumes that non-field `var`, pattern matching, and `with` do not yet
-     * exist.
-     *
-     * `switch` is a special form, so it can be relied on here. The raw switch
-     * doesn't do pattern matching or guards though.
-     */
-(syntax pipeline Pipeline[from: TokenReader, to: AstWriter]) Throws {
-    -> source, write {
-        -> parser {
-            parser.parseExpression().flatMap(-> condition {
-                parser.parseScope().flatMap(-> ifTrue {
-                    parser.expectAndDiscard(tokens.Token.BranchingAndJumping(tokens.BranchingAndJumping.Else)).flatMap(-> _ {
-                        parser.parseScope().flatMap(-> ifFalse {
-                            write(quote {
-                                switch unquote condition {
-                                    True unquote ifTrue
-                                    False unquote ifFalse
-                                }
-                            })
-                        })
-                    })
-                })
-            })
-        }(Parser(parsing: source))
-    }(pipeline.source, pipeline.dest)
+//
+// Declare a reader macro in the package with a trigger character.
+//
+reader public if = readIf for "if"
 
-    ok()
+//
+// Use a reader macro in a package like so, until the end of the file:
+//
+// ```
+// use reader sylan.core.lang.if
+// ```
+
+//
+// Unbind before the end of the file like so:
+//
+// ```
+// use reader sylan.core.lang.previousReader
+// ```
+//
+
+class ValueMissing implements Exception {
+
+    var public override message String {
+        "value missing"
+    }
+}
+
+enum public Optional[of Value](
+    Some(Value),
+    public Empty,
+)(of present Value) {
+
+    { .Some(present) }
+
+    fun public map(_ f (x Value) Value) This {
+        if var .Some(x) = this {
+            x |> f |> Optional(of: _)
+        } else {
+            None
+        }
+    }
+
+    fun public flatMap(_ f (x Value) This) This {
+        if var .Some(x) = this {
+            if var .Some(y) = f(x) {
+                Optional(of: y)
+            } else {
+                Empty
+            }
+        } else {
+            Empty
+        }
+    }
+
+    fun public filter(_ p (x Value) Bool) This {
+        flatMap -> {
+            if p(it) {
+                Optional(of: it)
+            } else {
+                Empty
+            }
+        }
+    }
+
+    fun public orElse(_ newAlternative () Value) Value {
+        if .Some(x) = this {
+            x
+        } else {
+            newAlternative()
+        }
+    }
+
+    fun public or(_ alternative Value) Value {
+        orElse(-> { alternative })
+    }
+
+    fun public orElseThrow() Value {
+        orElse(-> { throw valueMissing() })
+    }
 }
 
 class public Invokable[Result, Args..] extern 
@@ -242,31 +221,9 @@ extend class Invokable[Result, Args..] {
     fun public operator ~ [T](other (Result) T) (Args..) T extern 
 }
 
-interface public Number {
+interface public Number = language.Number
 
-    // Natively-defined arithmetic operators.
-    fun public operator + (other This) This extern 
-    fun public operator - (other This) This extern 
-    fun public operator / (other This) This extern 
-    fun public operator % (other This) This extern 
-    fun public operator * (other This) This extern 
-    fun public operator ** (other This) This extern 
-
-    // Natively-defined bitwise operators.
-    fun public operator & (other This) This extern 
-    fun public operator | (other This) This extern 
-    fun public operator ^ (other This) This extern 
-
-    fun public operator < (other This) This extern 
-    fun public operator <= (other This) This extern 
-    fun public operator == (other This) This extern 
-    fun public operator != (other This) This extern 
-    fun public operator > (other This) This extern 
-    fun public operator >= (other This) This extern 
-
-    fun public operator << (other This) This extern 
-    fun public operator >> (other This) This extern 
-    fun public operator >>> (other This) This extern 
+extend interface Number {
 
     fun public negate
         /**
@@ -310,30 +267,22 @@ interface public Number {
             }
         }
     }
-
-    fun public twice() List[of: This] { up(to: 2) }
-    fun public thrice() List[of: This] { up(to: 3) }
 }
 
-fun public extern bitnot[N extends Number](n N) N
+fun public extern bitnot[N extends Number](n N) N {
+    n.bitnot()
+}
 
-// Built-in types, which look a bit like Java primitives except that they are
-// real OO-style types. These can't be defined in Sylan itself due to their
-// precise definition in raw memory.
-class public Int extern 
-class public UInt extern 
-class public Byte extern 
-class public UInt16 extern 
-class public UInt32 extern 
-class public UInt64 extern 
-class public Int8 extern 
-class public Short extern 
-class public Int32 extern 
-class public Long extern 
-class public Float extern 
-class public Double extern 
+class public Usize = UInt64
 
-class public Usize extern 
+class public Int {
+    //
+}
+
+class public UInt {
+    //
+}
+
 /**
  * The maximum size of a contiguously allocated slab of memory. This is an
  * important concept in Sylan even outside of unsafe code, e.g. slice indices.
@@ -388,7 +337,7 @@ class public Ref
         sendAndWait(.RefMsg(alter, self), to: task)
     }
 
-    var fun public value Value                 { alter(id) }
+    var public value Value                     { alter(id) }
     fun public swap(with newValue Value) Value { alter(-> _ { newValue }) }
     fun public set(to newValue Value)          { swap(with: newValue) |> ignore }
 
@@ -413,8 +362,8 @@ interface ForEach[_ Value] {
 class public Vector[of Item](of items Item..) implements AbstractVector, ForEach {
 
     // This works because variadics use a concrete implementation of
-    // `AbstractVector`, `IntrinsicVector`, to instantiate themselves directly
-    // as an intrinsic.
+    // `AbstractVector`, `sylan.core.intrinsics.Vector`, to instantiate
+    // themselves directly as an intrinsic.
     var raw AbstractVector = items
     
     fun public operator [||] = raw.operator [||]
@@ -489,7 +438,7 @@ class public Decimal {
 
 interface LanguageReader[reading Item] {
 
-    var fun trigger List[Item]
+    var trigger List[Item]
 
     fun public readMany
         /** Read from the reader, consuming them as they are returned. */
@@ -547,7 +496,7 @@ interface LanguageReader[reading Item] {
             .map(:first)
     }
 
-    var fun public isFinished Throws[otherwise: Boolean] {
+    var public isFinished Throws[otherwise: Boolean] {
         peek.map(:isEmpty)
     }
 
@@ -611,10 +560,10 @@ enum public TokenTree
 )
 
 interface public ParameterLanguageReader[reading Item] extends LanguageReader[reading: Item] {
-    var fun public nextIsSubitemSeperator Throws[otherwise: Boolean]
-    var fun public nextIsCloseCall Throws[otherwise: Boolean]
+    var public nextIsSubitemSeperator Throws[otherwise: Boolean]
+    var public nextIsCloseCall Throws[otherwise: Boolean]
 
-    var fun public resemblesEnd Throws[otherwise: Boolean] {
+    var public resemblesEnd Throws[otherwise: Boolean] {
         with {
             (nextIsSubitemSeperator? || nextIsCloseCall?)
                 |> Ok
@@ -626,7 +575,7 @@ interface public TokenReader extends LanguageReader[reading: TokenTree]
 
 interface public ParameterTokenReader extends ParameterLanguageReader[reading: TokenTree] {
 
-    var fun public nextIsSubitemSeperator Throws[otherwise: Boolean] {
+    var public nextIsSubitemSeperator Throws[otherwise: Boolean] {
         with {
             peek?
                 .filter(_ == TokenTree.Scalar(Token.SubItemSeperator))
@@ -635,7 +584,7 @@ interface public ParameterTokenReader extends ParameterLanguageReader[reading: T
         }
     }
 
-    var fun public nextIsCloseCall Throws[otherwise: Boolean] {
+    var public nextIsCloseCall Throws[otherwise: Boolean] {
         with {
             peek?
                 .filter(_ == (
@@ -653,7 +602,7 @@ interface public CharReader extends LanguageReader[reading: Char]
 
 interface public ParameterCharReader extends ParameterLanguageReader[reading: Char] {
 
-    var fun public nextIsSubitemSeperator Throws[otherwise: Boolean] {
+    var public nextIsSubitemSeperator Throws[otherwise: Boolean] {
         with {
             peek?
                 .filter(_ == ',')
@@ -662,7 +611,7 @@ interface public ParameterCharReader extends ParameterLanguageReader[reading: Ch
         }
     }
 
-    var fun public nextIsCloseCall Throws[otherwise: Boolean] {
+    var public nextIsCloseCall Throws[otherwise: Boolean] {
         with {
             peek?
                 .filter(_ == ')')
@@ -707,8 +656,8 @@ interface ReaderWriterPipeline[
     readingFrom Reader extends LanguageReader[reading: Item],
     writingTo Writer extends LanguageWriter[writing: Item],
 ] {
-    var fun public source Reader
-    var fun public write Writer
+    var public source Reader
+    var public write Writer
 
     fun public passthroughMany
         /** Pass items through from the source to the destination. */
@@ -857,6 +806,42 @@ class public AsymmetricPipeline[from Source, to Destination](
     var public write Destination,
 )
 
+fun final kernelIf
+    /**
+     * A second look at how `if` would look in Kernel Sylan. This is done
+     * from a procedural macro rather than a reader one to keep the example
+     * small.
+     *
+     * Even this assumes that lexical scoping is already defined though, but it
+     * assumes that non-field `var`, pattern matching, and `with` do not yet
+     * exist.
+     *
+     * `switch` is a special form, so it can be relied on here. The raw switch
+     * doesn't do pattern matching or guards though.
+     */
+(syntax pipeline Pipeline[from: TokenReader, to: AstWriter]) Throws {
+    -> source, write {
+        -> parser {
+            parser.parseExpression().flatMap(-> condition {
+                parser.parseScope().flatMap(-> ifTrue {
+                    parser.expectAndDiscard(tokens.Token.BranchingAndJumping(tokens.BranchingAndJumping.Else)).flatMap(-> _ {
+                        parser.parseScope().flatMap(-> ifFalse {
+                            write(quote {
+                                switch unquote condition {
+                                    True unquote ifTrue
+                                    False unquote ifFalse
+                                }
+                            })
+                        })
+                    })
+                })
+            })
+        }(Parser(parsing: source))
+    }(pipeline.source, pipeline.dest)
+
+    ok()
+}
+
 class public Task(var running task ()) {
 
     fun public start() extern 
@@ -864,7 +849,7 @@ class public Task(var running task ()) {
 
 class public NoAmbientAuthority implements Exception {
 
-    var fun public override toString {
+    var public override toString {
         "this task has no ambient authority"
     }
 }
@@ -915,7 +900,7 @@ fun public sendAndWait[sending Item, waitingFor Delivery: Item](
 
 class AssertionError implements Exception {
 
-    var fun public override message String {
+    var public override message String {
         "assertion failed"
     }
 }
