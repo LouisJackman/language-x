@@ -26,12 +26,6 @@ computer science concepts. It should take versioning and backwards compatibility
 seriously and ease distribution by producing single, statically-linked
 executables with no required external runtimes.
 
-This repository is hosted [on
-GitLab.com](https://gitlab.com/sylan-language/sylan) in the [Sylan
-group](https://gitlab.com/sylan-language). If you're seeing this on GitHub,
-you're on my personal GitHub mirror. [Go to
-GitLab](https://gitlab.com/sylan-language/sylan) to contribute.
-
 ## Example
 
 ```sylan
@@ -231,5 +225,5 @@ documentation](docs/language-proposal/details).
 For more documentation on the actual implementation of Sylan, read the Rust
 documentation comments of the code. A good starting point is the documentation
 of [the main top-level source
-file](https://github.com/LouisJackman/sylan/blob/master/src/main.rs).
+file](https://gitlab.com/sylan-language/sylan/blob/master/src/main.rs).
 
