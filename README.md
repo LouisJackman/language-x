@@ -1,9 +1,5 @@
 # The Sylan Programming Language
 
-[![CircleCI](https://circleci.com/gh/LouisJackman/sylan.svg?style=svg)](https://circleci.com/gh/LouisJackman/sylan)
-[![codecov](https://codecov.io/gh/LouisJackman/sylan/branch/master/graph/badge.svg)](https://codecov.io/gh/LouisJackman/sylan)
-![](https://img.shields.io/github/license/LouisJackman/sylan.svg)
-
 **Warning: this project is still early stage and is a long way from completion.
 See the "Done so Far" section for more details.**
 
