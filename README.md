@@ -27,8 +27,8 @@ seriously and ease distribution by producing single, statically-linked
 executables with no required external runtimes.
 
 This repository is hosted [on
-GitLab.com](https://gitlab.com/sylan-language/sylan) in the [`sylan-language`
-Group](https://gitlab.com/sylan-language). If you're seeing this on GitHub,
+GitLab.com](https://gitlab.com/sylan-language/sylan) in the [Sylan
+group](https://gitlab.com/sylan-language). If you're seeing this on GitHub,
 you're on my personal GitHub mirror. [Go to
 GitLab](https://gitlab.com/sylan-language/sylan) to contribute.
 
