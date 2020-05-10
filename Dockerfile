@@ -27,7 +27,7 @@ FROM kcov/kcov:v38 as coverage
 
 ENV DEBIAN_FRONTEND noninteractive
 
-# Installing wget instead of curl to do the HTTP donwload in
+# Installing wget instead of curl to do the HTTP download in
 # `install-coverage-tools.sh` means there is not a newly installed curl version
 # to clash with the exact one that the preinstalled kcov binary expects.
 RUN apt-get update --yes \

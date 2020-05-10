@@ -31,6 +31,12 @@ do
     fi
 done
 
+echo DEBUGGING
+ls target
+ls target/cov
+ls target/cov/*
+echo END DEBUGGING
+
 # A hack to workaround the fact that CodeCov requires curl, yet kcov breaks with
 # the default version that Debian now provides. Therefore, wait until kcov has
 # finished before installing it.
