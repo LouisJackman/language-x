@@ -25,18 +25,11 @@ RUN make build-dev RUST_CHANNEL="$RUST_CHANNEL"
 
 FROM kcov/kcov:v38 as coverage
 
-ENV DEBIAN_FRONTEND noninteractive
-
-# Installing wget instead of curl to do the HTTP download in
-# `install-coverage-tools.sh` means there is not a newly installed curl version
-# to clash with the exact one that the preinstalled kcov binary expects.
-RUN apt-get update --yes \
-    && apt-get install wget --yes
-
 COPY --from=builder /opt/sylan/target/debug /opt/debug
 COPY ./scripts /opt/scripts
 
-RUN ["sh", "/opt/scripts/install-coverage-tools.sh"]
+RUN ["mkdir", "/opt/coverage-results"]
+VOLUME /opt/coverage-results
 
 ENTRYPOINT ["sh", "/opt/scripts/check-coverage.sh"]
 CMD ["/opt/debug"]

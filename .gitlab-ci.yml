@@ -3,16 +3,15 @@ image: docker:19.03.8
 services:
   - docker:dind
 
-before_script:
-  - apk add curl
-
 build-stable:
   stage: build
   script:
     - docker build --target coverage -t sylan-coverage .
-    - curl -LOSfs https://codecov.io/env
-    - docker run --rm --security-opt seccomp=unconfined $(sh env) sylan-coverage
-    - rm env
+    - mkdir coverage-results
+    - docker run --rm --security-opt seccomp=unconfined -v "$PWD/coverage-results":/opt/coverage-results sylan-coverage
+  artifacts:
+    reports:
+      cobertura: coverage-results/cobertura.xml
 
 build-beta:
   stage: build
