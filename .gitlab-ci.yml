@@ -1,0 +1,14 @@
+image: docker:19.03.8
+
+services:
+  - docker:dind
+
+build-stable:
+  stage: build
+  script:
+    - docker build --target coverage -t sylan-coverage .
+    - docker run --rm --security-opt seccomp=unconfined -e ci_env="$(bash <(curl -s https://codecov.io/env))" sylan-coverage
+
+build-beta:
+  script: docker build --target builder --build-arg RUST_CHANNEL=beta .
+
