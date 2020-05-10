@@ -25,6 +25,10 @@ RUN make build-dev RUST_CHANNEL="$RUST_CHANNEL"
 
 FROM kcov/kcov:v38 as coverage
 
+RUN apt-get update --yes \
+    && apt-get install jq --yes --no-install-recommends \
+    && rm -fr /var/lib/apt/lists/*
+
 COPY --from=builder /opt/sylan/target/debug /opt/debug
 COPY ./scripts /opt/scripts
 
