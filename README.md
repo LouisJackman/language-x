@@ -1,5 +1,7 @@
 # The Sylan Programming Language
 
+[![pipeline status](https://gitlab.com/sylan-language/sylan/badges/master/pipeline.svg)](https://gitlab.com/sylan-language/sylan/-/commits/master)[![coverage report](https://gitlab.com/sylan-language/sylan/badges/master/coverage.svg)](https://gitlab.com/sylan-language/sylan/-/commits/master)
+
 **Warning: this project is still early stage and is a long way from completion.
 See the "Done so Far" section for more details.**
 
