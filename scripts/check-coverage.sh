@@ -31,10 +31,10 @@ do
     fi
 done
 
+apt-get install tree --yes --no-install-recommends
+
 echo DEBUGGING
-ls target
-ls target/cov
-ls target/cov/*
+tree target
 echo END DEBUGGING
 
 # A hack to workaround the fact that CodeCov requires curl, yet kcov breaks with
