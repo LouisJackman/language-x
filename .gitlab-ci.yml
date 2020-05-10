@@ -13,6 +13,8 @@ build-stable:
     - curl -LOSfs https://codecov.io/env
     - docker run --rm --security-opt seccomp=unconfined $(sh env) sylan-coverage
     - rm env
+    - ls target/cov
+    - ls target/cov*
 
 build-beta:
   stage: build
