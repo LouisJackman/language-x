@@ -15,5 +15,8 @@ build-stable:
     - rm env
 
 build-beta:
+  stage: build
   script: docker build --target builder --build-arg RUST_CHANNEL=beta .
+  rules:
+    - allow_failure: true
 
