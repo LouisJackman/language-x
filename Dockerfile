@@ -1,6 +1,6 @@
 FROM rust:1.42.0-slim-stretch as builder
 
-ARG RUST_CHANNEL stable
+ARG RUST_CHANNEL=stable
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV RUST_CHANNEL=$RUST_CHANNEL
