@@ -24,3 +24,6 @@ fi
 
 mv /target/cov/sylan-*/sylan-*.*/cobertura.xml /opt/coverage-results
 
+coverage=$(jq -r '.percent_covered' /target/cov/sylan-*/sylan-*.*/coverage.json)
+echo Coverage: "$coverage"
+
