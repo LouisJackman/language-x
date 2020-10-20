@@ -20,7 +20,7 @@ RUST_CHANNEL=stable
 all: install-toolchain-components verify build
 
 verify: check-fmt check-clippy
-	$(RUSTUP) run $(RUST_CHANNEL) $(RUSTUP_FLAGS) $(CARGO) test $(CARGO_FLAGS)
+	$(RUSTUP) run $(RUST_CHANNEL) $(RUSTUP_FLAGS) $(CARGO) test --target-dir target/test $(CARGO_FLAGS)
 
 clean:
 	$(RUSTUP) run $(RUST_CHANNEL) $(RUSTUP_FLAGS) $(CARGO) clean $(CARGO_FLAGS)

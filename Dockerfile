@@ -29,14 +29,14 @@ RUN apt-get update --yes \
     && apt-get install jq --yes --no-install-recommends \
     && rm -fr /var/lib/apt/lists/*
 
-COPY --from=builder /opt/sylan/target/debug /opt/debug
+COPY --from=builder /opt/sylan/target/test/debug/deps /opt/test
 COPY ./scripts /opt/scripts
 
 RUN ["mkdir", "/opt/coverage-results"]
 VOLUME /opt/coverage-results
 
 ENTRYPOINT ["sh", "/opt/scripts/check-coverage.sh"]
-CMD ["/opt/debug"]
+CMD ["/opt/test"]
 
 
 

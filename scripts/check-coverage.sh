@@ -2,16 +2,17 @@
 
 set -o errexit
 set -o nounset
+set -o xtrace
 
 target_debug=${1:?}
 
 file=$(find "$target_debug" -maxdepth 1 -name 'sylan-*' -executable -type f)
 
 # Generate the coverage report
-mkdir -p "target/cov/$(basename "$file")"
+mkdir -p "cov/$(basename "$file")"
 /usr/local/bin/kcov \
     --exclude-pattern=/.cargo,/usr/lib \
-    --verify "target/cov/$(basename "$file")" \
+    --verify "cov/$(basename "$file")" \
     "$file"
 
 if [ "$?" -eq 0 ]
@@ -22,8 +23,8 @@ else
     exit 1
 fi
 
-mv /target/cov/sylan-*/sylan-*.*/cobertura.xml /opt/coverage-results
+mv /cov/sylan-*/sylan-*.*/cobertura.xml /opt/coverage-results
 
-coverage=$(jq -r '.percent_covered' /target/cov/sylan-*/sylan-*.*/coverage.json)
+coverage=$(jq -r '.percent_covered' /cov/sylan-*/sylan-*.*/coverage.json)
 echo Coverage: "$coverage"
 
