@@ -26,7 +26,8 @@ submitted as general issues.
 
 ## Reporting a Vulnerability
 
-See [my personal contact page](https://volatilethunk.com/pages/contact.html).
+See the contact section on [my website's About
+section](https://volatilethunk.com/pages/about.html).
 
 If Sylan actually becomes more than an unheard-of toy project, a more formal
 channel for reporting vulnerabilities will be set up.

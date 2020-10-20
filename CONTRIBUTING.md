@@ -25,7 +25,9 @@ trunk branch. Releases are tracked with tags.
 
 Pull requests merged within this model will use [squash
 commits](https://github.blog/2016-04-01-squash-your-commits/) rather than merge
-commits.
+commits. Pull requests should be kept small for many reasons, one being that
+large PRs with squash merging don't work well with `git bisect` for narrowing
+down the introduction of bugs.
 
 ## Testing
 
@@ -52,7 +54,8 @@ it into your local editor or IDE.
 
 ## Continuous Integration
 
-CircleCI provides [Sylan's build pipeline](https://circleci.com/gh/LouisJackman/sylan).
-This should not trigger except for merges into master, after the approvers (i.e.
-me) have verified that the PR is worth merging and it isn't doing anything nefarious
-with the CI process.
+GitLab provides [Sylan's build
+pipeline](https://gitlab.com/sylan-language/sylan/-/commits/master). This
+should not trigger except for merges into master, after the approvers (i.e.
+me) have verified that the PR is worth merging and it isn't doing anything
+nefarious with the CI process.
