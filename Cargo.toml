@@ -3,7 +3,7 @@ name = "sylan"
 version = "0.1.0"
 authors = ["Louis Jackman <LouisJackman@users.noreply.github.com>"]
 edition = "2018"
-rust = "1.42"
+rust = "1.47"
 
 [dependencies]
 
