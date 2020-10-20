@@ -1,4 +1,4 @@
-FROM rust:1.47.0-slim-stretch as builder
+FROM rust:1.47.0-slim-buster as builder
 
 ARG RUST_CHANNEL=stable
 
