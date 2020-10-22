@@ -45,9 +45,9 @@ enum internal Boolean @derive(Equals, ToString) (
 
     fun public negate() {
         if this {
-            .False
+            False
         } else {
-            .True
+            True
         }
     }
 }

@@ -187,13 +187,12 @@ enum public Optional[of Value](
     }
 
     fun public filter(_ p (x Value) Bool) This {
-        flatMap -> {
+        flatMap ->
             if p(it) {
                 Optional(of: it)
             } else {
                 Empty
             }
-        }
     }
 
     fun public orElse(_ newAlternative () Value) Value {
@@ -205,11 +204,11 @@ enum public Optional[of Value](
     }
 
     fun public or(_ alternative Value) Value {
-        orElse(-> { alternative })
+        orElse(-> alternative)
     }
 
     fun public orElseThrow() Value {
-        orElse(-> { throw valueMissing() })
+        orElse(-> throw valueMissing())
     }
 }
 
@@ -259,13 +258,12 @@ extend interface Number {
     }
 
     fun public up(to n This) List[of: This] {
-        list.generate(initial: 1) -> {
+        list.generate(initial: 1) ->
             if n < it {
                 list.generation.Finish
             } else {
                 list.generation.Next(it, it + 1)
             }
-        }
     }
 }
 
@@ -303,8 +301,8 @@ fun final match[Item](_ item Item, syntax against pipeline AstPipline) Throws {
 
     var ast = quote {
         switch unquote item {
-            unquote refuttablePattern { True }
-            _                         { False }
+            unquote refuttablePattern: True
+            _:                         False
         }
     }
     pipeline.write(ast)
@@ -338,10 +336,10 @@ class public Ref
     }
 
     var public value Value                     { alter(id) }
-    fun public swap(with newValue Value) Value { alter(-> _ { newValue }) }
+    fun public swap(with newValue Value) Value { alter(-> (_) newValue) }
     fun public set(to newValue Value)          { swap(with: newValue) |> ignore }
 
-    var task = spawn -> {
+    var task = spawn ->
         for var state = value {
             select RefMsg {
                 .Alter(alter, parent) {
@@ -352,7 +350,6 @@ class public Ref
                 .Stop { }
             }
         }
-    }
 }
 
 interface ForEach[_ Value] {
@@ -389,10 +386,8 @@ enum public List[of Item](
     {
         for var remaining = items {
             if var .Some(element) = remaining[|0|] {
-                Node.Element(of: element) -> {
-                    remaining[|1 :]
-                        |> continue
-                }
+                Node.Element(of: element, -> remaining[|1 :])
+                |> continue
             } else {
                 Node.Nil
             }
@@ -402,13 +397,13 @@ enum public List[of Item](
     var public isEmpty Boolean = match(node, against: Nil)
 
     var public first Optional[of: Item] = switch node {
-        Element(item, ..) { Optional(of: item) }
-        Nil               { Empty }
+        Element(item, ..): Optional(of: item)
+        Nil:               Empty
     }
 
     var public rest Optional[of: This] = switch node {
-        Element(_, next) { Optional(of: next) }
-        Nil              { Empty }
+        Element(_, next): Optional(of: next)
+        Nil:              Empty
     }
 }
 
@@ -514,9 +509,9 @@ interface LanguageReader[reading Item] {
     {
         with {
             switch peek? {
-                .Some(item) if matches(desired) { Ok(True) }
-                .Some(_)                        { skipUntil(matches) }
-                Empty                          { Ok(False) }
+                .Some(item) if matches(desired): Ok(True)
+                .Some(_):                        skipUntil(matches)
+                Empty:                           Ok(False)
             }
         }
     }
@@ -673,7 +668,7 @@ interface ReaderWriterPipeline[
     {
         with {
             var items = source.read(amount)?
-            items.each(-> { write(it)? })
+            items.each(-> write(it)?)
             items
         }
     }
@@ -698,9 +693,9 @@ interface ReaderWriterPipeline[
     {
         with {
             switch passthrough? {
-                .Some(item) if matches(desired) { Ok(True) }
-                .Some(_)                        { passthroughUntil(matches) }
-                Empty                           { Ok(False) }
+                .Some(item) if matches(desired): Ok(True)
+                .Some(_):                        passthroughUntil(matches)
+                Empty:                           Ok(False)
             }
         }
     }
@@ -820,23 +815,23 @@ fun final kernelIf
      * doesn't do pattern matching or guards though.
      */
 (syntax pipeline Pipeline[from: TokenReader, to: AstWriter]) Throws {
-    -> source, write {
-        -> parser {
-            parser.parseExpression().flatMap(-> condition {
-                parser.parseScope().flatMap(-> ifTrue {
-                    parser.expectAndDiscard(tokens.Token.BranchingAndJumping(tokens.BranchingAndJumping.Else)).flatMap(-> _ {
-                        parser.parseScope().flatMap(-> ifFalse {
+    -> (source, write)
+        (-> (parser)
+            parser.parseExpression().flatMap(-> (condition)
+                parser.parseScope().flatMap(-> (ifTrue)
+                    parser.expectAndDiscard(tokens.Token.BranchingAndJumping(tokens.BranchingAndJumping.Else)).flatMap(-> (_)
+                        parser.parseScope().flatMap(-> (ifFalse)
                             write(quote {
                                 switch unquote condition {
-                                    True unquote ifTrue
-                                    False unquote ifFalse
+                                    True: unquote ifTrue
+                                    False: unquote ifFalse
                                 }
                             })
-                        })
-                    })
-                })
-            })
-        }(Parser(parsing: source))
+                        )
+                    )
+                )
+            )
+        )(Parser(parsing: source))
     }(pipeline.source, pipeline.dest)
 
     ok()
@@ -865,26 +860,25 @@ fun public spawnTrusted
 (running run ()) Task {
 
     var AmbientAuthority(externTask) as auth = select AmbientAuthority {
-        _ { it }
-        timeout 0.seconds {
+        _: it
+        timeout 0.seconds:
             throw NoAmbientAuthority()
-        }
     }
 
     // Refresh inbox in case `spawnTrusted` needs to be run again. Drop it with
     // `dropAmbientAuthority` if not.
     send(auth, to: self)
 
-    spawn(() -> {
+    spawn(-> {
         send(auth, to: self)
         run()
     })
 }
 
 fun public dropAmbientAuthority() {
-    for {
+    while True {
         select AmbientAuthority {
-            _                 { continue() }
+            _:                continue()
             timeout 0.seconds { }
         }
     }
@@ -895,7 +889,7 @@ fun public sendAndWait[sending Item, waitingFor Delivery: Item](
     to task Task
 ) Throws[otherwise: Delivery] {
     send(item, to: task)
-        .map(-> Void { select Item })
+        .map(-> (_) select Item)
 }
 
 class AssertionError implements Exception {
@@ -941,7 +935,5 @@ fun public id[of T](of value T) T {
 }
 
 fun public constant[of T](of value T) () T {
-    -> {
-        value
-    }
+    -> value
 }

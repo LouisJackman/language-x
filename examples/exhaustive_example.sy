@@ -168,13 +168,17 @@ fun fizzBuzz(_ n Int) Int {
     // Sylan supports blocks, syntactical sugar for passing a lambda as a final
     // argument to an invocable. Note the use of `it` as a shorthand for
     // one-argument lambdas.
+    //
+    // Switch cases can also replace braces on cases with a colon if they're
+    // just a single expression.
     1.up(to: n).each -> {
         switch {
-            0 == (it % 15) { "FizzBuzz" }
-            0 == (it % 5)  { "Fizz" }
-            0 == (it % 3)  { "Buzz" }
-            _              { it }
-        } |> println
+            0 == (it % 15): "FizzBuzz"
+            0 == (it % 5):  "Fizz"
+            0 == (it % 3):  "Buzz"
+            _:              it
+        }
+        |> println
     }
 }
 
@@ -205,7 +209,7 @@ fun demoIteration
     // String interpolation is done with `$""`.
     println($"Hello, {world}! Number {n}.")
     
-    var highlight = -> s {
+    var highlight = -> (s)
 
         // Compact string interpolations only work with compile-time values.
         // The standard `tainted` string template function can be used to
@@ -233,22 +237,20 @@ fun demoIteration
         // """)
         // ```
         $tainted">> {s} <<"
-    }
 
     // The ~ operator composes invocables together, from left to right.
     1.up(to: 5)
         .map(:doubled ~ :toString ~ highlight)
         .each(println)
 
-    List(1, 2, 3).each -> n {
+    List(1, 2, 3).each -> (n)
 
         /*
          * `println` takes any `ToString` type to ultimately print a string.
          */
         println(n)
-    }
 
-    var quadruple = -> { it.doubled.doubled }
+    var quadruple = -> it.doubled.doubled
 
     123456789
         |> quadruple
@@ -266,9 +268,8 @@ fun demoIteration
         "def": 321,
         "ghi": 987,
     }
-    map.each -> key, value {
+    map.each -> (key, value)
         println($tainted"{key}: {value}")
-    }
 
     do -> {
 
@@ -278,10 +279,10 @@ fun demoIteration
         //
         // In this context, "closing" a task kills it, which, unlike Java
         // threads, is safe.
-        var counterService = use spawn -> {
+        var counterService = use spawn ->
             for var n = 0 {
                 var sender = select Task {
-                    x { x }
+                    x: x
                 }
                 if n < 5 {
                     send(Optional(of: n), to: sender)
@@ -291,11 +292,9 @@ fun demoIteration
                     continue(n)
                 }
             }
-        }
 
-        5.times -> {
+        5.times ->
             send(self, to: counterService)
-        }
 
         // `while var`, like `if var`, can handle multiple refutable patterns
         // seperated by commas. In this case, all patterns must match to
@@ -304,7 +303,7 @@ fun demoIteration
         // Unlike `for`, `while var` and `if var` take refuttable patterns
         // rather than irrefuttable ones.
         while var .Some(n) = select Optional[of: int] {
-            x { x }
+            x: x
         } {
             println(n)
         }
@@ -329,7 +328,7 @@ fun demoIteration
 
     for outer var n = 10 {
         if 0 < n {
-            for {
+            while True {
 
                 // This for loop is labelled as "outer", so that is available
                 // to call as a function if iteration is desired. That allows
@@ -363,17 +362,15 @@ fun internal factorial
     /** Return values, too. */
 {
     switch n {
-        0, 1 { 1 }
-        n if n < 0 {
+        0, 1: 1
+        n if n < 0:
             throw Exception("n cannot be less than 0")
-        }
-        n {
+        n:
             /*
              * Guaranteed tail call elimination will ensure a stack overflow
              * does not occur.
              */
             factorial(n * (n - 1))
-        }
     }
 }
 
@@ -500,16 +497,14 @@ enum List[of Element](
 enum CounterMsg(Increment, Get(to recipient Task))
 
 fun startCounter() {
-    spawn -> {
-        for var count = 0 {
-            select CounterMsg {
-                .Increment { continue(count + 1) }
-                .Get(recipient) {
-                    send(count, to: recipient)
-                    continue(count)
-                }
-                timeout 10.seconds { throw Exception("timed out!") }
+    spawn -> for var count = 0 {
+        select CounterMsg {
+            .Increment: continue(count + 1)
+            .Get(recipient) {
+                send(count, to: recipient)
+                continue(count)
             }
+            timeout 10.seconds: throw Exception("timed out!")
         }
     }
 }
@@ -688,13 +683,14 @@ fun demoPatternMatching() {
         // against an enum variant of the type in its position. It is used
         // here because boolean true is a pre-imported prelude enum variant of
         // type `sylan.lang.Boolean` rather than a keyword, unlike Java or C#.
-        Account(locked: .True), Account(firstName: "unlucky") {
+        //
+        // It isn't strictly necessary for `True` and `False` because these
+        // enum variants are preimported anyway.
+        Account(locked: .True), Account(firstName: "unlucky"):
             println("LOCKED!")
-        }
 
-        Account(expiry) if expiry < ZonedDateTime.now {
+        Account(expiry) if expiry < ZonedDateTime.now:
             println("ALSO LOCKED")
-        }
 
         _ {
             println("NOT LOCKED: ")
@@ -764,7 +760,7 @@ fun final repeat(times Uint, syntax pipeline AstPipeline) Throws {
     with {
         1.up(to: times)
             .map(pipeline.source)
-            .each(ast -> pipeline.write(ast)?)
+            .each(-> pipeline.write(it)?)
         ok()
     }
 }
@@ -864,9 +860,8 @@ fun demoClosures() {
     var age = 25
     var account2 = Account(firstName, lastName, ageInYears: age)
 
-    var f = -> {
+    var f = ->
         println(it.toString)
-    }
 
     f(account1)
 
@@ -881,7 +876,7 @@ fun demoClosures() {
 
     var z = g(account1)
 
-    var n = twice(3) -> { it * 2 }
+    var n = twice(3) -> it * 2
     println("n ==", n.toString())
 }
 
@@ -997,13 +992,11 @@ if var Optional(of: s) = optionalString {
 
 var c = do -> {
     var parent = self
-    spawn -> {
+    spawn ->
         counter.start(task: parent)
-    }
 }
-5.times -> {
+5.times ->
     send(counter.Message.Increment, to: c)
-}
 
 send(counter.Message.Get, to: c)
 send(counter.Message.Increment, to: c)

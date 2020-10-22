@@ -1,14 +1,14 @@
 #!/usr/bin/env sylan
 
 fun fizzBuzz(n Int) Int {
-    1.up(to: n).each -> {
+    1.up(to: n).each ->
         switch {
-            0 == (it % 15) { "FizzBuzz" }
-            0 == (it % 5)  { "Fizz" }
-            0 == (it % 3)  { "Buzz" }
-            _              { it }
-        } |> println
-    }
+            0 == (it % 15): "FizzBuzz"
+            0 == (it % 5):  "Fizz"
+            0 == (it % 3):  "Buzz"
+            _:              it
+        }
+        |> println
 }
 
 enum List[Element](
@@ -26,25 +26,24 @@ enum List[Element](
 enum CounterMsg(Increment, Get(to recipient Task))
 
 fun startCounter() Task {
-    spawn -> {
-        for var count = 0 {
-            select CounterMsg {
-                .Increment { continue(count + 1) }
-                .Get(recipient) {
-                    send(count, to: recipient)
-                    continue(count)
-                }
-                timeout 10.seconds { throw Exception("timed out!") }
+    spawn -> for var count = 0 {
+        select CounterMsg {
+            .Increment: continue(count + 1)
+            .Get(recipient) {
+                send(count, to: recipient)
+                continue(count)
             }
+            timeout 10.seconds: throw Exception("timed out!")
         }
     }
 }
 
 do -> {
     var counter = startCounter()
-    5.times -> { send(CounterMsg.Increment, to: counter) }
+    5.times -> send(CounterMsg.Increment, to: counter)
+
     sendAndWait(CounterMsg.Get(to: self), to: counter)
-        |> println
+    |> println
 }
 
 class Name @derive(Equals) (
@@ -61,7 +60,7 @@ fun final repeat(times Usize, syntax pipeline AstPipeline) Throws {
     with {
         1.up(to: times)
             .map(pipeline.source)
-            .each(-> { pipeline.write(it)? })
+            .each(-> pipeline.write(it)?)
         ok()
     }
 }

@@ -1,8 +1,6 @@
 # The Sylan Programming Language
 
-[![CircleCI](https://circleci.com/gh/LouisJackman/sylan.svg?style=svg)](https://circleci.com/gh/LouisJackman/sylan)
-[![codecov](https://codecov.io/gh/LouisJackman/sylan/branch/master/graph/badge.svg)](https://codecov.io/gh/LouisJackman/sylan)
-![](https://img.shields.io/github/license/LouisJackman/sylan.svg)
+[![pipeline status](https://gitlab.com/sylan-language/sylan/badges/master/pipeline.svg)](https://gitlab.com/sylan-language/sylan/-/commits/master) [![coverage report](https://gitlab.com/sylan-language/sylan/badges/master/coverage.svg)](https://gitlab.com/sylan-language/sylan/-/commits/master)
 
 **Warning: this project is still early stage and is a long way from completion.
 See the "Done so Far" section for more details.**
@@ -25,6 +23,12 @@ and prioritise large-scale software engineering concerns over interesting
 computer science concepts. It should take versioning and backwards compatibility
 seriously and ease distribution by producing single, statically-linked
 executables with no required external runtimes.
+
+This repository is hosted [on
+GitLab.com](https://gitlab.com/sylan-language/sylan) in the [Sylan
+group](https://gitlab.com/sylan-language). If you're seeing this on GitHub,
+you're on my personal GitHub mirror. [Go to
+GitLab](https://gitlab.com/sylan-language/sylan) to contribute.
 
 ## Example
 
