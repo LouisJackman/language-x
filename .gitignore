@@ -1,3 +1,4 @@
 target
 cargo.lock
 coverage-results
+cobertura.xml
