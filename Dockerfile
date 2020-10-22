@@ -1,46 +1,60 @@
-FROM rust:1.47.0-slim-buster as builder
+FROM rust:1.47.0-slim-buster as rust-base
 
 ARG RUST_CHANNEL=stable
 
-ENV DEBIAN_FRONTEND noninteractive
 ENV RUST_CHANNEL=$RUST_CHANNEL
 
-RUN apt-get update --yes \
-    && apt-get install make --yes --no-install-recommends \
+RUN DEBIAN_FRONTEND=noninteractive apt-get update --yes \
+    && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
+    make \
     && rm -fr /var/lib/apt/lists/*
 
 WORKDIR /opt/sylan
-COPY . .
+RUN ["chown", "-R", "nobody:nogroup", "/opt/sylan"]
+
+USER nobody
+
+COPY --chown=nobody:nogroup . .
 
 RUN make install-toolchain-components RUST_CHANNEL="$RUST_CHANNEL"
 
-RUN ["chown", "-R", "nobody", "/opt/sylan"]
-USER nobody
 
-RUN make verify RUST_CHANNEL="$RUST_CHANNEL"
-RUN make build RUST_CHANNEL="$RUST_CHANNEL"
-RUN make build-dev RUST_CHANNEL="$RUST_CHANNEL"
+FROM rust-base as build
 
+CMD make verify RUST_CHANNEL="$RUST_CHANNEL" \
+    && make build RUST_CHANNEL="$RUST_CHANNEL"
 
 
-FROM kcov/kcov:v38 as coverage
+FROM rust-base as coverage
+
+USER root
 
 RUN apt-get update --yes \
-    && apt-get install jq --yes --no-install-recommends \
+    && apt-get install --yes --no-install-recommends \
+    g++ \
+    libssl-dev \
+    pkg-config \
+    python3 \
+    sudo \
+    unzip \
+    wget \
     && rm -fr /var/lib/apt/lists/*
 
-COPY --from=builder /opt/sylan/target/test/debug/deps /opt/test
-COPY ./scripts /opt/scripts
+RUN sed -i.bk \
+    's/ALL$/NOPASSWD: ALL/' \
+    /etc/sudoers
 
-RUN ["mkdir", "/opt/coverage-results"]
-VOLUME /opt/coverage-results
+RUN ["usermod", "-a", "-G", "sudo", "nobody"]
 
-ENTRYPOINT ["sh", "/opt/scripts/check-coverage.sh"]
-CMD ["/opt/test"]
+USER nobody
+
+RUN ["cargo", "install", "cargo-make"]
+
+CMD ["cargo", "make", "coverage-tarpaulin"]
 
 
 
-FROM debian:buster-slim
+FROM debian:buster-20201012-slim
 
 COPY --from=builder /opt/sylan/target/release/sylan /usr/local/bin/sylan
 RUN ["chmod", "ugo+x", "/usr/local/bin/sylan"]

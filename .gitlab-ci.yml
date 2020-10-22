@@ -6,16 +6,19 @@ services:
 build-stable:
   stage: build
   script:
-    - docker build --target coverage -t sylan-coverage .
-    - mkdir coverage-results
-    - docker run --rm --security-opt seccomp=unconfined -v "$PWD/coverage-results":/opt/coverage-results sylan-coverage
+    - docker build --target rust-base -t rust-base .
+
+    - docker build --target build -t build .
+    - docker run --rm -v "$PWD:/opt/sylan" build
+
+    - docker build --target coverage -t coverage .
+    - docker run --rm --security-opt seccomp=unconfined -v "$PWD":/opt/sylan coverage
   artifacts:
     reports:
-      cobertura: coverage-results/cobertura.xml
+      cobertura: cobertura.xml
 
 build-beta:
   stage: build
   script: docker build --target builder --build-arg RUST_CHANNEL=beta .
   rules:
     - allow_failure: true
-
