@@ -6,19 +6,15 @@ services:
 build-stable:
   stage: build
   script:
-    - docker build --target rust-base -t rust-base .
+    - docker tag registry.gitlab.com/sylan-language/sylan/rust-base sylan-rust-base
+    - docker tag registry.gitlab.com/sylan-language/sylan/coverage-base sylan-coverage-base
 
-    - docker build --target build -t build .
+    - docker build --target sylan-build -t build .
+    - docker build --target sylan-coverage -t coverage .
+
     - docker run --rm -v "$PWD:/opt/sylan" build
-
-    - docker build --target coverage -t coverage .
     - docker run --rm --security-opt seccomp=unconfined -v "$PWD":/opt/sylan coverage
+
   artifacts:
     reports:
       cobertura: cobertura.xml
-
-build-beta:
-  stage: build
-  script: docker build --target builder --build-arg RUST_CHANNEL=beta .
-  rules:
-    - allow_failure: true
