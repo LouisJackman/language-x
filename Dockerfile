@@ -16,8 +16,8 @@ CMD make verify RUST_CHANNEL="$RUST_CHANNEL" \
 
 FROM registry.gitlab.com/sylan-language/sylan/coverage-base as sylan-coverage
 
-CMD ["cargo", "make", "coverage-tarpaulin"]
-
+CMD ["cargo", "install", "cargo-tarpaulin"]
+CMD ["cargo", "tarpaulin", "-v", "--all", "--out", "Xml", "--", "--test-threads", "2"]
 
 #
 # ## Main Image
