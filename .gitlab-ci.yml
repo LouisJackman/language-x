@@ -8,12 +8,6 @@ build-stable:
   script:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
 
-    - docker pull registry.gitlab.com/sylan-language/sylan/rust-base
-    - docker pull registry.gitlab.com/sylan-language/sylan/coverage-base
-
-    - docker tag registry.gitlab.com/sylan-language/sylan/rust-base sylan-rust-base
-    - docker tag registry.gitlab.com/sylan-language/sylan/coverage-base sylan-coverage-base
-
     - docker build --target sylan-build -t build .
     - docker build --target sylan-coverage -t coverage .
 
