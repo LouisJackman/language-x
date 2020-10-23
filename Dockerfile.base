@@ -49,7 +49,7 @@ RUN ["usermod", "-a", "-G", "sudo", "nobody"]
 
 USER nobody
 
-RUN ["cargo", "install", "cargo-make"]
+RUN ["cargo", "install", "cargo-tarpaulin"]
 
 # HACK: ignore failures on this command. It should fail because there isn't a
 # project, but it should have automatically initialised by then, baking its
